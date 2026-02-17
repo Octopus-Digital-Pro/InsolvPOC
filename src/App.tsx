@@ -2,14 +2,14 @@ import { useState } from 'react';
 import Header from './components/Header';
 import LoginScreen from './components/LoginScreen';
 import FileDropZone from './components/FileDropZone';
-import NoteCard from './components/NoteCard';
-import NoteDetail from './components/NoteDetail';
+import CaseCard from './components/CaseCard';
+import CaseDetail from './components/CaseDetail';
 import ProcessingOverlay from './components/ProcessingOverlay';
-import { useNotes } from './hooks/useNotes';
+import { useCases } from './hooks/useCases';
 import { processFile } from './services/fileProcessor';
-import { extractDocumentInfo } from './services/openai';
+import { extractContractInfo } from './services/openai';
 import { getCurrentUser, setCurrentUser, clearCurrentUser } from './services/storage';
-import type { InsolvencyNote, User } from './types';
+import type { ContractCase, User } from './types';
 
 function App() {
   const [currentUser, setUser] = useState<User | null>(() => getCurrentUser());
@@ -32,8 +32,8 @@ function App() {
 }
 
 function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
-  const { notes, activeNote, activeNoteId, setActiveNoteId, addNote, updateNote, deleteNote } =
-    useNotes();
+  const { cases, activeCase, activeCaseId, setActiveCaseId, addCase, updateCase, deleteCase } =
+    useCases();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingFileName, setProcessingFileName] = useState('');
@@ -44,26 +44,46 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     setError(null);
     setIsProcessing(true);
     setProcessingFileName(file.name);
-    setActiveNoteId(null);
+    setActiveCaseId(null);
 
     try {
       const { images, fileName } = await processFile(file);
-      const result = await extractDocumentInfo(images);
+      const result = await extractContractInfo(images);
 
-      const note: InsolvencyNote = {
+      const contractCase: ContractCase = {
         id: crypto.randomUUID(),
-        title: result.companyName,
-        companyName: result.companyName,
-        addressee: result.addressee,
-        dateAndDeadlines: result.dateAndDeadlines,
-        court: result.court,
-        rawExtractedText: result.rawText,
+        title: result.contractTitleOrSubject !== 'Not found'
+          ? result.contractTitleOrSubject
+          : result.beneficiary,
         sourceFileName: fileName,
         createdAt: new Date().toISOString(),
         createdBy: user.name,
+
+        beneficiary: result.beneficiary,
+        beneficiaryAddress: result.beneficiaryAddress,
+        beneficiaryIdentifiers: result.beneficiaryIdentifiers,
+        contractor: result.contractor,
+        contractorAddress: result.contractorAddress,
+        contractorIdentifiers: result.contractorIdentifiers,
+        subcontractors: result.subcontractors,
+
+        contractTitleOrSubject: result.contractTitleOrSubject,
+        contractNumberOrReference: result.contractNumberOrReference,
+        procurementProcedure: result.procurementProcedure,
+        cpvCodes: result.cpvCodes,
+
+        contractDate: result.contractDate,
+        effectiveDate: result.effectiveDate,
+        contractPeriod: result.contractPeriod,
+
+        signatories: result.signatories,
+        signingLocation: result.signingLocation,
+
+        otherImportantClauses: result.otherImportantClauses,
+        rawJson: result.rawJson,
       };
 
-      addNote(note);
+      addCase(contractCase);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(message);
@@ -71,10 +91,6 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
       setIsProcessing(false);
       setProcessingFileName('');
     }
-  };
-
-  const handleDelete = (id: string) => {
-    deleteNote(id);
   };
 
   return (
@@ -92,13 +108,13 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
           {sidebarOpen && (
             <>
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                <h2 className="text-sm font-semibold text-gray-700">Documents</h2>
+                <h2 className="text-sm font-semibold text-gray-700">Cases</h2>
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                    {notes.length}
+                    {cases.length}
                   </span>
                   <button
-                    onClick={() => setActiveNoteId(null)}
+                    onClick={() => setActiveCaseId(null)}
                     title="Upload new document"
                     className="flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors"
                   >
@@ -110,17 +126,17 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
               </div>
 
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {notes.length === 0 ? (
+                {cases.length === 0 ? (
                   <p className="px-2 py-8 text-center text-xs text-gray-400">
-                    No documents yet. Upload a file to get started.
+                    No cases yet. Upload a document to get started.
                   </p>
                 ) : (
-                  notes.map((note) => (
-                    <NoteCard
-                      key={note.id}
-                      note={note}
-                      isActive={note.id === activeNoteId}
-                      onClick={() => setActiveNoteId(note.id)}
+                  cases.map((c) => (
+                    <CaseCard
+                      key={c.id}
+                      contractCase={c}
+                      isActive={c.id === activeCaseId}
+                      onClick={() => setActiveCaseId(c.id)}
                     />
                   ))
                 )}
@@ -150,14 +166,14 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
         <main className="flex-1 overflow-y-auto p-8">
           {isProcessing ? (
             <ProcessingOverlay fileName={processingFileName} />
-          ) : activeNote ? (
-            <NoteDetail note={activeNote} onUpdate={updateNote} onDelete={handleDelete} onBack={() => setActiveNoteId(null)} />
+          ) : activeCase ? (
+            <CaseDetail contractCase={activeCase} onUpdate={updateCase} onDelete={deleteCase} onBack={() => setActiveCaseId(null)} />
           ) : (
             <div className="mx-auto max-w-xl pt-12">
               <div className="mb-8 text-center">
-                <h2 className="text-xl font-semibold text-gray-800">Upload a Document</h2>
+                <h2 className="text-xl font-semibold text-gray-800">Upload a Contract</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  Upload an insolvency document to automatically extract key information
+                  Upload a contract document to automatically extract key information
                 </p>
               </div>
 

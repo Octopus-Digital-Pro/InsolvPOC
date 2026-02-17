@@ -1,10 +1,10 @@
-import type { InsolvencyNote, StorageProvider, User } from '../types';
+import type { ContractCase, StorageProvider, User } from '../types';
 
-const STORAGE_KEY = 'insolvpoc_notes';
+const STORAGE_KEY = 'insolvpoc_cases';
 const USER_KEY = 'insolvpoc_current_user';
 
 class LocalStorageProvider implements StorageProvider {
-  private readAll(): InsolvencyNote[] {
+  private readAll(): ContractCase[] {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : [];
@@ -13,38 +13,38 @@ class LocalStorageProvider implements StorageProvider {
     }
   }
 
-  private writeAll(notes: InsolvencyNote[]): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+  private writeAll(cases: ContractCase[]): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cases));
   }
 
-  getNotes(): InsolvencyNote[] {
+  getCases(): ContractCase[] {
     return this.readAll().sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }
 
-  getNote(id: string): InsolvencyNote | undefined {
-    return this.readAll().find((n) => n.id === id);
+  getCase(id: string): ContractCase | undefined {
+    return this.readAll().find((c) => c.id === id);
   }
 
-  saveNote(note: InsolvencyNote): void {
-    const notes = this.readAll();
-    notes.push(note);
-    this.writeAll(notes);
+  saveCase(contractCase: ContractCase): void {
+    const cases = this.readAll();
+    cases.push(contractCase);
+    this.writeAll(cases);
   }
 
-  updateNote(id: string, updates: Partial<InsolvencyNote>): void {
-    const notes = this.readAll();
-    const idx = notes.findIndex((n) => n.id === id);
+  updateCase(id: string, updates: Partial<ContractCase>): void {
+    const cases = this.readAll();
+    const idx = cases.findIndex((c) => c.id === id);
     if (idx !== -1) {
-      notes[idx] = { ...notes[idx], ...updates };
-      this.writeAll(notes);
+      cases[idx] = { ...cases[idx], ...updates };
+      this.writeAll(cases);
     }
   }
 
-  deleteNote(id: string): void {
-    const notes = this.readAll().filter((n) => n.id !== id);
-    this.writeAll(notes);
+  deleteCase(id: string): void {
+    const cases = this.readAll().filter((c) => c.id !== id);
+    this.writeAll(cases);
   }
 }
 

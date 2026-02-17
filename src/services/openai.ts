@@ -1,62 +1,33 @@
 import OpenAI from "openai";
-import type {ExtractionResult} from "../types";
 
-/**
- * Consider creating a dedicated type instead of reusing ExtractionResult.
- * This example returns a richer object; adjust ../types accordingly.
- */
 export type ContractExtractionResult = {
   // Parties
-  beneficiary: string; // city/government entity (contracting authority)
+  beneficiary: string;
   beneficiaryAddress: string;
-  beneficiaryIdentifiers: string; // VAT/CUI/registration number, contract authority ID, etc.
-
-  contractor: string; // main private contractor
+  beneficiaryIdentifiers: string;
+  contractor: string;
   contractorAddress: string;
-  contractorIdentifiers: string; // VAT/CUI/registration number, trade registry, etc.
-
-  subcontractors: string; // list or "Not found" (include role/scope if stated)
+  contractorIdentifiers: string;
+  subcontractors: string;
 
   // Contract core
   contractTitleOrSubject: string;
-  contractNumberOrReference: string; // contract no., tender no., project ref.
-  procurementProcedure: string; // open tender, direct award, negotiated, etc. (if stated)
-  cpvCodes: string; // if present (common in EU procurement)
+  contractNumberOrReference: string;
+  procurementProcedure: string;
+  cpvCodes: string;
 
   // Dates & period
-  contractDate: string; // date stated as “Contract date” / “Date of contract”
-  signatureDate: string; // date of signing (if separate)
-  effectiveDate: string; // start/effective date (if stated)
-  contractPeriod: string; // “12 months”, “01.03.2026–28.02.2027”, etc.
-  startDate: string;
-  endDate: string;
-  extensionOptions: string; // renewal/extension clauses
-
-  // Value & payment
-  contractValue: string; // total value
-  currency: string;
-  vatIncludedOrExcluded: string; // “VAT included/excluded/Not found”
-  paymentTerms: string; // schedule, invoicing, payment days
-
-  // Scope & delivery
-  scopeSummary: string; // concise scope
-  deliverablesOrServices: string; // enumerated if possible
-  milestonesDeadlines: string; // key deadlines, delivery dates, acceptance dates
-
-  // Compliance & risk (often critical for public contracts)
-  performanceGuarantee: string; // performance bond/guarantee amount & terms
-  penaltiesOrLiquidatedDamages: string;
-  terminationClausesSummary: string;
-  governingLawAndJurisdiction: string;
-  disputeResolution: string; // courts/arbitration/mediation
+  contractDate: string;
+  effectiveDate: string;
+  contractPeriod: string;
 
   // Signatures
-  signatories: string; // who signed for each party + titles
+  signatories: string;
   signingLocation: string;
 
   // Catch-all
-  otherImportantClauses: string; // confidentiality, GDPR, audit rights, anti-corruption, etc.
-  rawJson: string; // raw model response
+  otherImportantClauses: string;
+  rawJson: string;
 };
 
 const SYSTEM_PROMPT = `You are an expert public-sector contract analyst. You will be shown images of a contract or contract annexes between a city/government/public authority and a private contractor (including procurement/award documents that function as a contract).
@@ -68,11 +39,7 @@ beneficiary, beneficiaryAddress, beneficiaryIdentifiers,
 contractor, contractorAddress, contractorIdentifiers,
 subcontractors,
 contractTitleOrSubject, contractNumberOrReference, procurementProcedure, cpvCodes,
-contractDate, signatureDate, effectiveDate, contractPeriod, startDate, endDate, extensionOptions,
-contractValue, currency, vatIncludedOrExcluded, paymentTerms,
-scopeSummary, deliverablesOrServices, milestonesDeadlines,
-performanceGuarantee, penaltiesOrLiquidatedDamages, terminationClausesSummary,
-governingLawAndJurisdiction, disputeResolution,
+contractDate, effectiveDate, contractPeriod,
 signatories, signingLocation,
 otherImportantClauses.
 
@@ -80,11 +47,8 @@ Extraction guidelines:
 - "Beneficiary" means the public contracting authority (city/government/public institution) receiving the works/services.
 - "Contractor" means the primary private entity obligated to deliver.
 - If subcontractors are mentioned, list each with name + described role/scope.
-- Dates: preserve the document’s original format where possible; do not invent dates.
-- Contract period: capture both textual duration (e.g., "12 months") and any explicit start/end dates.
-- Contract value: capture numeric value + any wording like "estimated" vs "fixed" if explicitly stated.
-- Payment terms: include invoice timing, payment deadlines (e.g., "30 days"), advance payments, retention, etc.
-- Milestones/deadlines: include delivery dates, acceptance dates, reporting dates, warranty periods if stated as date-bound obligations.
+- Dates: preserve the document's original format where possible; do not invent dates.
+- Contract period: capture both textual duration (e.g., "12 months") and any explicit date range.
 - otherImportantClauses: summarize critical clauses often present in public contracts (audit rights, confidentiality, data protection/GDPR, anti-corruption, change control, assignment, force majeure) ONLY if explicitly present.`;
 
 function getClient(): OpenAI {
@@ -94,8 +58,6 @@ function getClient(): OpenAI {
       "OpenAI API key not configured. Add VITE_OPENAI_API_KEY to your .env file.",
     );
   }
-
-  // NOTE: exposing API keys in a browser is risky. Prefer calling your backend.
   return new OpenAI({apiKey, dangerouslyAllowBrowser: true});
 }
 
@@ -113,7 +75,7 @@ export async function extractContractInfo(
   const response = await client.chat.completions.create({
     model: "gpt-4o",
     response_format: {type: "json_object"},
-    max_tokens: 1800,
+    max_tokens: 1200,
     messages: [
       {role: "system", content: SYSTEM_PROMPT},
       {
@@ -134,7 +96,6 @@ export async function extractContractInfo(
 
   const parsed = JSON.parse(content);
 
-  // Defensive defaults (ensures every key exists)
   const get = (k: keyof Omit<ContractExtractionResult, "rawJson">) =>
     (parsed?.[k] as string) || "Not found";
 
@@ -142,11 +103,9 @@ export async function extractContractInfo(
     beneficiary: get("beneficiary"),
     beneficiaryAddress: get("beneficiaryAddress"),
     beneficiaryIdentifiers: get("beneficiaryIdentifiers"),
-
     contractor: get("contractor"),
     contractorAddress: get("contractorAddress"),
     contractorIdentifiers: get("contractorIdentifiers"),
-
     subcontractors: get("subcontractors"),
 
     contractTitleOrSubject: get("contractTitleOrSubject"),
@@ -155,36 +114,18 @@ export async function extractContractInfo(
     cpvCodes: get("cpvCodes"),
 
     contractDate: get("contractDate"),
-    signatureDate: get("signatureDate"),
     effectiveDate: get("effectiveDate"),
     contractPeriod: get("contractPeriod"),
-    startDate: get("startDate"),
-    endDate: get("endDate"),
-    extensionOptions: get("extensionOptions"),
-
-    contractValue: get("contractValue"),
-    currency: get("currency"),
-    vatIncludedOrExcluded: get("vatIncludedOrExcluded"),
-    paymentTerms: get("paymentTerms"),
-
-    scopeSummary: get("scopeSummary"),
-    deliverablesOrServices: get("deliverablesOrServices"),
-    milestonesDeadlines: get("milestonesDeadlines"),
-
-    performanceGuarantee: get("performanceGuarantee"),
-    penaltiesOrLiquidatedDamages: get("penaltiesOrLiquidatedDamages"),
-    terminationClausesSummary: get("terminationClausesSummary"),
-    governingLawAndJurisdiction: get("governingLawAndJurisdiction"),
-    disputeResolution: get("disputeResolution"),
 
     signatories: get("signatories"),
     signingLocation: get("signingLocation"),
 
     otherImportantClauses: get("otherImportantClauses"),
-
     rawJson: content,
   };
 }
+
+// INSOLEVMENT CONTRACT EXTRACTION PROMPT - DO NOT DELETE!!!
 
 // import OpenAI from 'openai';
 // import type { ExtractionResult } from '../types';

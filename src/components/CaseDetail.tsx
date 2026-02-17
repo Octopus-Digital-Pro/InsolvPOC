@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import type { InsolvencyNote } from '../types';
+import type { ContractCase } from '../types';
 
-interface NoteDetailProps {
-  note: InsolvencyNote;
-  onUpdate: (id: string, updates: Partial<InsolvencyNote>) => void;
+interface CaseDetailProps {
+  contractCase: ContractCase;
+  onUpdate: (id: string, updates: Partial<ContractCase>) => void;
   onDelete: (id: string) => void;
   onBack: () => void;
 }
@@ -93,8 +93,19 @@ function EditableField({
   );
 }
 
-export default function NoteDetail({ note, onUpdate, onDelete, onBack }: NoteDetailProps) {
-  const createdDate = new Date(note.createdAt);
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-6">
+      <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100 pb-2">
+        {title}
+      </h3>
+      <div className="space-y-2">{children}</div>
+    </div>
+  );
+}
+
+export default function CaseDetail({ contractCase, onUpdate, onDelete, onBack }: CaseDetailProps) {
+  const createdDate = new Date(contractCase.createdAt);
   const formattedDate = createdDate.toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',
@@ -107,17 +118,27 @@ export default function NoteDetail({ note, onUpdate, onDelete, onBack }: NoteDet
   });
 
   const handleFieldSave = (key: string, value: string) => {
-    const updates: Partial<InsolvencyNote> = { [key]: value };
-    if (key === 'companyName') {
+    const updates: Partial<ContractCase> = { [key]: value };
+    if (key === 'contractTitleOrSubject') {
       updates.title = value;
     }
-    onUpdate(note.id, updates);
+    onUpdate(contractCase.id, updates);
   };
 
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
+  const F = (label: string, key: keyof ContractCase, multiline?: boolean) => (
+    <EditableField
+      label={label}
+      value={contractCase[key]}
+      fieldKey={key}
+      multiline={multiline}
+      onSave={handleFieldSave}
+    />
+  );
+
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-2xl pb-12">
       {/* Back / New upload */}
       <button
         onClick={onBack}
@@ -130,57 +151,62 @@ export default function NoteDetail({ note, onUpdate, onDelete, onBack }: NoteDet
       </button>
 
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{note.title || 'Untitled'}</h1>
+      <div className="mb-2">
+        <h1 className="text-2xl font-bold text-gray-900">{contractCase.title || 'Untitled'}</h1>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
           <span>Created {formattedDate} at {formattedTime}</span>
-          {note.createdBy && (
+          {contractCase.createdBy && (
             <>
               <span className="text-gray-300">|</span>
-              <span>by {note.createdBy}</span>
+              <span>by {contractCase.createdBy}</span>
             </>
           )}
           <span className="text-gray-300">|</span>
-          <span className="font-mono">{note.sourceFileName}</span>
+          <span className="font-mono">{contractCase.sourceFileName}</span>
         </div>
       </div>
 
-      {/* Fields */}
-      <div className="space-y-3">
-        <EditableField
-          label="Company Name"
-          value={note.companyName}
-          fieldKey="companyName"
-          onSave={handleFieldSave}
-        />
-        <EditableField
-          label="Addressee"
-          value={note.addressee}
-          fieldKey="addressee"
-          onSave={handleFieldSave}
-        />
-        <EditableField
-          label="Dates & Deadlines"
-          value={note.dateAndDeadlines}
-          fieldKey="dateAndDeadlines"
-          multiline
-          onSave={handleFieldSave}
-        />
-        <EditableField
-          label="Court"
-          value={note.court}
-          fieldKey="court"
-          onSave={handleFieldSave}
-        />
-      </div>
+      {/* --- Grouped fields --- */}
+
+      <Section title="Parties">
+        {F('Beneficiary (Contracting Authority)', 'beneficiary')}
+        {F('Beneficiary Address', 'beneficiaryAddress')}
+        {F('Beneficiary Identifiers (VAT/CUI)', 'beneficiaryIdentifiers')}
+        {F('Contractor', 'contractor')}
+        {F('Contractor Address', 'contractorAddress')}
+        {F('Contractor Identifiers (VAT/CUI)', 'contractorIdentifiers')}
+        {F('Subcontractors', 'subcontractors', true)}
+      </Section>
+
+      <Section title="Contract Identity">
+        {F('Title / Subject', 'contractTitleOrSubject')}
+        {F('Contract No. / Reference', 'contractNumberOrReference')}
+        {F('Procurement Procedure', 'procurementProcedure')}
+        {F('CPV Codes', 'cpvCodes')}
+      </Section>
+
+      <Section title="Dates & Period">
+        {F('Contract Date', 'contractDate')}
+        {F('Effective Date', 'effectiveDate')}
+        {F('Contract Period', 'contractPeriod')}
+      </Section>
+
+      <Section title="Signatures">
+        {F('Signatories', 'signatories', true)}
+        {F('Signing Location', 'signingLocation')}
+      </Section>
+
+      <Section title="Other">
+        {F('Other Important Clauses', 'otherImportantClauses', true)}
+      </Section>
 
       {/* Raw extraction (collapsible) */}
       <details className="mt-6 rounded-lg border border-gray-100 bg-gray-50">
         <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-gray-400 hover:text-gray-600">
-          Raw AI Extraction
+          Raw AI Extraction (JSON)
         </summary>
         <pre className="overflow-x-auto whitespace-pre-wrap px-4 pb-4 font-mono text-xs text-gray-500">
-          {note.rawExtractedText}
+          {contractCase.rawJson}
         </pre>
       </details>
 
@@ -188,9 +214,9 @@ export default function NoteDetail({ note, onUpdate, onDelete, onBack }: NoteDet
       <div className="mt-8 border-t border-gray-100 pt-6">
         {showConfirmDelete ? (
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600">Delete this note permanently?</span>
+            <span className="text-sm text-gray-600">Delete this case permanently?</span>
             <button
-              onClick={() => onDelete(note.id)}
+              onClick={() => onDelete(contractCase.id)}
               className="rounded-md bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600"
             >
               Yes, delete
@@ -207,7 +233,7 @@ export default function NoteDetail({ note, onUpdate, onDelete, onBack }: NoteDet
             onClick={() => setShowConfirmDelete(true)}
             className="text-xs text-gray-400 hover:text-red-500"
           >
-            Delete note
+            Delete case
           </button>
         )}
       </div>

@@ -1,13 +1,13 @@
-import type { InsolvencyNote } from '../types';
+import type { ContractCase } from '../types';
 
-interface NoteCardProps {
-  note: InsolvencyNote;
+interface CaseCardProps {
+  contractCase: ContractCase;
   isActive: boolean;
   onClick: () => void;
 }
 
-export default function NoteCard({ note, isActive, onClick }: NoteCardProps) {
-  const date = new Date(note.createdAt);
+export default function CaseCard({ contractCase, isActive, onClick }: CaseCardProps) {
+  const date = new Date(contractCase.createdAt);
   const formattedDate = date.toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -17,6 +17,10 @@ export default function NoteCard({ note, isActive, onClick }: NoteCardProps) {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const subtitle = [contractCase.beneficiary, contractCase.contractor]
+    .filter((v) => v && v !== 'Not found')
+    .join(' / ');
 
   return (
     <button
@@ -32,17 +36,17 @@ export default function NoteCard({ note, isActive, onClick }: NoteCardProps) {
       <h3
         className={`truncate text-sm font-semibold ${isActive ? 'text-blue-900' : 'text-gray-800'}`}
       >
-        {note.title || 'Untitled'}
+        {contractCase.title || 'Untitled'}
       </h3>
-      <p className="mt-0.5 truncate text-xs text-gray-500">
-        {note.court !== 'Not found' ? note.court : note.addressee}
-      </p>
+      {subtitle && (
+        <p className="mt-0.5 truncate text-xs text-gray-500">{subtitle}</p>
+      )}
       <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400">
         <span>{formattedDate}, {formattedTime}</span>
-        {note.createdBy && (
+        {contractCase.createdBy && (
           <>
             <span className="text-gray-300">|</span>
-            <span className="truncate">{note.createdBy}</span>
+            <span className="truncate">{contractCase.createdBy}</span>
           </>
         )}
       </div>

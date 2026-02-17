@@ -20,31 +20,49 @@ export const USERS: User[] = [
   },
 ];
 
-export interface InsolvencyNote {
+export interface ContractCase {
+  // Internal / meta
   id: string;
   title: string;
-  companyName: string;
-  addressee: string;
-  dateAndDeadlines: string;
-  court: string;
-  rawExtractedText: string;
   sourceFileName: string;
   createdAt: string;
   createdBy: string;
-}
 
-export interface ExtractionResult {
-  companyName: string;
-  addressee: string;
-  dateAndDeadlines: string;
-  court: string;
-  rawText: string;
+  // Parties
+  beneficiary: string;
+  beneficiaryAddress: string;
+  beneficiaryIdentifiers: string;
+  contractor: string;
+  contractorAddress: string;
+  contractorIdentifiers: string;
+  subcontractors: string;
+
+  // Contract core
+  contractTitleOrSubject: string;
+  contractNumberOrReference: string;
+  procurementProcedure: string;
+  cpvCodes: string;
+
+  // Dates & period
+  contractDate: string;
+  effectiveDate: string;
+  contractPeriod: string;
+
+  // Signatures
+  signatories: string;
+  signingLocation: string;
+
+  // Catch-all
+  otherImportantClauses: string;
+
+  // Raw AI output
+  rawJson: string;
 }
 
 export interface StorageProvider {
-  getNotes(): InsolvencyNote[];
-  getNote(id: string): InsolvencyNote | undefined;
-  saveNote(note: InsolvencyNote): void;
-  updateNote(id: string, updates: Partial<InsolvencyNote>): void;
-  deleteNote(id: string): void;
+  getCases(): ContractCase[];
+  getCase(id: string): ContractCase | undefined;
+  saveCase(contractCase: ContractCase): void;
+  updateCase(id: string, updates: Partial<ContractCase>): void;
+  deleteCase(id: string): void;
 }
