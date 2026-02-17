@@ -1,54 +1,50 @@
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  orderBy,
+} from 'firebase/firestore';
+import { db } from './firebase';
 import type { ContractCase, StorageProvider, User } from '../types';
 
-const STORAGE_KEY = 'insolvpoc_cases';
+const COLLECTION = 'cases';
 const USER_KEY = 'insolvpoc_current_user';
 
-class LocalStorageProvider implements StorageProvider {
-  private readAll(): ContractCase[] {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
+const casesRef = collection(db, COLLECTION);
+
+class FirestoreProvider implements StorageProvider {
+  async getCases(): Promise<ContractCase[]> {
+    const q = query(casesRef, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((d) => d.data() as ContractCase);
   }
 
-  private writeAll(cases: ContractCase[]): void {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cases));
+  async getCase(id: string): Promise<ContractCase | undefined> {
+    const snap = await getDoc(doc(db, COLLECTION, id));
+    return snap.exists() ? (snap.data() as ContractCase) : undefined;
   }
 
-  getCases(): ContractCase[] {
-    return this.readAll().sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+  async saveCase(contractCase: ContractCase): Promise<void> {
+    await setDoc(doc(db, COLLECTION, contractCase.id), contractCase);
   }
 
-  getCase(id: string): ContractCase | undefined {
-    return this.readAll().find((c) => c.id === id);
+  async updateCase(id: string, updates: Partial<ContractCase>): Promise<void> {
+    await updateDoc(doc(db, COLLECTION, id), updates);
   }
 
-  saveCase(contractCase: ContractCase): void {
-    const cases = this.readAll();
-    cases.push(contractCase);
-    this.writeAll(cases);
-  }
-
-  updateCase(id: string, updates: Partial<ContractCase>): void {
-    const cases = this.readAll();
-    const idx = cases.findIndex((c) => c.id === id);
-    if (idx !== -1) {
-      cases[idx] = { ...cases[idx], ...updates };
-      this.writeAll(cases);
-    }
-  }
-
-  deleteCase(id: string): void {
-    const cases = this.readAll().filter((c) => c.id !== id);
-    this.writeAll(cases);
+  async deleteCase(id: string): Promise<void> {
+    await deleteDoc(doc(db, COLLECTION, id));
   }
 }
 
-export const storage: StorageProvider = new LocalStorageProvider();
+export const storage: StorageProvider = new FirestoreProvider();
+
+// User session helpers (stay in localStorage – no Firebase Auth needed for POC)
 
 export function getCurrentUser(): User | null {
   try {

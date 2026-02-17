@@ -71,9 +71,9 @@ export interface ContractCase {
 }
 
 export interface StorageProvider {
-  getCases(): ContractCase[];
-  getCase(id: string): ContractCase | undefined;
-  saveCase(contractCase: ContractCase): void;
-  updateCase(id: string, updates: Partial<ContractCase>): void;
-  deleteCase(id: string): void;
+  getCases(): Promise<ContractCase[]>;
+  getCase(id: string): Promise<ContractCase | undefined>;
+  saveCase(contractCase: ContractCase): Promise<void>;
+  updateCase(id: string, updates: Partial<ContractCase>): Promise<void>;
+  deleteCase(id: string): Promise<void>;
 }

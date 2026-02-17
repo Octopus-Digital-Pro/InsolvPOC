@@ -32,7 +32,7 @@ function App() {
 }
 
 function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
-  const { cases, activeCase, activeCaseId, setActiveCaseId, addCase, updateCase, deleteCase } =
+  const { cases, activeCase, activeCaseId, setActiveCaseId, addCase, updateCase, deleteCase, loading } =
     useCases();
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -83,7 +83,7 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
         rawJson: result.rawJson,
       };
 
-      addCase(contractCase);
+      await addCase(contractCase);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(message);
@@ -164,7 +164,11 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
 
         {/* Main content */}
         <main className="flex-1 overflow-y-auto p-8">
-          {isProcessing ? (
+          {loading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+            </div>
+          ) : isProcessing ? (
             <ProcessingOverlay fileName={processingFileName} />
           ) : activeCase ? (
             <CaseDetail contractCase={activeCase} currentUserName={user.name} onUpdate={updateCase} onDelete={deleteCase} onBack={() => setActiveCaseId(null)} />
