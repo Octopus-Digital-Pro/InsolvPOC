@@ -11,14 +11,20 @@ export default function LoginScreen({onLogin}: LoginScreenProps) {
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <img src={logo} alt="InsolvPOC" className="mx-auto mb-4 h-14 w-14 rounded-2xl object-contain shadow-lg" />
-          <h1 className="text-2xl font-bold text-gray-900">InsolvPOC</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Select your account to continue
-          </p>
+          <img
+            src={logo}
+            alt="InsolvPOC"
+            className="mx-auto mb-4 h-14 w-auto rounded-2xl object-contain shadow-lg"
+          />
+          <h1 className="text-2xl font-bold text-gray-900">
+            Your Insolvency Case Management System
+          </h1>
         </div>
 
         <div className="space-y-3">
+          <p className="mt-1 text-sm text-gray-500">
+            Select your account to continue
+          </p>
           {USERS.map((user) => (
             <button
               key={user.id}
@@ -34,7 +40,7 @@ export default function LoginScreen({onLogin}: LoginScreenProps) {
                 <p className="text-sm font-semibold text-gray-800">
                   {user.name}
                 </p>
-                <p className="text-xs text-gray-400">Insolvency Practitioner</p>
+                <p className="text-xs text-gray-400">{user.role}</p>
               </div>
               <svg
                 className="ml-auto h-5 w-5 text-gray-300"

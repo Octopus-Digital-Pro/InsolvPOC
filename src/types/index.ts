@@ -1,7 +1,8 @@
 export interface User {
   id: string;
   name: string;
-  initials: string;
+  role: string;
+
   avatar: string;
 }
 
@@ -9,16 +10,23 @@ export const USERS: User[] = [
   {
     id: "jon-doe",
     name: "Jon Doe",
-    initials: "JD",
-    avatar: "https://i.pravatar.cc/150?img=50",
+
+    role: "Insolvency Practitioner",
+    avatar: "https://i.pravatar.cc/150?img=7",
   },
   {
     id: "gipsz-jakab",
     name: "Gipsz Jakab",
-    initials: "GJ",
-    avatar: "https://i.pravatar.cc/150?img=7",
+
+    role: "Firm Admin",
+    avatar: "https://i.pravatar.cc/150?img=50",
   },
 ];
+
+export interface FieldEdit {
+  editedBy: string;
+  editedAt: string;
+}
 
 export interface ContractCase {
   // Internal / meta
@@ -27,6 +35,9 @@ export interface ContractCase {
   sourceFileName: string;
   createdAt: string;
   createdBy: string;
+
+  // Per-field edit tracking: { fieldKey: { editedBy, editedAt } }
+  edits?: Record<string, FieldEdit>;
 
   // Parties
   beneficiary: string;

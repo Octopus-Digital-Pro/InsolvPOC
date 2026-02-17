@@ -167,7 +167,7 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
           {isProcessing ? (
             <ProcessingOverlay fileName={processingFileName} />
           ) : activeCase ? (
-            <CaseDetail contractCase={activeCase} onUpdate={updateCase} onDelete={deleteCase} onBack={() => setActiveCaseId(null)} />
+            <CaseDetail contractCase={activeCase} currentUserName={user.name} onUpdate={updateCase} onDelete={deleteCase} onBack={() => setActiveCaseId(null)} />
           ) : (
             <div className="mx-auto max-w-xl pt-12">
               <div className="mb-8 text-center">

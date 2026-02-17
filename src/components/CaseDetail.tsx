@@ -1,11 +1,19 @@
 import { useState } from 'react';
-import type { ContractCase } from '../types';
+import type { ContractCase, FieldEdit } from '../types';
 
 interface CaseDetailProps {
   contractCase: ContractCase;
+  currentUserName: string;
   onUpdate: (id: string, updates: Partial<ContractCase>) => void;
   onDelete: (id: string) => void;
   onBack: () => void;
+}
+
+function formatEditDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    + ' at '
+    + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
 function EditableField({
@@ -13,12 +21,14 @@ function EditableField({
   value,
   fieldKey,
   multiline,
+  editInfo,
   onSave,
 }: {
   label: string;
   value: string;
   fieldKey: string;
   multiline?: boolean;
+  editInfo?: FieldEdit;
   onSave: (key: string, value: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -85,9 +95,16 @@ function EditableField({
           </div>
         </div>
       ) : (
-        <p className="whitespace-pre-wrap text-sm text-gray-700">
-          {value || <span className="italic text-gray-300">Empty</span>}
-        </p>
+        <>
+          <p className="whitespace-pre-wrap text-sm text-gray-700">
+            {value || <span className="italic text-gray-300">Empty</span>}
+          </p>
+          {editInfo && (
+            <p className="mt-1.5 text-[11px] italic text-amber-500">
+              Edited by {editInfo.editedBy} on {formatEditDate(editInfo.editedAt)}
+            </p>
+          )}
+        </>
       )}
     </div>
   );
@@ -104,7 +121,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default function CaseDetail({ contractCase, onUpdate, onDelete, onBack }: CaseDetailProps) {
+export default function CaseDetail({ contractCase, currentUserName, onUpdate, onDelete, onBack }: CaseDetailProps) {
   const createdDate = new Date(contractCase.createdAt);
   const formattedDate = createdDate.toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -118,7 +135,14 @@ export default function CaseDetail({ contractCase, onUpdate, onDelete, onBack }:
   });
 
   const handleFieldSave = (key: string, value: string) => {
-    const updates: Partial<ContractCase> = { [key]: value };
+    const existingEdits = contractCase.edits ?? {};
+    const updates: Partial<ContractCase> = {
+      [key]: value,
+      edits: {
+        ...existingEdits,
+        [key]: { editedBy: currentUserName, editedAt: new Date().toISOString() },
+      },
+    };
     if (key === 'contractTitleOrSubject') {
       updates.title = value;
     }
@@ -127,12 +151,15 @@ export default function CaseDetail({ contractCase, onUpdate, onDelete, onBack }:
 
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
+  const edits = contractCase.edits ?? {};
+
   const F = (label: string, key: keyof ContractCase, multiline?: boolean) => (
     <EditableField
       label={label}
-      value={contractCase[key]}
+      value={contractCase[key] as string}
       fieldKey={key}
       multiline={multiline}
+      editInfo={edits[key]}
       onSave={handleFieldSave}
     />
   );
