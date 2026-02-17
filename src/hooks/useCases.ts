@@ -20,6 +20,11 @@ export function useCases() {
     storage.getCases().then((data) => {
       if (!cancelled) {
         setCases(data);
+      }
+    }).catch((err) => {
+      console.error('Failed to load cases from Firestore:', err);
+    }).finally(() => {
+      if (!cancelled) {
         setLoading(false);
       }
     });

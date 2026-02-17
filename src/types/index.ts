@@ -10,14 +10,12 @@ export const USERS: User[] = [
   {
     id: "jon-doe",
     name: "Jon Doe",
-
     role: "Insolvency Practitioner",
     avatar: "https://i.pravatar.cc/150?img=7",
   },
   {
     id: "gipsz-jakab",
     name: "Gipsz Jakab",
-
     role: "Firm Admin",
     avatar: "https://i.pravatar.cc/150?img=50",
   },

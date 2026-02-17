@@ -31,15 +31,19 @@ export type ContractExtractionResult = {
 export async function extractContractInfo(
   base64Images: string[],
 ): Promise<ContractExtractionResult> {
-  const response = await fetch('/.netlify/functions/extract', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ images: base64Images }),
+  const response = await fetch("/.netlify/functions/extract", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({images: base64Images}),
   });
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: response.statusText }));
-    throw new Error((err as { error?: string }).error || `Server error ${response.status}`);
+    const err = await response
+      .json()
+      .catch(() => ({error: response.statusText}));
+    throw new Error(
+      (err as {error?: string}).error || `Server error ${response.status}`,
+    );
   }
 
   return (await response.json()) as ContractExtractionResult;
