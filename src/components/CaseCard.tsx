@@ -1,13 +1,14 @@
-import type { ContractCase } from '../types';
+import type { Company, ContractCase } from '../types';
 import { USERS } from '../types';
 
 interface CaseCardProps {
   contractCase: ContractCase;
+  company?: Company | null;
   isActive: boolean;
   onClick: () => void;
 }
 
-export default function CaseCard({ contractCase, isActive, onClick }: CaseCardProps) {
+export default function CaseCard({ contractCase, company, isActive, onClick }: CaseCardProps) {
   const date = new Date(contractCase.createdAt);
   const formattedDate = date.toLocaleDateString('en-GB', {
     day: 'numeric',
@@ -23,8 +24,8 @@ export default function CaseCard({ contractCase, isActive, onClick }: CaseCardPr
     .filter((v) => v && v !== 'Not found')
     .join(' / ');
 
-  const assigneeName = contractCase.assignedTo
-    ? USERS.find((u) => u.id === contractCase.assignedTo)?.name
+  const assigneeName = company?.assignedTo
+    ? USERS.find((u) => u.id === company.assignedTo)?.name
     : null;
 
   return (

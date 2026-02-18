@@ -26,13 +26,23 @@ export interface FieldEdit {
   editedAt: string;
 }
 
+export interface Company {
+  id: string;
+  name: string;
+  cuiRo: string;
+  address: string;
+  assignedTo?: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
 export interface ContractCase {
   id: string;
   title: string;
   sourceFileName: string;
   createdAt: string;
   createdBy: string;
-  assignedTo?: string;
+  companyId?: string;
   alertAt?: string;
 
   // Per-field edit tracking: { fieldKey: { editedBy, editedAt } }
@@ -75,4 +85,10 @@ export interface StorageProvider {
   saveCase(contractCase: ContractCase): Promise<void>;
   updateCase(id: string, updates: Partial<ContractCase>): Promise<void>;
   deleteCase(id: string): Promise<void>;
+
+  getCompanies(): Promise<Company[]>;
+  getCompany(id: string): Promise<Company | undefined>;
+  saveCompany(company: Company): Promise<void>;
+  updateCompany(id: string, updates: Partial<Company>): Promise<void>;
+  deleteCompany(id: string): Promise<void>;
 }

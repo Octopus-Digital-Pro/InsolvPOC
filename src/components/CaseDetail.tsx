@@ -1,13 +1,16 @@
 import {useState, useRef, useEffect} from "react";
 import {format} from "date-fns";
-import type {ContractCase, FieldEdit} from "../types";
+import type {Company, ContractCase, FieldEdit} from "../types";
 import {USERS, type User} from "../types";
 import {DatePicker} from "@/components/ui/date-picker";
 
 interface CaseDetailProps {
   contractCase: ContractCase;
+  company?: Company | null;
+  companies?: Company[];
   currentUserName: string;
   onUpdate: (id: string, updates: Partial<ContractCase>) => void;
+  onUpdateCompany?: (id: string, updates: Partial<Company>) => void;
   onDelete: (id: string) => void;
   onBack: () => void;
 }
@@ -330,8 +333,11 @@ function formatAlertDate(dateString: string): string {
 
 export default function CaseDetail({
   contractCase,
+  company,
+  companies = [],
   currentUserName,
   onUpdate,
+  onUpdateCompany,
   onDelete,
   onBack,
 }: CaseDetailProps) {
@@ -418,10 +424,34 @@ export default function CaseDetail({
           <span className="text-gray-300">|</span>
           <span className="font-mono">{contractCase.sourceFileName}</span>
         </div>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          {company ? (
+            <p className="text-sm text-gray-600">
+              Company: <span className="font-medium text-gray-800">{company.name}</span>
+              {company.cuiRo && <span className="ml-2 text-gray-500">CUI/RO: {company.cuiRo}</span>}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-500">Company: —</p>
+          )}
+          {companies.length > 0 && (
+            <select
+              value={contractCase.companyId ?? ""}
+              onChange={(e) => onUpdate(contractCase.id, { companyId: e.target.value || undefined })}
+              className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
+            >
+              <option value="">No company</option>
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
         <AssigneeDropdown
-          assignedTo={contractCase.assignedTo}
-          onSelect={(userId) =>
-            onUpdate(contractCase.id, {assignedTo: userId ?? undefined})
+          assignedTo={company?.assignedTo}
+          onSelect={
+            company && onUpdateCompany
+              ? (userId) => onUpdateCompany(company.id, {assignedTo: userId ?? undefined})
+              : () => {}
           }
           dueDateDisplay={contractCase.contractDate}
           alertAt={contractCase.alertAt}
