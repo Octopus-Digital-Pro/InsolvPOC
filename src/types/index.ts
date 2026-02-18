@@ -33,6 +33,7 @@ export interface ContractCase {
   createdAt: string;
   createdBy: string;
   assignedTo?: string;
+  alertAt?: string;
 
   // Per-field edit tracking: { fieldKey: { editedBy, editedAt } }
   edits?: Record<string, FieldEdit>;

@@ -6,6 +6,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   query,
   orderBy,
 } from 'firebase/firestore';
@@ -34,7 +35,15 @@ class FirestoreProvider implements StorageProvider {
   }
 
   async updateCase(id: string, updates: Partial<ContractCase>): Promise<void> {
-    await updateDoc(doc(db, COLLECTION, id), updates);
+    const payload: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined) {
+        payload[key] = deleteField();
+      } else {
+        payload[key] = value;
+      }
+    }
+    await updateDoc(doc(db, COLLECTION, id), payload);
   }
 
   async deleteCase(id: string): Promise<void> {

@@ -1,6 +1,8 @@
 import {useState, useRef, useEffect} from "react";
+import {format} from "date-fns";
 import type {ContractCase, FieldEdit} from "../types";
 import {USERS, type User} from "../types";
+import {DatePicker} from "@/components/ui/date-picker";
 
 interface CaseDetailProps {
   contractCase: ContractCase;
@@ -139,10 +141,14 @@ function AssigneeDropdown({
   assignedTo,
   onSelect,
   dueDateDisplay,
+  alertAt,
+  onSetAlert,
 }: {
   assignedTo: string | undefined;
   onSelect: (userId: string | null) => void;
   dueDateDisplay?: string;
+  alertAt?: string;
+  onSetAlert?: (iso: string | undefined) => void;
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -281,17 +287,45 @@ function AssigneeDropdown({
           </span>
         </div>
       </div>
-      {/* Set Alert Button */}
+      {/* Alert (date only) */}
       <div className="flex items-center gap-2">
         <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-          Set Alert
+          Notification
         </label>
-        <button className="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600">
-          Set Alert
-        </button>
+        {alertAt ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-800">
+              {formatAlertDate(alertAt)}
+            </span>
+            <button
+              type="button"
+              onClick={() => onSetAlert?.(undefined)}
+              className="text-xs text-gray-400 hover:text-red-600 cursor-pointer underline"
+            >
+              Clear
+            </button>
+          </div>
+        ) : (
+          <DatePicker
+            date={undefined}
+            onSelect={(d) => {
+              if (d) onSetAlert?.(format(d, "yyyy-MM-dd"));
+            }}
+            placeholder="Pick a date"
+            className="min-w-40"
+          />
+        )}
       </div>
     </div>
   );
+}
+
+/** Format a date-only string (YYYY-MM-DD) or ISO string for display as DD.MM.YYYY. */
+function formatAlertDate(dateString: string): string {
+  const d = new Date(
+    dateString.includes("T") ? dateString : `${dateString}T12:00:00`,
+  );
+  return format(d, "dd.MM.yyyy");
 }
 
 export default function CaseDetail({
@@ -390,6 +424,10 @@ export default function CaseDetail({
             onUpdate(contractCase.id, {assignedTo: userId ?? undefined})
           }
           dueDateDisplay={contractCase.contractDate}
+          alertAt={contractCase.alertAt}
+          onSetAlert={(iso) =>
+            onUpdate(contractCase.id, {alertAt: iso ?? undefined})
+          }
         />
       </div>
 
