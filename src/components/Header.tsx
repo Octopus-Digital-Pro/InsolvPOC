@@ -29,7 +29,7 @@ export default function Header({user, onLogout}: HeaderProps) {
         </div>
         <button
           onClick={onLogout}
-          className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
+          className=" hover:cursor-pointer rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
         >
           Switch user
         </button>

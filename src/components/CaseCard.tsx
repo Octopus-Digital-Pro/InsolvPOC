@@ -1,4 +1,5 @@
 import type { ContractCase } from '../types';
+import { USERS } from '../types';
 
 interface CaseCardProps {
   contractCase: ContractCase;
@@ -22,6 +23,10 @@ export default function CaseCard({ contractCase, isActive, onClick }: CaseCardPr
     .filter((v) => v && v !== 'Not found')
     .join(' / ');
 
+  const assigneeName = contractCase.assignedTo
+    ? USERS.find((u) => u.id === contractCase.assignedTo)?.name
+    : null;
+
   return (
     <button
       onClick={onClick}
@@ -41,12 +46,18 @@ export default function CaseCard({ contractCase, isActive, onClick }: CaseCardPr
       {subtitle && (
         <p className="mt-0.5 truncate text-xs text-gray-500">{subtitle}</p>
       )}
-      <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-400">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-400">
         <span>{formattedDate}, {formattedTime}</span>
         {contractCase.createdBy && (
           <>
             <span className="text-gray-300">|</span>
             <span className="truncate">{contractCase.createdBy}</span>
+          </>
+        )}
+        {assigneeName && (
+          <>
+            <span className="text-gray-300">|</span>
+            <span className="truncate">Assigned to {assigneeName}</span>
           </>
         )}
       </div>

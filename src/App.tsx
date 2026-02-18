@@ -1,15 +1,19 @@
-import { useState } from 'react';
-import Header from './components/Header';
-import LoginScreen from './components/LoginScreen';
-import FileDropZone from './components/FileDropZone';
-import CaseCard from './components/CaseCard';
-import CaseDetail from './components/CaseDetail';
-import ProcessingOverlay from './components/ProcessingOverlay';
-import { useCases } from './hooks/useCases';
-import { processFile } from './services/fileProcessor';
-import { extractContractInfo } from './services/openai';
-import { getCurrentUser, setCurrentUser, clearCurrentUser } from './services/storage';
-import type { ContractCase, User } from './types';
+import {useState} from "react";
+import Header from "./components/Header";
+import LoginScreen from "./components/LoginScreen";
+import FileDropZone from "./components/FileDropZone";
+import CaseCard from "./components/CaseCard";
+import CaseDetail from "./components/CaseDetail";
+import ProcessingOverlay from "./components/ProcessingOverlay";
+import {useCases} from "./hooks/useCases";
+import {processFile} from "./services/fileProcessor";
+import {extractContractInfo} from "./services/openai";
+import {
+  getCurrentUser,
+  setCurrentUser,
+  clearCurrentUser,
+} from "./services/storage";
+import type {ContractCase, User} from "./types";
 
 function App() {
   const [currentUser, setUser] = useState<User | null>(() => getCurrentUser());
@@ -31,12 +35,20 @@ function App() {
   return <MainApp user={currentUser} onLogout={handleLogout} />;
 }
 
-function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
-  const { cases, activeCase, activeCaseId, setActiveCaseId, addCase, updateCase, deleteCase, loading } =
-    useCases();
+function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
+  const {
+    cases,
+    activeCase,
+    activeCaseId,
+    setActiveCaseId,
+    addCase,
+    updateCase,
+    deleteCase,
+    loading,
+  } = useCases();
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingFileName, setProcessingFileName] = useState('');
+  const [processingFileName, setProcessingFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -47,14 +59,15 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
     setActiveCaseId(null);
 
     try {
-      const { images, fileName } = await processFile(file);
+      const {images, fileName} = await processFile(file);
       const result = await extractContractInfo(images);
 
       const contractCase: ContractCase = {
         id: crypto.randomUUID(),
-        title: result.contractTitleOrSubject !== 'Not found'
-          ? result.contractTitleOrSubject
-          : result.beneficiary,
+        title:
+          result.contractTitleOrSubject !== "Not found"
+            ? result.contractTitleOrSubject
+            : result.beneficiary,
         sourceFileName: fileName,
         createdAt: new Date().toISOString(),
         createdBy: user.name,
@@ -85,11 +98,12 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
 
       await addCase(contractCase);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      const message =
+        err instanceof Error ? err.message : "An unexpected error occurred";
       setError(message);
     } finally {
       setIsProcessing(false);
-      setProcessingFileName('');
+      setProcessingFileName("");
     }
   };
 
@@ -102,7 +116,7 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
         <aside
           className={`
             flex flex-col border-r border-gray-200 bg-white transition-all duration-200
-            ${sidebarOpen ? 'w-80' : 'w-0'}
+            ${sidebarOpen ? "w-80" : "w-0"}
           `}
         >
           {sidebarOpen && (
@@ -118,27 +132,79 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
                     title="Upload new document"
                     className="flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 4.5v15m7.5-7.5h-15"
+                      />
                     </svg>
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              <div className="flex-1 overflow-y-auto p-3 space-y-4 gap-y-10">
                 {cases.length === 0 ? (
                   <p className="px-2 py-8 text-center text-xs text-gray-400">
                     No cases yet. Upload a document to get started.
                   </p>
                 ) : (
-                  cases.map((c) => (
-                    <CaseCard
-                      key={c.id}
-                      contractCase={c}
-                      isActive={c.id === activeCaseId}
-                      onClick={() => setActiveCaseId(c.id)}
-                    />
-                  ))
+                  <>
+                    <section className="mb-10">
+                      <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Assigned to me
+                      </h3>
+                      {cases.filter((c) => c.assignedTo === user.id).length ===
+                      0 ? (
+                        <p className="px-2 py-2 text-xs text-gray-400">
+                          No cases
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {cases
+                            .filter((c) => c.assignedTo === user.id)
+                            .map((c) => (
+                              <CaseCard
+                                key={c.id}
+                                contractCase={c}
+                                isActive={c.id === activeCaseId}
+                                onClick={() => setActiveCaseId(c.id)}
+                              />
+                            ))}
+                        </div>
+                      )}
+                    </section>
+                    <section>
+                      <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Other cases
+                      </h3>
+                      {cases.filter((c) => c.assignedTo !== user.id).length ===
+                      0 ? (
+                        <p className="px-2 py-2 text-xs text-gray-400">
+                          No cases
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {cases
+                            .filter((c) => c.assignedTo !== user.id)
+                            .map((c) => (
+                              <CaseCard
+                                key={c.id}
+                                contractCase={c}
+                                isActive={c.id === activeCaseId}
+                                onClick={() => setActiveCaseId(c.id)}
+                              />
+                            ))}
+                        </div>
+                      )}
+                    </section>
+                  </>
                 )}
               </div>
             </>
@@ -149,16 +215,20 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="flex items-center border-r border-gray-200 bg-white px-1 text-gray-400 hover:text-gray-600"
-          title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
           <svg
-            className={`h-4 w-4 transition-transform ${sidebarOpen ? '' : 'rotate-180'}`}
+            className={`h-4 w-4 transition-transform ${sidebarOpen ? "" : "rotate-180"}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={2}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
 
@@ -171,17 +241,29 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
           ) : isProcessing ? (
             <ProcessingOverlay fileName={processingFileName} />
           ) : activeCase ? (
-            <CaseDetail contractCase={activeCase} currentUserName={user.name} onUpdate={updateCase} onDelete={deleteCase} onBack={() => setActiveCaseId(null)} />
+            <CaseDetail
+              contractCase={activeCase}
+              currentUserName={user.name}
+              onUpdate={updateCase}
+              onDelete={deleteCase}
+              onBack={() => setActiveCaseId(null)}
+            />
           ) : (
             <div className="mx-auto max-w-xl pt-12">
               <div className="mb-8 text-center">
-                <h2 className="text-xl font-semibold text-gray-800">Upload a Contract</h2>
+                <h2 className="text-xl font-semibold text-gray-800">
+                  Upload a Contract
+                </h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  Upload a contract document to automatically extract key information
+                  Upload a contract document to automatically extract key
+                  information
                 </p>
               </div>
 
-              <FileDropZone onFileAccepted={handleFileAccepted} isProcessing={isProcessing} />
+              <FileDropZone
+                onFileAccepted={handleFileAccepted}
+                isProcessing={isProcessing}
+              />
 
               {error && (
                 <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
@@ -200,7 +282,9 @@ function MainApp({ user, onLogout }: { user: User; onLogout: () => void }) {
                       />
                     </svg>
                     <div>
-                      <h4 className="text-sm font-medium text-red-800">Processing Error</h4>
+                      <h4 className="text-sm font-medium text-red-800">
+                        Processing Error
+                      </h4>
                       <p className="mt-1 text-sm text-red-600">{error}</p>
                     </div>
                   </div>

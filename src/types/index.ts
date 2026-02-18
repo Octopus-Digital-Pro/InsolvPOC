@@ -27,12 +27,12 @@ export interface FieldEdit {
 }
 
 export interface ContractCase {
-  // Internal / meta
   id: string;
   title: string;
   sourceFileName: string;
   createdAt: string;
   createdBy: string;
+  assignedTo?: string;
 
   // Per-field edit tracking: { fieldKey: { editedBy, editedAt } }
   edits?: Record<string, FieldEdit>;
