@@ -11,6 +11,7 @@ import {useCases} from "./hooks/useCases";
 import {useCompanies} from "./hooks/useCompanies";
 import {processFile} from "./services/fileProcessor";
 import {extractContractInfo} from "./services/openai";
+import {getBestMatchingCompany} from "./services/companyMatch";
 import {
   getCurrentUser,
   setCurrentUser,
@@ -49,20 +50,29 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     deleteCase,
     loading,
   } = useCases();
-  const { companies, addCompany, updateCompany } = useCompanies();
+  const {companies, addCompany, updateCompany} = useCompanies();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingFileName, setProcessingFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pendingCase, setPendingCase] = useState<ContractCase | null>(null);
-  const [pendingExtraction, setPendingExtraction] = useState<Awaited<ReturnType<typeof extractContractInfo>> | null>(null);
+  const [pendingExtraction, setPendingExtraction] = useState<Awaited<
+    ReturnType<typeof extractContractInfo>
+  > | null>(null);
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newCompanyCuiRo, setNewCompanyCuiRo] = useState("");
   const [newCompanyAddress, setNewCompanyAddress] = useState("");
   const [addCompanyError, setAddCompanyError] = useState<string | null>(null);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(
+    null,
+  );
+  const [suggestedCompanyId, setSuggestedCompanyId] = useState<string | null>(
+    null,
+  );
+  const [draftCase, setDraftCase] = useState<ContractCase | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
   const handleFileAccepted = async (file: File) => {
     setError(null);
@@ -71,6 +81,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     setActiveCaseId(null);
     setPendingCase(null);
     setPendingExtraction(null);
+    setSuggestedCompanyId(null);
 
     try {
       const {images, fileName} = await processFile(file);
@@ -110,6 +121,8 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
         rawJson: result.rawJson,
       };
 
+      const matchedCompany = getBestMatchingCompany(companies, result);
+      setSuggestedCompanyId(matchedCompany?.id ?? null);
       setPendingCase(contractCase);
       setPendingExtraction(result);
     } catch (err) {
@@ -124,14 +137,32 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
 
   const handleAttachToCompany = (companyId: string) => {
     if (!pendingCase) return;
-    addCase({ ...pendingCase, companyId });
+    setDraftCase({...pendingCase, companyId});
     setPendingCase(null);
     setPendingExtraction(null);
+    setSuggestedCompanyId(null);
   };
 
   const handleAttachCancel = () => {
     setPendingCase(null);
     setPendingExtraction(null);
+    setSuggestedCompanyId(null);
+  };
+
+  const handleSaveDraft = async () => {
+    if (!draftCase) return;
+    await addCase(draftCase);
+    setDraftCase(null);
+  };
+
+  const handleDiscardDraft = () => {
+    setDraftCase(null);
+  };
+
+  const handleDraftUpdate = (id: string, updates: Partial<ContractCase>) => {
+    setDraftCase((prev) =>
+      prev && prev.id === id ? {...prev, ...updates} : prev,
+    );
   };
 
   const handleSaveNewCompany = async () => {
@@ -160,13 +191,17 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   };
 
   const companyById = new Map<string, Company>(companies.map((c) => [c.id, c]));
-  const isAssignedToMe = (company: Company): boolean => company.assignedTo === user.id;
+  const isAssignedToMe = (company: Company): boolean =>
+    company.assignedTo === user.id;
   const myCompanies = companies.filter(isAssignedToMe);
   const otherCompanies = companies.filter((c) => !isAssignedToMe(c));
   const caseCountByCompanyId = new Map<string, number>();
   for (const c of cases) {
     if (c.companyId) {
-      caseCountByCompanyId.set(c.companyId, (caseCountByCompanyId.get(c.companyId) ?? 0) + 1);
+      caseCountByCompanyId.set(
+        c.companyId,
+        (caseCountByCompanyId.get(c.companyId) ?? 0) + 1,
+      );
     }
   }
   const noCompanyCases = cases.filter((c) => !c.companyId);
@@ -186,11 +221,101 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   const selectedCompany =
     selectedCompanyId === null || selectedCompanyId === "none"
       ? null
-      : companyById.get(selectedCompanyId) ?? null;
+      : (companyById.get(selectedCompanyId) ?? null);
+
+  const handleUploadFileAccepted = (file: File) => {
+    setUploadModalOpen(false);
+    handleFileAccepted(file);
+  };
+
+  const closeUploadModal = () => {
+    setUploadModalOpen(false);
+    setError(null);
+  };
 
   return (
     <div className="flex h-screen flex-col bg-gray-50">
       <Header user={user} onLogout={onLogout} />
+
+      {/* Upload modal */}
+      {uploadModalOpen && (
+        <div
+          className="fixed inset-0 z-10 flex items-center justify-center bg-black/50 p-4"
+          onClick={closeUploadModal}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="upload-modal-title"
+        >
+          <div
+            className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <h2
+                  id="upload-modal-title"
+                  className="text-xl font-semibold text-gray-800"
+                >
+                  Upload a Contract
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Upload a contract document to automatically extract key
+                  information
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeUploadModal}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+            <FileDropZone
+              onFileAccepted={handleUploadFileAccepted}
+              isProcessing={isProcessing}
+            />
+            {error && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+                <div className="flex items-start gap-3">
+                  <svg
+                    className="mt-0.5 h-5 w-5 shrink-0 text-red-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+                    />
+                  </svg>
+                  <div>
+                    <h4 className="text-sm font-medium text-red-800">
+                      Processing Error
+                    </h4>
+                    <p className="mt-1 text-sm text-red-600">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -203,36 +328,21 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
           {sidebarOpen && (
             <>
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                <h2 className="text-sm font-semibold text-gray-700">Companies</h2>
+                <h2 className="text-sm font-semibold text-gray-700">
+                  Companies
+                </h2>
                 <div className="flex items-center gap-2">
                   <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
                     {companies.length}
                   </span>
-                  <button
-                    onClick={() => { setActiveCaseId(null); setSelectedCompanyId(null); }}
-                    title="Upload new document"
-                    className="flex h-6 w-6 items-center justify-center rounded-md text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 4.5v15m7.5-7.5h-15"
-                      />
-                    </svg>
-                  </button>
                 </div>
               </div>
 
               {showAddCompany ? (
                 <div className="border-b border-gray-100 p-3 space-y-2 bg-gray-50">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">New company</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    New company
+                  </h3>
                   <input
                     type="text"
                     value={newCompanyName}
@@ -254,7 +364,9 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
                     rows={2}
                     className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
                   />
-                  {addCompanyError && <p className="text-xs text-red-600">{addCompanyError}</p>}
+                  {addCompanyError && (
+                    <p className="text-xs text-red-600">{addCompanyError}</p>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -265,7 +377,10 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setShowAddCompany(false); setAddCompanyError(null); }}
+                      onClick={() => {
+                        setShowAddCompany(false);
+                        setAddCompanyError(null);
+                      }}
                       className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
                     >
                       Cancel
@@ -273,14 +388,40 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
                   </div>
                 </div>
               ) : (
-                <div className="border-b border-gray-100 px-4 py-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddCompany(true)}
-                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                  >
-                    + Add company
-                  </button>
+                <div>
+                  <div className="border-b border-gray-100 px-4 py-2">
+                    <button
+                      onClick={() => setUploadModalOpen(true)}
+                      title="Upload contract"
+                      className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors"
+                    >
+                      <span className="text-xs font-medium text-blue-600 cursor-pointer hover:text-blue-700">
+                        + Upload contract
+                      </span>
+                      <svg
+                        className="h-4 w-4 shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="border-b border-gray-100 px-4 py-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCompany(true)}
+                      className="text-xs font-medium text-blue-600 cursor-pointer hover:text-blue-700 rounded-md px-2 py-1.5  hover:bg-blue-50 transition-colors"
+                    >
+                      + Add company
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -305,7 +446,9 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
                             <CompanyCard
                               key={company.id}
                               company={company}
-                              documentCount={caseCountByCompanyId.get(company.id) ?? 0}
+                              documentCount={
+                                caseCountByCompanyId.get(company.id) ?? 0
+                              }
                               isActive={selectedCompanyId === company.id}
                               onClick={() => handleCompanyClick(company.id)}
                             />
@@ -327,7 +470,9 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
                             <CompanyCard
                               key={company.id}
                               company={company}
-                              documentCount={caseCountByCompanyId.get(company.id) ?? 0}
+                              documentCount={
+                                caseCountByCompanyId.get(company.id) ?? 0
+                              }
                               isActive={selectedCompanyId === company.id}
                               onClick={() => handleCompanyClick(company.id)}
                             />
@@ -384,15 +529,37 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
               draftCase={pendingCase}
               extractionResult={pendingExtraction}
               companies={companies}
+              suggestedCompanyId={suggestedCompanyId}
               onCreateCompany={addCompany}
               onAttach={handleAttachToCompany}
               onCancel={handleAttachCancel}
               createdBy={user.name}
             />
+          ) : draftCase ? (
+            <CaseDetail
+              contractCase={draftCase}
+              company={
+                draftCase.companyId
+                  ? companyById.get(draftCase.companyId)
+                  : undefined
+              }
+              companies={companies}
+              currentUserName={user.name}
+              onUpdate={handleDraftUpdate}
+              onUpdateCompany={updateCompany}
+              onDelete={handleDiscardDraft}
+              onBack={handleDiscardDraft}
+              isDraft
+              onSave={handleSaveDraft}
+            />
           ) : activeCase ? (
             <CaseDetail
               contractCase={activeCase}
-              company={activeCase.companyId ? companyById.get(activeCase.companyId) : undefined}
+              company={
+                activeCase.companyId
+                  ? companyById.get(activeCase.companyId)
+                  : undefined
+              }
               companies={companies}
               currentUserName={user.name}
               onUpdate={updateCase}
@@ -409,49 +576,61 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
               onBack={() => setSelectedCompanyId(null)}
               onUpdateCompany={updateCompany}
               onUpdateCase={updateCase}
+              onUploadClick={() => setUploadModalOpen(true)}
             />
           ) : (
-            <div className="mx-auto max-w-xl pt-12">
-              <div className="mb-8 text-center">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Upload a Contract
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Upload a contract document to automatically extract key
-                  information
-                </p>
-              </div>
-
-              <FileDropZone
-                onFileAccepted={handleFileAccepted}
-                isProcessing={isProcessing}
-              />
-
+            <div className="mx-auto max-w-3xl pt-12">
               {error && (
-                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-                  <div className="flex items-start gap-3">
-                    <svg
-                      className="mt-0.5 h-5 w-5 shrink-0 text-red-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-                      />
-                    </svg>
-                    <div>
-                      <h4 className="text-sm font-medium text-red-800">
-                        Processing Error
-                      </h4>
-                      <p className="mt-1 text-sm text-red-600">{error}</p>
+                <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <svg
+                        className="mt-0.5 h-5 w-5 shrink-0 text-red-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+                        />
+                      </svg>
+                      <div>
+                        <h4 className="text-sm font-medium text-red-800">
+                          Processing Error
+                        </h4>
+                        <p className="mt-1 text-sm text-red-600">{error}</p>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setError(null)}
+                      className="shrink-0 rounded p-1 text-red-400 hover:bg-red-100 hover:text-red-600"
+                      aria-label="Dismiss"
+                    >
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               )}
+              <h2 className="text-xl font-semibold text-gray-800">Dashboard</h2>
+              <p className="mt-2 text-sm text-gray-500">
+                Widgets will be added later.
+              </p>
             </div>
           )}
         </main>

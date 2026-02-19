@@ -1,4 +1,4 @@
-import {useState, useRef, useEffect} from "react";
+import {useState} from "react";
 import {format} from "date-fns";
 import type {
   Company,
@@ -6,6 +6,7 @@ import type {
   EditHistoryEntry,
   FieldEdit,
 } from "../types";
+
 import {DatePicker} from "@/components/ui/date-picker";
 
 interface CaseDetailProps {
@@ -17,6 +18,10 @@ interface CaseDetailProps {
   onUpdateCompany?: (id: string, updates: Partial<Company>) => void;
   onDelete: (id: string) => void;
   onBack: () => void;
+  /** When true, case is not saved to DB yet; show Save button and Delete discards draft */
+  isDraft?: boolean;
+  /** Called when user clicks Save (only when isDraft) */
+  onSave?: () => void;
 }
 
 /** Human-readable labels for editable case fields (for edit history). */
@@ -170,48 +175,24 @@ function AssigneeDropdown({
   alertAt,
   onSetAlert,
 }: {
-  assignedTo: string | undefined;
-  onSelect: (userId: string | null) => void;
   dueDateDisplay?: string;
   alertAt?: string;
   onSetAlert?: (iso: string | undefined) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
-
   return (
-    <div
-      className="my-8 flex flex-row  gap-x-6 gap-y-2 justify-between"
-      ref={containerRef}
-    >
-      <div className="flex flex-row items-center gap-6">
-        {/* Due Date */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-            Due date
-          </label>
-          <span className="text-sm text-gray-800">
-            {dueDateDisplay && dueDateDisplay !== "Not found"
-              ? dueDateDisplay
-              : "—"}
-          </span>
-        </div>
+    <>
+      {/* Due Date */}
+      <div className="flex items-center gap-2">
+        <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+          Due date
+        </label>
+        <span className="text-sm text-gray-800">
+          {dueDateDisplay && dueDateDisplay !== "Not found"
+            ? dueDateDisplay
+            : "—"}
+        </span>
       </div>
-      {/* Alert (date only) */}
+      {/* Notification (date only) */}
       <div className="flex items-center gap-2">
         <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
           Notification
@@ -240,7 +221,7 @@ function AssigneeDropdown({
           />
         )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -261,6 +242,8 @@ export default function CaseDetail({
   onUpdateCompany,
   onDelete,
   onBack,
+  isDraft = false,
+  onSave,
 }: CaseDetailProps) {
   const createdDate = new Date(contractCase.createdAt);
   const formattedDate = createdDate.toLocaleDateString("en-GB", {
@@ -371,39 +354,39 @@ export default function CaseDetail({
           ) : (
             <p className="text-sm text-gray-500">Company: —</p>
           )}
-          {companies.length > 0 && (
-            <select
-              value={contractCase.companyId ?? ""}
-              onChange={(e) =>
-                onUpdate(contractCase.id, {
-                  companyId: e.target.value || undefined,
-                })
-              }
-              className="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
-            >
-              <option value="">No company</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
-        <AssigneeDropdown
-          assignedTo={company?.assignedTo}
-          onSelect={
-            company && onUpdateCompany
-              ? (userId) =>
-                  onUpdateCompany(company.id, {assignedTo: userId ?? undefined})
-              : () => {}
-          }
-          dueDateDisplay={contractCase.contractDate}
-          alertAt={contractCase.alertAt}
-          onSetAlert={(iso) =>
-            onUpdate(contractCase.id, {alertAt: iso ?? undefined})
-          }
-        />
+        <div className="my-8 flex flex-row flex-wrap gap-x-6 gap-y-2 justify-between items-center">
+          {companies.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Company
+              </label>
+              <select
+                value={contractCase.companyId ?? ""}
+                onChange={(e) =>
+                  onUpdate(contractCase.id, {
+                    companyId: e.target.value || undefined,
+                  })
+                }
+                className="rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-700 min-w-32"
+              >
+                <option value="">No company</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <AssigneeDropdown
+            dueDateDisplay={contractCase.contractDate}
+            alertAt={contractCase.alertAt}
+            onSetAlert={(iso) =>
+              onUpdate(contractCase.id, {alertAt: iso ?? undefined})
+            }
+          />
+        </div>
       </div>
 
       {/* --- Grouped fields --- */}
@@ -521,18 +504,31 @@ export default function CaseDetail({
         </div>
       </details>
 
-      {/* Delete */}
-      <div className="mt-8 border-t border-gray-100 pt-6">
+      {/* Assigned to (user) / Save (draft) / Delete */}
+      <div className="mt-8 border-t border-gray-100 pt-6 flex flex-wrap items-center gap-3">
+        {company && onUpdateCompany && (
+          <div className="flex items-center gap-2"></div>
+        )}
+        {isDraft && onSave && (
+          <button
+            onClick={onSave}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+          >
+            Save
+          </button>
+        )}
         {showConfirmDelete ? (
-          <div className="flex items-center gap-3">
+          <>
             <span className="text-sm text-gray-600">
-              Delete this case permanently?
+              {isDraft
+                ? "Discard this draft?"
+                : "Delete this case permanently?"}
             </span>
             <button
               onClick={() => onDelete(contractCase.id)}
               className="rounded-md bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600"
             >
-              Yes, delete
+              {isDraft ? "Yes, discard" : "Yes, delete"}
             </button>
             <button
               onClick={() => setShowConfirmDelete(false)}
@@ -540,17 +536,16 @@ export default function CaseDetail({
             >
               Cancel
             </button>
-          </div>
+          </>
         ) : (
           <button
             onClick={() => setShowConfirmDelete(true)}
-            className="text-xs text-black-200 hover:cursor-pointer hover:text-red-500 rounded-md border border-black-200 px-3 py-1.5  font-medium  transition-colors hover:border-black-500 hover:bg-gray-50"
+            className="text-xs text-black-200 hover:cursor-pointer hover:text-red-500 rounded-md border border-black-200 px-3 py-1.5 font-medium transition-colors hover:border-black-500 hover:bg-gray-50"
           >
-            Delete case
+            {isDraft ? "Discard draft" : "Delete case"}
           </button>
         )}
       </div>
     </div>
   );
 }
-//rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700

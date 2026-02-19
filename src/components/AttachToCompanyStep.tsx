@@ -1,30 +1,13 @@
 import { useState, useMemo } from "react";
 import type { Company, ContractCase } from "../types";
 import type { ContractExtractionResult } from "../services/openai";
-
-function normalizeForMatch(s: string): string {
-  return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function suggestCompanies(
-  companies: Company[],
-  name: string,
-  identifiers: string
-): Company[] {
-  if (!name || name === "Not found") return [];
-  const n = normalizeForMatch(name);
-  const idLower = (identifiers || "").toLowerCase();
-  return companies.filter((c) => {
-    const matchName = normalizeForMatch(c.name).includes(n) || n.includes(normalizeForMatch(c.name));
-    const matchCui = c.cuiRo && idLower.includes(c.cuiRo.toLowerCase());
-    return matchName || matchCui;
-  });
-}
+import { normalizeForMatch, suggestCompanies } from "../services/companyMatch";
 
 interface AttachToCompanyStepProps {
   draftCase: ContractCase;
   extractionResult: ContractExtractionResult;
   companies: Company[];
+  suggestedCompanyId?: string | null;
   onCreateCompany: (company: Company) => Promise<void>;
   onAttach: (companyId: string) => void;
   onCancel: () => void;
@@ -37,11 +20,15 @@ export default function AttachToCompanyStep({
   draftCase,
   extractionResult,
   companies,
+  suggestedCompanyId = null,
   onCreateCompany,
   onAttach,
   onCancel,
   createdBy,
 }: AttachToCompanyStepProps) {
+  const suggestedCompany = suggestedCompanyId
+    ? companies.find((c) => c.id === suggestedCompanyId) ?? null
+    : null;
   const [mode, setMode] = useState<"select" | "create">("select");
   const [prefillSource, setPrefillSource] = useState<PrefillSource>("beneficiary");
   const [search, setSearch] = useState("");
@@ -197,6 +184,30 @@ export default function AttachToCompanyStep({
       <p className="mt-0.5 text-xs text-gray-400 truncate" title={draftCase.title}>
         Document: {draftCase.title || draftCase.sourceFileName}
       </p>
+
+      {suggestedCompany && (
+        <section className="mt-6 rounded-xl border-2 border-blue-200 bg-blue-50/50 p-4">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+            Suggested match
+          </h3>
+          <p className="mb-3 text-sm text-gray-700">
+            This document was automatically matched to an existing company based on extracted data.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-medium text-gray-800">{suggestedCompany.name}</span>
+            {suggestedCompany.cuiRo && (
+              <span className="text-xs text-gray-500">{suggestedCompany.cuiRo}</span>
+            )}
+            <button
+              type="button"
+              onClick={() => handleAttachExisting(suggestedCompany.id)}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Attach to {suggestedCompany.name}
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="mt-6">
         <input

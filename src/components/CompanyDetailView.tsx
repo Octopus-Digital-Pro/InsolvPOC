@@ -21,6 +21,7 @@ interface CompanyDetailViewProps {
   onBack: () => void;
   onUpdateCompany?: (id: string, updates: Partial<Company>) => void;
   onUpdateCase?: (id: string, updates: Partial<ContractCase>) => void;
+  onUploadClick?: () => void;
 }
 
 export default function CompanyDetailView({
@@ -31,6 +32,7 @@ export default function CompanyDetailView({
   onBack,
   onUpdateCompany,
   onUpdateCase,
+  onUploadClick,
 }: CompanyDetailViewProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -260,9 +262,20 @@ export default function CompanyDetailView({
         </div>
       </div>
 
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
-        Documents ({sortedCases.length})
-      </h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Documents ({sortedCases.length})
+        </h2>
+        {onUploadClick && (
+          <button
+            type="button"
+            onClick={onUploadClick}
+            className="text-xs font-medium text-blue-600 hover:text-blue-700"
+          >
+            Upload document
+          </button>
+        )}
+      </div>
       {sortedCases.length === 0 ? (
         <p className="py-6 text-sm text-gray-400">No documents attached.</p>
       ) : (
