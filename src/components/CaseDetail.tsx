@@ -1,13 +1,13 @@
 import {useState} from "react";
-import {format} from "date-fns";
-import type {
-  Company,
-  ContractCase,
-  EditHistoryEntry,
-  FieldEdit,
-} from "../types";
+import type { Company, ContractCase, EditHistoryEntry } from "../types";
 
-import {DatePicker} from "@/components/ui/date-picker";
+import BackButton from "@/components/ui/BackButton";
+import AssigneeDropdown from "@/components/molecules/AssigneeDropdown";
+import EditableField from "@/components/molecules/EditableField";
+import Section from "@/components/molecules/Section";
+import EditHistoryList from "@/components/molecules/EditHistoryList";
+import RawExtractionBlock from "@/components/molecules/RawExtractionBlock";
+import ConfirmDeleteBar from "@/components/molecules/ConfirmDeleteBar";
 
 interface CaseDetailProps {
   contractCase: ContractCase;
@@ -45,201 +45,12 @@ const FIELD_LABELS: Record<string, string> = {
   otherImportantClauses: "Other Important Clauses",
 };
 
-function formatEditDate(iso: string): string {
-  const d = new Date(iso);
-  return (
-    d.toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }) +
-    " at " +
-    d.toLocaleTimeString("en-GB", {hour: "2-digit", minute: "2-digit"})
-  );
-}
-
-function EditableField({
-  label,
-  value,
-  fieldKey,
-  multiline,
-  editInfo,
-  onSave,
-}: {
-  label: string;
-  value: string;
-  fieldKey: string;
-  multiline?: boolean;
-  editInfo?: FieldEdit;
-  onSave: (key: string, value: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-
-  const handleSave = () => {
-    onSave(fieldKey, draft);
-    setEditing(false);
-  };
-
-  const handleCancel = () => {
-    setDraft(value);
-    setEditing(false);
-  };
-
-  return (
-    <div className="group rounded-lg border border-gray-100 bg-white p-4 transition-colors hover:border-gray-200">
-      <div className="mb-1.5 flex items-center justify-between">
-        <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-          {label}
-        </label>
-        {!editing && (
-          <button
-            onClick={() => setEditing(true)}
-            className="text-xs text-gray-400 opacity-0 transition-opacity cursor-pointer group-hover:opacity-100 hover:text-blue-500"
-          >
-            Edit
-          </button>
-        )}
-      </div>
-
-      {editing ? (
-        <div>
-          {multiline ? (
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={4}
-              className="w-full rounded-md border border-gray-200 p-2 text-sm text-gray-800 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
-              autoFocus
-            />
-          ) : (
-            <input
-              type="text"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="w-full rounded-md border border-gray-200 p-2 text-sm text-gray-800 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
-              autoFocus
-            />
-          )}
-          <div className="mt-2 flex gap-2">
-            <button
-              onClick={handleSave}
-              className="rounded-md bg-blue-500 px-3 py-1 text-xs font-medium text-white hover:bg-blue-600"
-            >
-              Save
-            </button>
-            <button
-              onClick={handleCancel}
-              className="rounded-md bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <p className="whitespace-pre-wrap text-sm text-gray-700">
-            {value || <span className="italic text-gray-300">Empty</span>}
-          </p>
-          {editInfo && (
-            <p className="mt-1.5 text-[11px] italic  text-blue-800">
-              Edited by {editInfo.editedBy} on{" "}
-              {formatEditDate(editInfo.editedAt)}
-            </p>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="mt-6">
-      <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500 border-b border-gray-100 pb-2">
-        {title}
-      </h3>
-      <div className="space-y-2">{children}</div>
-    </div>
-  );
-}
-
-function AssigneeDropdown({
-  dueDateDisplay,
-  alertAt,
-  onSetAlert,
-}: {
-  dueDateDisplay?: string;
-  alertAt?: string;
-  onSetAlert?: (iso: string | undefined) => void;
-}) {
-  return (
-    <>
-      {/* Due Date */}
-      <div className="flex items-center gap-2">
-        <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-          Due date
-        </label>
-        <span className="text-sm text-gray-800">
-          {dueDateDisplay && dueDateDisplay !== "Not found"
-            ? dueDateDisplay
-            : "—"}
-        </span>
-      </div>
-      {/* Notification (date only) */}
-      <div className="flex items-center gap-2">
-        <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-          Notification
-        </label>
-        {alertAt ? (
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-800">
-              {formatAlertDate(alertAt)}
-            </span>
-            <button
-              type="button"
-              onClick={() => onSetAlert?.(undefined)}
-              className="text-xs text-gray-400 hover:text-red-600 cursor-pointer underline"
-            >
-              Clear
-            </button>
-          </div>
-        ) : (
-          <DatePicker
-            date={undefined}
-            onSelect={(d) => {
-              if (d) onSetAlert?.(format(d, "yyyy-MM-dd"));
-            }}
-            placeholder="Pick a date"
-            className="min-w-40"
-          />
-        )}
-      </div>
-    </>
-  );
-}
-
-/** Format a date-only string (YYYY-MM-DD) or ISO string for display as DD.MM.YYYY. */
-function formatAlertDate(dateString: string): string {
-  const d = new Date(
-    dateString.includes("T") ? dateString : `${dateString}T12:00:00`,
-  );
-  return format(d, "dd.MM.yyyy");
-}
-
 export default function CaseDetail({
   contractCase,
   company,
   companies = [],
   currentUserName,
   onUpdate,
-  onUpdateCompany,
   onDelete,
   onBack,
   isDraft = false,
@@ -301,64 +112,47 @@ export default function CaseDetail({
 
   return (
     <div className="mx-auto max-w-3xl pb-12">
-      {/* Back / New upload */}
-      <button
-        onClick={onBack}
-        className="mb-4 flex items-center cursor-pointer gap-1.5 text-sm text-gray-400 hover:text-blue-500 transition-colors"
-      >
-        <svg
-          className="h-4 w-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15 19l-7-7 7-7"
-          />
-        </svg>
-        Back
-      </button>
+      <BackButton onClick={onBack}>Back</BackButton>
 
       {/* Header */}
       <div className="mb-2">
-        <h1 className="text-2xl font-bold text-gray-900">
-          {contractCase.title + " - " + contractCase.beneficiary || "Untitled"}
+        <h1 className="text-2xl font-bold text-foreground">
+          {contractCase.title && contractCase.beneficiary
+            ? `${contractCase.title} - ${contractCase.beneficiary}`
+            : (contractCase.title || contractCase.beneficiary || "Untitled")}
         </h1>
-        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>
             Created {formattedDate} at {formattedTime}
           </span>
           {contractCase.createdBy && (
             <>
-              <span className="text-gray-300">|</span>
+              <span className="text-border">|</span>
               <span>by {contractCase.createdBy}</span>
             </>
           )}
-          <span className="text-gray-300">|</span>
+          <span className="text-border">|</span>
           <span className="font-mono">{contractCase.sourceFileName}</span>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           {company ? (
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Company:{" "}
-              <span className="font-medium text-gray-800">{company.name}</span>
+              <span className="font-medium text-foreground">{company.name}</span>
               {company.cuiRo && (
-                <span className="ml-2 text-gray-500">
+                <span className="ml-2 text-muted-foreground">
                   CUI/RO: {company.cuiRo}
                 </span>
               )}
             </p>
           ) : (
-            <p className="text-sm text-gray-500">Company: —</p>
+            <p className="text-sm text-muted-foreground">Company: —</p>
           )}
         </div>
         <div className="my-8 flex flex-row flex-wrap gap-x-6 gap-y-2 justify-between items-center">
           {companies.length > 0 && (
             <div className="flex items-center gap-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Company
               </label>
               <select
@@ -368,7 +162,7 @@ export default function CaseDetail({
                     companyId: e.target.value || undefined,
                   })
                 }
-                className="rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-700 min-w-32"
+                className="rounded-md border border-input bg-background px-2 py-1.5 text-xs text-foreground min-w-32"
               >
                 <option value="">No company</option>
                 {companies.map((c) => (
@@ -388,8 +182,6 @@ export default function CaseDetail({
           />
         </div>
       </div>
-
-      {/* --- Grouped fields --- */}
 
       <Section title="Parties">
         {F("Beneficiary (Contracting Authority)", "beneficiary")}
@@ -423,129 +215,18 @@ export default function CaseDetail({
         {F("Other Important Clauses", "otherImportantClauses", true)}
       </Section>
 
-      {/* Raw extraction (collapsible) */}
-      <details className="mt-6 rounded-lg border border-gray-100 bg-gray-50">
-        <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-gray-400 hover:text-gray-600">
-          Raw AI Extraction (JSON)
-        </summary>
-        <pre className="overflow-x-auto whitespace-pre-wrap px-4 pb-4 font-mono text-xs text-gray-500">
-          {contractCase.rawJson}
-        </pre>
-      </details>
+      <RawExtractionBlock rawJson={contractCase.rawJson} />
 
-      {/* Edit history (Asana/Jira-style activity) */}
-      <details
-        className="mt-4 rounded-lg border border-gray-100 bg-gray-50"
-        open={false}
-      >
-        <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-gray-400 hover:text-gray-600">
-          Edit history
-          {(contractCase.editHistory?.length ?? 0) > 0 && (
-            <span className="ml-2 text-gray-400">
-              ({contractCase.editHistory?.length ?? 0})
-            </span>
-          )}
-        </summary>
-        <div className="border-t border-gray-100 px-4 pb-4 pt-2">
-          {!contractCase.editHistory?.length ? (
-            <p className="text-xs text-gray-400 italic">No edits yet.</p>
-          ) : (
-            <ul className="space-y-3">
-              {contractCase.editHistory.map((entry, i) => (
-                <li
-                  key={`${entry.at}-${entry.field}-${i}`}
-                  className="flex gap-3 text-sm"
-                >
-                  <span className="shrink-0 text-xs text-gray-400 tabular-nums">
-                    {formatEditDate(entry.at)}
-                  </span>
-                  <span className="text-gray-600">
-                    <span className="font-medium text-gray-800">
-                      {entry.by}
-                    </span>
-                    {" changed "}
-                    <span className="font-medium text-gray-700">
-                      {entry.field}
-                    </span>
-                    {entry.oldValue !== undefined &&
-                    entry.newValue !== undefined ? (
-                      <>
-                        {" from "}
-                        <span
-                          className="text-gray-500 line-clamp-1 max-w-48 align-middle"
-                          title={entry.oldValue}
-                        >
-                          {entry.oldValue || "—"}
-                        </span>
-                        {" to "}
-                        <span
-                          className="text-gray-700 line-clamp-1 max-w-48 align-middle"
-                          title={entry.newValue}
-                        >
-                          {entry.newValue || "—"}
-                        </span>
-                      </>
-                    ) : entry.newValue ? (
-                      <>
-                        {" "}
-                        to{" "}
-                        {entry.newValue.length > 80
-                          ? entry.newValue.slice(0, 80) + "…"
-                          : entry.newValue}
-                      </>
-                    ) : (
-                      " (cleared)"
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </details>
+      <EditHistoryList editHistory={contractCase.editHistory} />
 
-      {/* Assigned to (user) / Save (draft) / Delete */}
-      <div className="mt-8 border-t border-gray-100 pt-6 flex flex-wrap items-center gap-3">
-        {company && onUpdateCompany && (
-          <div className="flex items-center gap-2"></div>
-        )}
-        {isDraft && onSave && (
-          <button
-            onClick={onSave}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
-          >
-            Save
-          </button>
-        )}
-        {showConfirmDelete ? (
-          <>
-            <span className="text-sm text-gray-600">
-              {isDraft
-                ? "Discard this draft?"
-                : "Delete this case permanently?"}
-            </span>
-            <button
-              onClick={() => onDelete(contractCase.id)}
-              className="rounded-md bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600"
-            >
-              {isDraft ? "Yes, discard" : "Yes, delete"}
-            </button>
-            <button
-              onClick={() => setShowConfirmDelete(false)}
-              className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200"
-            >
-              Cancel
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={() => setShowConfirmDelete(true)}
-            className="text-xs text-black-200 hover:cursor-pointer hover:text-red-500 rounded-md border border-black-200 px-3 py-1.5 font-medium transition-colors hover:border-black-500 hover:bg-gray-50"
-          >
-            {isDraft ? "Discard draft" : "Delete case"}
-          </button>
-        )}
-      </div>
+      <ConfirmDeleteBar
+        isDraft={!!isDraft}
+        showConfirm={showConfirmDelete}
+        onConfirmDelete={() => onDelete(contractCase.id)}
+        onCancelConfirm={() => setShowConfirmDelete(false)}
+        onStartConfirm={() => setShowConfirmDelete(true)}
+        onSave={isDraft ? onSave : undefined}
+      />
     </div>
   );
 }

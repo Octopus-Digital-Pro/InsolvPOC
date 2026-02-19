@@ -19,24 +19,25 @@ function Calendar({
         months: "flex flex-col sm:flex-row gap-2",
         month: "flex flex-col gap-4",
         month_caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium text-gray-900",
+        caption_label: "text-sm font-medium text-foreground",
         nav: "flex items-center gap-1",
-        button_previous: "absolute left-1 flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50",
-        button_next: "absolute right-1 flex h-7 w-7 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50",
+        button_previous:
+          "absolute left-1 flex h-7 w-7 items-center justify-center rounded-md border border-input bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+        button_next:
+          "absolute right-1 flex h-7 w-7 items-center justify-center rounded-md border border-input bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
         month_grid: "w-full border-collapse space-y-1",
         weekdays: "flex",
-        weekday:
-          "text-gray-500 rounded-md w-8 font-normal text-[0.8rem]",
+        weekday: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
         week: "flex w-full mt-2",
         day: "relative p-0 text-center text-sm focus-within:relative",
         day_button:
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 rounded-md hover:bg-gray-100 focus:ring-2 focus:ring-gray-400 focus:ring-offset-2",
+          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 rounded-md hover:bg-accent focus:ring-2 focus:ring-ring focus:ring-offset-2",
         selected:
-          "bg-blue-500 text-white hover:bg-blue-600 hover:text-white focus:bg-blue-500 focus:text-white",
-        today: "bg-gray-100 text-gray-900",
-        outside: "text-gray-400 opacity-50",
-        disabled: "text-gray-400 opacity-50",
-        range_middle: "aria-selected:bg-gray-100 aria-selected:text-gray-900",
+          "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+        today: "bg-accent text-accent-foreground",
+        outside: "text-muted-foreground opacity-50",
+        disabled: "text-muted-foreground opacity-50",
+        range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
         hidden: "invisible",
         ...classNames,
       }}

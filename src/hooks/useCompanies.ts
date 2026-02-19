@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
-import type { Company } from '../types';
-import { storage } from '../services/storage';
+import { useState, useCallback, useEffect } from "react";
+import type { Company } from "../types";
+import { storage } from "../services/storage";
 
 export function useCompanies() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -18,7 +18,7 @@ export function useCompanies() {
         setCompanies(data);
       }
     }).catch((err) => {
-      console.error('Failed to load companies from Firestore:', err);
+      console.error("Failed to load companies from Firestore:", err);
     }).finally(() => {
       if (!cancelled) {
         setLoading(false);

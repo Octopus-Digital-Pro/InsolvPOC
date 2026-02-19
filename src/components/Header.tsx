@@ -1,5 +1,6 @@
 import type {User} from "../types";
 import logo from "../assets/logo.png";
+import {Button} from "@/components/ui/button";
 
 interface HeaderProps {
   user: User;
@@ -8,14 +9,14 @@ interface HeaderProps {
 
 export default function Header({user, onLogout}: HeaderProps) {
   return (
-    <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
+    <header className="flex items-center justify-between border-b border-border bg-background px-6 py-3">
       <div className="flex items-center gap-3">
         <img
           src={logo}
           alt="InsolvPOC"
-          className="h-6 w-auto  object-contain"
+          className="h-6 w-auto object-contain"
         />
-        <h1 className="text-lg font-semibold text-gray-900">InsolvPOC</h1>
+        <h1 className="text-lg font-semibold text-foreground">InsolvPOC</h1>
       </div>
 
       <div className="flex items-center gap-3">
@@ -25,14 +26,11 @@ export default function Header({user, onLogout}: HeaderProps) {
             alt={user.name}
             className="h-7 w-7 rounded-full object-cover"
           />
-          <span className="text-sm font-medium text-gray-700">{user.name}</span>
+          <span className="text-sm font-medium text-foreground">{user.name}</span>
         </div>
-        <button
-          onClick={onLogout}
-          className=" hover:cursor-pointer rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-700"
-        >
+        <Button variant="outline" size="sm" onClick={onLogout}>
           Switch user
-        </button>
+        </Button>
       </div>
     </header>
   );

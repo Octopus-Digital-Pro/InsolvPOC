@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
-import type { ContractCase } from '../types';
-import { storage } from '../services/storage';
+import { useState, useCallback, useEffect } from "react";
+import type { ContractCase } from "../types";
+import { storage } from "../services/storage";
 
 export function useCases() {
   const [cases, setCases] = useState<ContractCase[]>([]);
@@ -22,7 +22,7 @@ export function useCases() {
         setCases(data);
       }
     }).catch((err) => {
-      console.error('Failed to load cases from Firestore:', err);
+      console.error("Failed to load cases from Firestore:", err);
     }).finally(() => {
       if (!cancelled) {
         setLoading(false);

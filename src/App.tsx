@@ -1,8 +1,9 @@
 import {useState} from "react";
 import Header from "./components/Header";
 import LoginScreen from "./components/LoginScreen";
-import FileDropZone from "./components/FileDropZone";
-import CompanyCard from "./components/CompanyCard";
+import UploadModal from "./components/UploadModal";
+import CompaniesSidebar from "./components/CompaniesSidebar";
+import ErrorAlert from "./components/ErrorAlert";
 import CompanyDetailView from "./components/CompanyDetailView";
 import CaseDetail from "./components/CaseDetail";
 import ProcessingOverlay from "./components/ProcessingOverlay";
@@ -234,271 +235,54 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
+    <div className="flex h-screen flex-col bg-background">
       <Header user={user} onLogout={onLogout} />
 
-      {/* Upload modal */}
-      {uploadModalOpen && (
-        <div
-          className="fixed inset-0 z-10 flex items-center justify-center bg-black/50 p-4"
-          onClick={closeUploadModal}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="upload-modal-title"
-        >
-          <div
-            className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between">
-              <div>
-                <h2
-                  id="upload-modal-title"
-                  className="text-xl font-semibold text-gray-800"
-                >
-                  Upload a Contract
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Upload a contract document to automatically extract key
-                  information
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeUploadModal}
-                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                aria-label="Close"
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <FileDropZone
-              onFileAccepted={handleUploadFileAccepted}
-              isProcessing={isProcessing}
-            />
-            {error && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-                <div className="flex items-start gap-3">
-                  <svg
-                    className="mt-0.5 h-5 w-5 shrink-0 text-red-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-                    />
-                  </svg>
-                  <div>
-                    <h4 className="text-sm font-medium text-red-800">
-                      Processing Error
-                    </h4>
-                    <p className="mt-1 text-sm text-red-600">{error}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <UploadModal
+        open={uploadModalOpen}
+        onClose={closeUploadModal}
+        onFileAccepted={handleUploadFileAccepted}
+        isProcessing={isProcessing}
+        error={error}
+      />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
         <aside
           className={`
-            flex flex-col border-r border-gray-200 bg-white transition-all duration-200
+            flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200
             ${sidebarOpen ? "w-80" : "w-0"}
           `}
         >
-          {sidebarOpen && (
-            <>
-              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                <h2 className="text-sm font-semibold text-gray-700">
-                  Companies
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                    {companies.length}
-                  </span>
-                </div>
-              </div>
-
-              {showAddCompany ? (
-                <div className="border-b border-gray-100 p-3 space-y-2 bg-gray-50">
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    New company
-                  </h3>
-                  <input
-                    type="text"
-                    value={newCompanyName}
-                    onChange={(e) => setNewCompanyName(e.target.value)}
-                    placeholder="Company name"
-                    className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    type="text"
-                    value={newCompanyCuiRo}
-                    onChange={(e) => setNewCompanyCuiRo(e.target.value)}
-                    placeholder="CUI / RO"
-                    className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
-                  />
-                  <textarea
-                    value={newCompanyAddress}
-                    onChange={(e) => setNewCompanyAddress(e.target.value)}
-                    placeholder="Address"
-                    rows={2}
-                    className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm"
-                  />
-                  {addCompanyError && (
-                    <p className="text-xs text-red-600">{addCompanyError}</p>
-                  )}
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleSaveNewCompany}
-                      className="rounded-md bg-blue-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600"
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAddCompany(false);
-                        setAddCompanyError(null);
-                      }}
-                      className="rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="border-b border-gray-100 px-4 py-2">
-                    <button
-                      onClick={() => setUploadModalOpen(true)}
-                      title="Upload contract"
-                      className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors"
-                    >
-                      <span className="text-xs font-medium text-blue-600 cursor-pointer hover:text-blue-700">
-                        + Upload contract
-                      </span>
-                      <svg
-                        className="h-4 w-4 shrink-0"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="border-b border-gray-100 px-4 py-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowAddCompany(true)}
-                      className="text-xs font-medium text-blue-600 cursor-pointer hover:text-blue-700 rounded-md px-2 py-1.5  hover:bg-blue-50 transition-colors"
-                    >
-                      + Add company
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex-1 overflow-y-auto p-3 space-y-4 gap-y-10">
-                {companies.length === 0 && noCompanyCount === 0 ? (
-                  <p className="px-2 py-8 text-center text-xs text-gray-400">
-                    No companies yet. Add a company or upload a document.
-                  </p>
-                ) : (
-                  <>
-                    <section className="mb-10">
-                      <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Assigned to me
-                      </h3>
-                      {myCompanies.length === 0 ? (
-                        <p className="px-2 py-2 text-xs text-gray-400">
-                          No companies
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {myCompanies.map((company) => (
-                            <CompanyCard
-                              key={company.id}
-                              company={company}
-                              documentCount={
-                                caseCountByCompanyId.get(company.id) ?? 0
-                              }
-                              isActive={selectedCompanyId === company.id}
-                              onClick={() => handleCompanyClick(company.id)}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                    <section>
-                      <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Other
-                      </h3>
-                      {otherCompanies.length === 0 && noCompanyCount === 0 ? (
-                        <p className="px-2 py-2 text-xs text-gray-400">
-                          No companies
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {otherCompanies.map((company) => (
-                            <CompanyCard
-                              key={company.id}
-                              company={company}
-                              documentCount={
-                                caseCountByCompanyId.get(company.id) ?? 0
-                              }
-                              isActive={selectedCompanyId === company.id}
-                              onClick={() => handleCompanyClick(company.id)}
-                            />
-                          ))}
-                          {noCompanyCount > 0 && (
-                            <CompanyCard
-                              company={null}
-                              documentCount={noCompanyCount}
-                              isActive={selectedCompanyId === "none"}
-                              onClick={() => handleCompanyClick("none")}
-                            />
-                          )}
-                        </div>
-                      )}
-                    </section>
-                  </>
-                )}
-              </div>
-            </>
-          )}
+          <CompaniesSidebar
+            open={sidebarOpen}
+            companies={companies}
+            caseCountByCompanyId={caseCountByCompanyId}
+            myCompanies={myCompanies}
+            otherCompanies={otherCompanies}
+            noCompanyCount={noCompanyCount}
+            selectedCompanyId={selectedCompanyId}
+            onCompanyClick={handleCompanyClick}
+            onUploadClick={() => setUploadModalOpen(true)}
+            showAddCompany={showAddCompany}
+            onToggleAddCompany={(show) => {
+              setShowAddCompany(show);
+              if (!show) setAddCompanyError(null);
+            }}
+            newCompanyName={newCompanyName}
+            newCompanyCuiRo={newCompanyCuiRo}
+            newCompanyAddress={newCompanyAddress}
+            addCompanyError={addCompanyError}
+            onNewCompanyNameChange={setNewCompanyName}
+            onNewCompanyCuiRoChange={setNewCompanyCuiRo}
+            onNewCompanyAddressChange={setNewCompanyAddress}
+            onSaveNewCompany={handleSaveNewCompany}
+          />
         </aside>
 
         {/* Sidebar toggle */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="flex items-center border-r border-gray-200 bg-white px-1 text-gray-400 hover:text-gray-600"
+          className="flex items-center border-r border-border bg-background px-1 text-muted-foreground hover:text-foreground"
           title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
           <svg
@@ -520,7 +304,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
         <main className="flex-1 overflow-y-auto p-8">
           {loading ? (
             <div className="flex h-full items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-border border-t-primary" />
             </div>
           ) : isProcessing ? (
             <ProcessingOverlay fileName={processingFileName} />
@@ -581,54 +365,16 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
           ) : (
             <div className="mx-auto max-w-3xl pt-12">
               {error && (
-                <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <svg
-                        className="mt-0.5 h-5 w-5 shrink-0 text-red-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-                        />
-                      </svg>
-                      <div>
-                        <h4 className="text-sm font-medium text-red-800">
-                          Processing Error
-                        </h4>
-                        <p className="mt-1 text-sm text-red-600">{error}</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setError(null)}
-                      className="shrink-0 rounded p-1 text-red-400 hover:bg-red-100 hover:text-red-600"
-                      aria-label="Dismiss"
-                    >
-                      <svg
-                        className="h-5 w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
+                <div className="mb-6">
+                  <ErrorAlert
+                    message={error}
+                    title="Processing Error"
+                    onDismiss={() => setError(null)}
+                  />
                 </div>
               )}
-              <h2 className="text-xl font-semibold text-gray-800">Dashboard</h2>
-              <p className="mt-2 text-sm text-gray-500">
+              <h2 className="text-xl font-semibold text-foreground">Dashboard</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
                 Widgets will be added later.
               </p>
             </div>

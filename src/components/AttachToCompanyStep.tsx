@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import type { Company, ContractCase } from "../types";
 import type { ContractExtractionResult } from "../services/openai";
 import { normalizeForMatch, suggestCompanies } from "../services/companyMatch";
+import CreateCompanyForm from "./molecules/CreateCompanyForm";
+import SuggestedMatchCard from "./molecules/SuggestedMatchCard";
 
 interface AttachToCompanyStepProps {
   draftCase: ContractCase;
@@ -97,116 +99,39 @@ export default function AttachToCompanyStep({
 
   if (mode === "create") {
     return (
-      <div className="mx-auto max-w-xl pt-12">
-        <h2 className="text-xl font-semibold text-gray-800">Create new company</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Pre-filled from scan. You can switch to contractor data or edit.
-        </p>
-        <div className="mt-2 flex gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => prefillFromScan("beneficiary")}
-            className={prefillSource === "beneficiary" ? "text-blue-600 font-medium" : "text-gray-500 hover:text-gray-700"}
-          >
-            Use beneficiary
-          </button>
-          <span className="text-gray-300">|</span>
-          <button
-            type="button"
-            onClick={() => prefillFromScan("contractor")}
-            className={prefillSource === "contractor" ? "text-blue-600 font-medium" : "text-gray-500 hover:text-gray-700"}
-          >
-            Use contractor
-          </button>
-        </div>
-        <div className="mt-6 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Name</label>
-            <input
-              type="text"
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
-              placeholder="Company name"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">CUI / RO</label>
-            <input
-              type="text"
-              value={createCuiRo}
-              onChange={(e) => setCreateCuiRo(e.target.value)}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
-              placeholder="Tax ID"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Address</label>
-            <textarea
-              value={createAddress}
-              onChange={(e) => setCreateAddress(e.target.value)}
-              rows={2}
-              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
-              placeholder="Address"
-            />
-          </div>
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={handleSaveNewCompany}
-              disabled={saving || !createName.trim()}
-              className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 disabled:opacity-50"
-            >
-              {saving ? "Saving…" : "Create company & attach case"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("select")}
-              className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
-            >
-              Back
-            </button>
-          </div>
-        </div>
-      </div>
+      <CreateCompanyForm
+        name={createName}
+        cuiRo={createCuiRo}
+        address={createAddress}
+        prefillSource={prefillSource}
+        error={error}
+        saving={saving}
+        onPrefillBeneficiary={() => prefillFromScan("beneficiary")}
+        onPrefillContractor={() => prefillFromScan("contractor")}
+        onNameChange={setCreateName}
+        onCuiRoChange={setCreateCuiRo}
+        onAddressChange={setCreateAddress}
+        onSave={handleSaveNewCompany}
+        onBack={() => setMode("select")}
+      />
     );
   }
 
   return (
     <div className="mx-auto max-w-xl pt-12">
-      <h2 className="text-xl font-semibold text-gray-800">Attach to company</h2>
-      <p className="mt-1 text-sm text-gray-500">
+      <h2 className="text-xl font-semibold text-foreground">Attach to company</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
         Choose an existing company or create a new one for this document.
       </p>
-      <p className="mt-0.5 text-xs text-gray-400 truncate" title={draftCase.title}>
+      <p className="mt-0.5 text-xs text-muted-foreground truncate" title={draftCase.title}>
         Document: {draftCase.title || draftCase.sourceFileName}
       </p>
 
       {suggestedCompany && (
-        <section className="mt-6 rounded-xl border-2 border-blue-200 bg-blue-50/50 p-4">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
-            Suggested match
-          </h3>
-          <p className="mb-3 text-sm text-gray-700">
-            This document was automatically matched to an existing company based on extracted data.
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-medium text-gray-800">{suggestedCompany.name}</span>
-            {suggestedCompany.cuiRo && (
-              <span className="text-xs text-gray-500">{suggestedCompany.cuiRo}</span>
-            )}
-            <button
-              type="button"
-              onClick={() => handleAttachExisting(suggestedCompany.id)}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            >
-              Attach to {suggestedCompany.name}
-            </button>
-          </div>
-        </section>
+        <SuggestedMatchCard
+          company={suggestedCompany}
+          onAttach={handleAttachExisting}
+        />
       )}
 
       <div className="mt-6">
@@ -215,23 +140,23 @@ export default function AttachToCompanyStep({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search companies by name or CUI…"
-          className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
         />
       </div>
 
       {suggested.length > 0 && !search.trim() && (
         <section className="mt-6">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Suggested</h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Suggested</h3>
           <ul className="space-y-2">
             {suggested.slice(0, 5).map((c) => (
               <li key={c.id}>
                 <button
                   type="button"
                   onClick={() => handleAttachExisting(c.id)}
-                  className="w-full rounded-xl border border-gray-100 bg-white px-4 py-3 text-left text-sm transition-colors hover:border-blue-200 hover:bg-blue-50"
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-left text-sm transition-colors hover:border-border hover:bg-accent"
                 >
-                  <span className="font-medium text-gray-800">{c.name}</span>
-                  {c.cuiRo && <span className="ml-2 text-xs text-gray-500">{c.cuiRo}</span>}
+                  <span className="font-medium text-foreground">{c.name}</span>
+                  {c.cuiRo && <span className="ml-2 text-xs text-muted-foreground">{c.cuiRo}</span>}
                 </button>
               </li>
             ))}
@@ -240,11 +165,11 @@ export default function AttachToCompanyStep({
       )}
 
       <section className="mt-6">
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {search.trim() ? "Search results" : "All companies"}
         </h3>
         {filteredCompanies.length === 0 ? (
-          <p className="py-4 text-sm text-gray-400">No companies match.</p>
+          <p className="py-4 text-sm text-muted-foreground">No companies match.</p>
         ) : (
           <ul className="space-y-2 max-h-60 overflow-y-auto">
             {filteredCompanies.map((c) => (
@@ -252,10 +177,10 @@ export default function AttachToCompanyStep({
                 <button
                   type="button"
                   onClick={() => handleAttachExisting(c.id)}
-                  className="w-full rounded-xl border border-gray-100 bg-white px-4 py-3 text-left text-sm transition-colors hover:border-blue-200 hover:bg-blue-50"
+                  className="w-full rounded-xl border border-border bg-card px-4 py-3 text-left text-sm transition-colors hover:border-border hover:bg-accent"
                 >
-                  <span className="font-medium text-gray-800">{c.name}</span>
-                  {c.cuiRo && <span className="ml-2 text-xs text-gray-500">{c.cuiRo}</span>}
+                  <span className="font-medium text-foreground">{c.name}</span>
+                  {c.cuiRo && <span className="ml-2 text-xs text-muted-foreground">{c.cuiRo}</span>}
                 </button>
               </li>
             ))}
@@ -263,11 +188,11 @@ export default function AttachToCompanyStep({
         )}
       </section>
 
-      <div className="mt-6 pt-4 border-t border-gray-100">
+      <div className="mt-6 pt-4 border-t border-border">
         <button
           type="button"
           onClick={handleCreateNew}
-          className="rounded-md border border-dashed border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+          className="rounded-md border border-dashed border-input px-4 py-3 text-sm font-medium text-muted-foreground hover:border-primary hover:bg-accent hover:text-primary"
         >
           + Create new company
         </button>
@@ -277,7 +202,7 @@ export default function AttachToCompanyStep({
         <button
           type="button"
           onClick={onCancel}
-          className="text-sm text-gray-500 hover:text-gray-700"
+          className="text-sm text-muted-foreground hover:text-foreground"
         >
           Cancel (discard scan)
         </button>

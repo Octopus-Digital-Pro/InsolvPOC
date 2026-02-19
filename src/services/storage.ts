@@ -9,20 +9,20 @@ import {
   deleteField,
   query,
   orderBy,
-} from 'firebase/firestore';
-import { db } from './firebase';
-import type { Company, ContractCase, StorageProvider, User } from '../types';
+} from "firebase/firestore";
+import { db } from "./firebase";
+import type { Company, ContractCase, StorageProvider, User } from "../types";
 
-const CASES_COLLECTION = 'cases';
-const COMPANIES_COLLECTION = 'companies';
-const USER_KEY = 'insolvpoc_current_user';
+const CASES_COLLECTION = "cases";
+const COMPANIES_COLLECTION = "companies";
+const USER_KEY = "insolvpoc_current_user";
 
 const casesRef = collection(db, CASES_COLLECTION);
 const companiesRef = collection(db, COMPANIES_COLLECTION);
 
 class FirestoreProvider implements StorageProvider {
   async getCases(): Promise<ContractCase[]> {
-    const q = query(casesRef, orderBy('createdAt', 'desc'));
+    const q = query(casesRef, orderBy("createdAt", "desc"));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((d) => d.data() as ContractCase);
   }
@@ -53,7 +53,7 @@ class FirestoreProvider implements StorageProvider {
   }
 
   async getCompanies(): Promise<Company[]> {
-    const q = query(companiesRef, orderBy('name'));
+    const q = query(companiesRef, orderBy("name"));
     const snapshot = await getDocs(q);
     return snapshot.docs.map((d) => d.data() as Company);
   }
