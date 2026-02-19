@@ -26,6 +26,15 @@ export interface FieldEdit {
   editedAt: string;
 }
 
+/** Single entry in case edit history (Jira-style activity). */
+export interface EditHistoryEntry {
+  at: string;
+  by: string;
+  field: string;
+  oldValue?: string;
+  newValue?: string;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -47,6 +56,8 @@ export interface ContractCase {
 
   // Per-field edit tracking: { fieldKey: { editedBy, editedAt } }
   edits?: Record<string, FieldEdit>;
+  // Timeline of edits for activity/history (newest first when displayed)
+  editHistory?: EditHistoryEntry[];
 
   // Parties
   beneficiary: string;

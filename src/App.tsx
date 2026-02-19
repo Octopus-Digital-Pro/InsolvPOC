@@ -408,6 +408,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
               onSelectCase={(id) => setActiveCaseId(id)}
               onBack={() => setSelectedCompanyId(null)}
               onUpdateCompany={updateCompany}
+              onUpdateCase={updateCase}
             />
           ) : (
             <div className="mx-auto max-w-xl pt-12">
