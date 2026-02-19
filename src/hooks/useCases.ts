@@ -1,28 +1,50 @@
 import { useState, useCallback, useEffect } from "react";
-import type { ContractCase } from "../types";
+import type { InsolvencyCase, InsolvencyDocument } from "../types";
 import { storage } from "../services/storage";
 
+export interface CaseWithDocuments {
+  case: InsolvencyCase;
+  documents: InsolvencyDocument[];
+}
+
 export function useCases() {
-  const [cases, setCases] = useState<ContractCase[]>([]);
+  const [cases, setCases] = useState<InsolvencyCase[]>([]);
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
+  const [activeCaseWithDocs, setActiveCaseWithDocs] =
+    useState<CaseWithDocuments | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const activeCase = cases.find((c) => c.id === activeCaseId) ?? null;
-
   const refresh = useCallback(async () => {
-    const data = await storage.getCases();
+    const data = await storage.getInsolvencyCases();
     setCases(data);
   }, []);
 
-  // Initial load
+  useEffect(() => {
+    if (activeCaseId == null) {
+      setActiveCaseWithDocs(null);
+      return;
+    }
+    let cancelled = false;
+    storage.getCaseWithDocuments(activeCaseId).then((pair) => {
+      if (!cancelled && pair) {
+        setActiveCaseWithDocs(pair);
+      } else if (!cancelled) {
+        setActiveCaseWithDocs(null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCaseId]);
+
   useEffect(() => {
     let cancelled = false;
-    storage.getCases().then((data) => {
+    storage.getInsolvencyCases().then((data) => {
       if (!cancelled) {
         setCases(data);
       }
     }).catch((err) => {
-      console.error("Failed to load cases from Firestore:", err);
+      console.error("Failed to load insolvency cases from Firestore:", err);
     }).finally(() => {
       if (!cancelled) {
         setLoading(false);
@@ -32,41 +54,61 @@ export function useCases() {
   }, []);
 
   const addCase = useCallback(
-    async (contractCase: ContractCase) => {
-      await storage.saveCase(contractCase);
+    async (insolvencyCase: InsolvencyCase) => {
+      await storage.saveInsolvencyCase(insolvencyCase);
       await refresh();
-      setActiveCaseId(contractCase.id);
+      setActiveCaseId(insolvencyCase.id);
     },
-    [refresh]
+    [refresh],
   );
 
   const updateCase = useCallback(
-    async (id: string, updates: Partial<ContractCase>) => {
-      await storage.updateCase(id, updates);
+    async (id: string, updates: Partial<InsolvencyCase>) => {
+      await storage.updateInsolvencyCase(id, updates);
       await refresh();
     },
-    [refresh]
+    [refresh],
   );
 
   const deleteCase = useCallback(
     async (id: string) => {
-      await storage.deleteCase(id);
+      await storage.deleteInsolvencyCase(id);
       await refresh();
       if (activeCaseId === id) {
         setActiveCaseId(null);
       }
     },
-    [activeCaseId, refresh]
+    [activeCaseId, refresh],
+  );
+
+  const addDocumentToCase = useCallback(
+    async (caseId: string, document: InsolvencyDocument) => {
+      await storage.addDocumentToCase(caseId, document);
+      await refresh();
+      if (activeCaseId === caseId) {
+        const pair = await storage.getCaseWithDocuments(caseId);
+        setActiveCaseWithDocs(pair ?? null);
+      }
+    },
+    [activeCaseId, refresh],
+  );
+
+  const getCaseWithDocuments = useCallback(
+    async (caseId: string) => storage.getCaseWithDocuments(caseId),
+    [],
   );
 
   return {
     cases,
-    activeCase,
     activeCaseId,
+    activeCaseWithDocs,
     setActiveCaseId,
     addCase,
     updateCase,
     deleteCase,
+    addDocumentToCase,
+    getCaseWithDocuments,
+    refresh,
     loading,
   };
 }

@@ -1,7 +1,7 @@
 import {useState} from "react";
-import type {Company, CompanyTask, ContractCase} from "../types";
+import type {Company, CompanyTask, InsolvencyCase} from "../types";
 import {USERS, type User} from "../types";
-import DocumentCard from "./DocumentCard";
+import CaseCard from "./CaseCard";
 import BackButton from "@/components/ui/BackButton";
 import AssigneeDropdown from "@/components/molecules/AssigneeDropdown";
 import UserSelect from "@/components/molecules/UserSelect";
@@ -12,13 +12,13 @@ import TaskFormModal from "./TaskFormModal";
 
 interface CompanyDetailViewProps {
   company: Company | null;
-  cases: ContractCase[];
+  cases: InsolvencyCase[];
   companyTasks: CompanyTask[];
   activeCaseId: string | null;
   onSelectCase: (id: string) => void;
   onBack: () => void;
   onUpdateCompany?: (id: string, updates: Partial<Company>) => void;
-  onUpdateCase?: (id: string, updates: Partial<ContractCase>) => void;
+  onUpdateCase?: (id: string, updates: Partial<InsolvencyCase>) => void;
   onUploadClick?: () => void;
   onAddTask?: (task: CompanyTask) => void;
   onUpdateTask?: (id: string, updates: Partial<CompanyTask>) => void;
@@ -46,12 +46,6 @@ export default function CompanyDetailView({
   const sortedCases = [...cases].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
-  /** Case used for due date (active when selected, else first). */
-  const focusedCase =
-    activeCaseId != null
-      ? sortedCases.find((c) => c.id === activeCaseId)
-      : (sortedCases[0] ?? null);
-  const dueDateDisplay = focusedCase?.contractDate;
 
   const selectedUser: User | null =
     company?.assignedTo != null
@@ -96,7 +90,7 @@ export default function CompanyDetailView({
               value={selectedUser}
               onChange={handleSelectAssignee}
             />
-            <AssigneeDropdown dueDateDisplay={dueDateDisplay} />
+            <AssigneeDropdown dueDateDisplay={undefined} />
           </div>
         </div>
       </div>
@@ -170,7 +164,7 @@ export default function CompanyDetailView({
 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Documents ({sortedCases.length})
+          Insolvency cases ({sortedCases.length})
         </h2>
         {onUploadClick && (
           <div className="border-b border-border px-4 py-2">
@@ -178,23 +172,24 @@ export default function CompanyDetailView({
               variant="ghost"
               size="sm"
               onClick={onUploadClick}
-              title="Upload contract"
+              title="Upload insolvency document"
               className="gap-1.5 text-muted-foreground hover:text-primary hover:bg-accent"
             >
               <Upload className="h-4 w-4 shrink-0" />
-              <span>+ Upload contract</span>
+              <span>+ Upload document</span>
             </Button>
           </div>
         )}
       </div>
       {sortedCases.length === 0 ? (
-        <p className="py-6 text-sm text-muted-foreground">No documents attached.</p>
+        <p className="py-6 text-sm text-muted-foreground">No insolvency cases yet.</p>
       ) : (
         <div className="space-y-2">
           {sortedCases.map((c) => (
-            <DocumentCard
+            <CaseCard
               key={c.id}
-              contractCase={c}
+              insolvencyCase={c}
+              company={company}
               isActive={c.id === activeCaseId}
               onClick={() => onSelectCase(c.id)}
             />

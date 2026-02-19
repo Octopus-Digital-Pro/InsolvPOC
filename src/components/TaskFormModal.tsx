@@ -1,10 +1,10 @@
-import { useState } from "react";
-import type { CompanyTask, CompanyTaskStatus } from "../types";
-import { Button } from "@/components/ui/button";
-import { DatePicker } from "@/components/ui/date-picker";
-import { format } from "date-fns";
-import { X } from "lucide-react";
-import { formatDate } from "@/lib/dateUtils";
+import {useState} from "react";
+import type {CompanyTask, CompanyTaskStatus} from "../types";
+import {Button} from "@/components/ui/button";
+import {DatePicker} from "@/components/ui/date-picker";
+import {format} from "date-fns";
+import {X} from "lucide-react";
+import {formatDate} from "@/lib/dateUtils";
 
 const STATUS_LABEL: Record<CompanyTaskStatus, string> = {
   open: "Open",
@@ -32,10 +32,10 @@ interface TaskFormModalProps {
   companyName?: string;
 }
 
-const STATUS_OPTIONS: { value: CompanyTaskStatus; label: string }[] = [
-  { value: "open", label: "Open" },
-  { value: "blocked", label: "Blocked" },
-  { value: "done", label: "Done" },
+const STATUS_OPTIONS: {value: CompanyTaskStatus; label: string}[] = [
+  {value: "open", label: "Open"},
+  {value: "blocked", label: "Blocked"},
+  {value: "done", label: "Done"},
 ];
 
 function getInitialFormState(task: CompanyTask | null) {
@@ -79,8 +79,7 @@ function TaskFormContent({
   const [isEditing, setIsEditing] = useState(mode !== "view");
 
   const isEdit = task != null;
-  const showViewMode =
-    mode === "view" && task != null && !isEditing;
+  const showViewMode = mode === "view" && task != null && !isEditing;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +99,7 @@ function TaskFormContent({
   if (showViewMode) {
     return (
       <div
-        className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl"
+        className="w-2xl rounded-xl border border-border bg-card p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between">
@@ -125,7 +124,9 @@ function TaskFormContent({
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Title
             </p>
-            <p className="text-sm text-foreground">{task.title || "Untitled"}</p>
+            <p className="text-sm text-foreground">
+              {task.title || "Untitled"}
+            </p>
           </div>
           {task.description && (
             <div>
@@ -176,7 +177,7 @@ function TaskFormContent({
 
   return (
     <div
-      className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl"
+      className="w-xl rounded-xl border border-border bg-card p-6 shadow-xl"
       onClick={(e) => e.stopPropagation()}
     >
       <div className="mb-4 flex items-start justify-between">

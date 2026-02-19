@@ -102,12 +102,49 @@ export interface ContractCase {
   rawJson: string;
 }
 
+/** One uploaded insolvency document (one file) attached to a dosar case. */
+export interface InsolvencyDocument {
+  id: string;
+  caseId: string;
+  sourceFileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  docType: string;
+  /** ISO date string or { text, iso } from extraction. */
+  documentDate: string;
+  /** Full extraction result; use InsolvencyExtractionResult from services/openai when reading. */
+  rawExtraction: unknown;
+}
+
+/** One insolvency matter (dosar) – case number + court + debtor; holds multiple documents. */
+export interface InsolvencyCase {
+  id: string;
+  caseNumber: string;
+  courtName: string;
+  debtorName: string;
+  debtorCui: string;
+  createdAt: string;
+  createdBy: string;
+  companyId?: string;
+  assignedTo?: string;
+}
+
 export interface StorageProvider {
   getCases(): Promise<ContractCase[]>;
   getCase(id: string): Promise<ContractCase | undefined>;
   saveCase(contractCase: ContractCase): Promise<void>;
   updateCase(id: string, updates: Partial<ContractCase>): Promise<void>;
   deleteCase(id: string): Promise<void>;
+
+  getInsolvencyCases(): Promise<InsolvencyCase[]>;
+  getInsolvencyCase(id: string): Promise<InsolvencyCase | undefined>;
+  /** Returns case plus its documents. */
+  getCaseWithDocuments(caseId: string): Promise<{ case: InsolvencyCase; documents: InsolvencyDocument[] } | undefined>;
+  saveInsolvencyCase(insolvencyCase: InsolvencyCase): Promise<void>;
+  updateInsolvencyCase(id: string, updates: Partial<InsolvencyCase>): Promise<void>;
+  deleteInsolvencyCase(id: string): Promise<void>;
+  addDocumentToCase(caseId: string, document: InsolvencyDocument): Promise<void>;
+  getInsolvencyDocuments(caseId: string): Promise<InsolvencyDocument[]>;
 
   getCompanies(): Promise<Company[]>;
   getCompany(id: string): Promise<Company | undefined>;

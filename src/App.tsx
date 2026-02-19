@@ -12,14 +12,15 @@ import {useCases} from "./hooks/useCases";
 import {useCompanies} from "./hooks/useCompanies";
 import {useTasks} from "./hooks/useTasks";
 import {processFile} from "./services/fileProcessor";
-import {extractContractInfo} from "./services/openai";
+import {extractInsolvencyInfo} from "./services/openai";
 import {getBestMatchingCompany} from "./services/companyMatch";
 import {
   getCurrentUser,
   setCurrentUser,
   clearCurrentUser,
+  storage,
 } from "./services/storage";
-import type {Company, ContractCase, User} from "./types";
+import type {Company, InsolvencyCase, InsolvencyDocument, User} from "./types";
 import TaskTable from "./components/TaskTable";
 import TaskFormModal from "./components/TaskFormModal";
 import CompanyCard from "./components/CompanyCard";
@@ -48,12 +49,13 @@ function App() {
 function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   const {
     cases,
-    activeCase,
     activeCaseId,
+    activeCaseWithDocs,
     setActiveCaseId,
     addCase,
     updateCase,
     deleteCase,
+    addDocumentToCase,
     loading,
   } = useCases();
   const {companies, addCompany, updateCompany} = useCompanies();
@@ -64,10 +66,10 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   const [processingFileName, setProcessingFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [pendingCase, setPendingCase] = useState<ContractCase | null>(null);
-  const [pendingExtraction, setPendingExtraction] = useState<Awaited<
-    ReturnType<typeof extractContractInfo>
-  > | null>(null);
+  const [pendingExtraction, setPendingExtraction] = useState<import("./services/openai").InsolvencyExtractionResult | null>(null);
+  const [pendingFileName, setPendingFileName] = useState("");
+  const [pendingExistingCaseId, setPendingExistingCaseId] = useState<string | null>(null);
+  const [pendingNewCase, setPendingNewCase] = useState<InsolvencyCase | null>(null);
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newCompanyCuiRo, setNewCompanyCuiRo] = useState("");
@@ -79,7 +81,6 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   const [suggestedCompanyId, setSuggestedCompanyId] = useState<string | null>(
     null,
   );
-  const [draftCase, setDraftCase] = useState<ContractCase | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
@@ -88,55 +89,50 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     setIsProcessing(true);
     setProcessingFileName(file.name);
     setActiveCaseId(null);
-    setPendingCase(null);
     setPendingExtraction(null);
+    setPendingExistingCaseId(null);
+    setPendingNewCase(null);
     setSuggestedCompanyId(null);
 
     try {
       const {images, fileName} = await processFile(file);
-      const result = await extractContractInfo(images);
+      const result = await extractInsolvencyInfo(images);
 
-      const contractCase: ContractCase = {
-        id: crypto.randomUUID(),
-        title:
-          result.contractTitleOrSubject !== "Not found"
-            ? result.contractTitleOrSubject
-            : result.beneficiary,
-        sourceFileName: fileName,
-        createdAt: new Date().toISOString(),
-        createdBy: user.name,
+      const caseNumber = result.case?.caseNumber?.trim() || "";
+      const courtName = result.case?.court?.name?.trim() || "";
+      const debtorName = result.parties?.debtor?.name?.trim() || "";
+      const debtorCui = result.parties?.debtor?.cui?.trim() || "";
 
-        beneficiary: result.beneficiary,
-        beneficiaryAddress: result.beneficiaryAddress,
-        beneficiaryIdentifiers: result.beneficiaryIdentifiers,
-        contractor: result.contractor,
-        contractorAddress: result.contractorAddress,
-        contractorIdentifiers: result.contractorIdentifiers,
-        subcontractors: result.subcontractors,
-
-        contractTitleOrSubject: result.contractTitleOrSubject,
-        contractNumberOrReference: result.contractNumberOrReference,
-        procurementProcedure: result.procurementProcedure,
-        cpvCodes: result.cpvCodes,
-
-        contractDate: result.contractDate,
-        effectiveDate: result.effectiveDate,
-        contractPeriod: result.contractPeriod,
-
-        signatories: result.signatories,
-        signingLocation: result.signingLocation,
-
-        otherImportantClauses: result.otherImportantClauses,
-        rawJson: result.rawJson,
-      };
+      const allCases = await storage.getInsolvencyCases();
+      const existing = allCases.find(
+        (c) =>
+          (c.caseNumber || "").trim() === caseNumber &&
+          (c.courtName || "").trim() === courtName,
+      );
 
       const matchedCompany = getBestMatchingCompany(companies, result);
       setSuggestedCompanyId(matchedCompany?.id ?? null);
-      setPendingCase(contractCase);
+      setPendingFileName(fileName);
       setPendingExtraction(result);
+
+      if (existing) {
+        setPendingExistingCaseId(existing.id);
+        setPendingNewCase(null);
+      } else {
+        setPendingExistingCaseId(null);
+        setPendingNewCase({
+          id: crypto.randomUUID(),
+          caseNumber,
+          courtName,
+          debtorName,
+          debtorCui,
+          createdAt: new Date().toISOString(),
+          createdBy: user.name,
+        });
+      }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "An unexpected error occurred";
+        err instanceof Error ? err.message : "Failed to analyze insolvency document";
       setError(message);
     } finally {
       setIsProcessing(false);
@@ -144,34 +140,54 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     }
   };
 
-  const handleAttachToCompany = (companyId: string) => {
-    if (!pendingCase) return;
-    setDraftCase({...pendingCase, companyId});
-    setPendingCase(null);
-    setPendingExtraction(null);
-    setSuggestedCompanyId(null);
+  const handleAttachToCompany = async (companyId: string) => {
+    if (!pendingExtraction || !pendingFileName) return;
+
+    const docType = pendingExtraction.document?.docType ?? "other";
+    const docDate = pendingExtraction.document?.documentDate;
+    const documentDate =
+      typeof docDate === "string"
+        ? docDate
+        : docDate?.iso ?? docDate?.text ?? new Date().toISOString().slice(0, 10);
+
+    const document: InsolvencyDocument = {
+      id: crypto.randomUUID(),
+      caseId: "",
+      sourceFileName: pendingFileName,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: user.name,
+      docType,
+      documentDate,
+      rawExtraction: pendingExtraction,
+    };
+
+    try {
+      if (pendingExistingCaseId) {
+        document.caseId = pendingExistingCaseId;
+        await updateCase(pendingExistingCaseId, { companyId });
+        await addDocumentToCase(pendingExistingCaseId, document);
+        setActiveCaseId(pendingExistingCaseId);
+      } else if (pendingNewCase) {
+        document.caseId = pendingNewCase.id;
+        await addCase({ ...pendingNewCase, companyId });
+        await addDocumentToCase(pendingNewCase.id, document);
+        setActiveCaseId(pendingNewCase.id);
+      }
+    } finally {
+      setPendingExtraction(null);
+      setPendingFileName("");
+      setPendingExistingCaseId(null);
+      setPendingNewCase(null);
+      setSuggestedCompanyId(null);
+    }
   };
 
   const handleAttachCancel = () => {
-    setPendingCase(null);
     setPendingExtraction(null);
+    setPendingFileName("");
+    setPendingExistingCaseId(null);
+    setPendingNewCase(null);
     setSuggestedCompanyId(null);
-  };
-
-  const handleSaveDraft = async () => {
-    if (!draftCase) return;
-    await addCase(draftCase);
-    setDraftCase(null);
-  };
-
-  const handleDiscardDraft = () => {
-    setDraftCase(null);
-  };
-
-  const handleDraftUpdate = (id: string, updates: Partial<ContractCase>) => {
-    setDraftCase((prev) =>
-      prev && prev.id === id ? {...prev, ...updates} : prev,
-    );
   };
 
   const handleSaveNewCompany = async () => {
@@ -215,6 +231,15 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   }
   const noCompanyCases = cases.filter((c) => !c.companyId);
   const noCompanyCount = noCompanyCases.length;
+  const pendingCaseSummary =
+    pendingExtraction && (pendingExistingCaseId || pendingNewCase)
+      ? {
+          caseNumber:
+            pendingExtraction.case?.caseNumber ?? pendingNewCase?.caseNumber ?? "",
+          debtorName:
+            pendingExtraction.parties?.debtor?.name ?? pendingNewCase?.debtorName ?? "",
+        }
+      : null;
 
   const handleCompanyClick = (companyId: string | "none") => {
     setSelectedCompanyId(companyId);
@@ -316,9 +341,9 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
             </div>
           ) : isProcessing ? (
             <ProcessingOverlay fileName={processingFileName} />
-          ) : pendingCase && pendingExtraction ? (
+          ) : pendingExtraction && pendingCaseSummary ? (
             <AttachToCompanyStep
-              draftCase={pendingCase}
+              caseSummary={pendingCaseSummary}
               extractionResult={pendingExtraction}
               companies={companies}
               suggestedCompanyId={suggestedCompanyId}
@@ -326,30 +351,14 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
               onAttach={handleAttachToCompany}
               onCancel={handleAttachCancel}
               createdBy={user.name}
+              sourceFileName={pendingFileName}
             />
-          ) : draftCase ? (
+          ) : activeCaseWithDocs ? (
             <CaseDetail
-              contractCase={draftCase}
+              caseWithDocs={activeCaseWithDocs}
               company={
-                draftCase.companyId
-                  ? companyById.get(draftCase.companyId)
-                  : undefined
-              }
-              companies={companies}
-              currentUserName={user.name}
-              onUpdate={handleDraftUpdate}
-              onUpdateCompany={updateCompany}
-              onDelete={handleDiscardDraft}
-              onBack={handleDiscardDraft}
-              isDraft
-              onSave={handleSaveDraft}
-            />
-          ) : activeCase ? (
-            <CaseDetail
-              contractCase={activeCase}
-              company={
-                activeCase.companyId
-                  ? companyById.get(activeCase.companyId)
+                activeCaseWithDocs.case.companyId
+                  ? companyById.get(activeCaseWithDocs.case.companyId)
                   : undefined
               }
               companies={companies}

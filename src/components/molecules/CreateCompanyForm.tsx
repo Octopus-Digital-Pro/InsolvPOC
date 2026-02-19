@@ -1,16 +1,12 @@
 import {Button} from "@/components/ui/button";
 
-type PrefillSource = "beneficiary" | "contractor";
-
 interface CreateCompanyFormProps {
   name: string;
   cuiRo: string;
   address: string;
-  prefillSource: PrefillSource;
   error: string | null;
   saving: boolean;
-  onPrefillBeneficiary: () => void;
-  onPrefillContractor: () => void;
+  onPrefillDebtor: () => void;
   onNameChange: (value: string) => void;
   onCuiRoChange: (value: string) => void;
   onAddressChange: (value: string) => void;
@@ -22,11 +18,9 @@ export default function CreateCompanyForm({
   name,
   cuiRo,
   address,
-  prefillSource,
   error,
   saving,
-  onPrefillBeneficiary,
-  onPrefillContractor,
+  onPrefillDebtor,
   onNameChange,
   onCuiRoChange,
   onAddressChange,
@@ -36,34 +30,18 @@ export default function CreateCompanyForm({
   return (
     <div className="mx-auto max-w-xl pt-12">
       <h2 className="text-xl font-semibold text-foreground">
-        Create new company
+        Create new company (debtor)
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Pre-filled from scan. You can switch to contractor data or edit.
+        Pre-filled from the scanned document. You can edit below.
       </p>
       <div className="mt-2 flex gap-2 text-xs">
         <button
           type="button"
-          onClick={onPrefillBeneficiary}
-          className={
-            prefillSource === "beneficiary"
-              ? "font-medium text-primary"
-              : "text-muted-foreground hover:text-foreground"
-          }
+          onClick={onPrefillDebtor}
+          className="text-muted-foreground hover:text-foreground font-medium"
         >
-          Use beneficiary
-        </button>
-        <span className="text-border">|</span>
-        <button
-          type="button"
-          onClick={onPrefillContractor}
-          className={
-            prefillSource === "contractor"
-              ? "font-medium text-primary"
-              : "text-muted-foreground hover:text-foreground"
-          }
-        >
-          Use contractor
+          Use debtor data from scan
         </button>
       </div>
       <div className="mt-6 space-y-4">
@@ -106,7 +84,7 @@ export default function CreateCompanyForm({
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex gap-3">
           <Button onClick={onSave} disabled={saving || !name.trim()}>
-            {saving ? "Saving…" : "Create company & attach case"}
+            {saving ? "Saving…" : "Create company & attach document"}
           </Button>
           <Button variant="outline" onClick={onBack}>
             Back

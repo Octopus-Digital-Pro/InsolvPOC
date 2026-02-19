@@ -1,25 +1,24 @@
 import { useState, useMemo } from "react";
-import type { Company, ContractCase } from "../types";
-import type { ContractExtractionResult } from "../services/openai";
+import type { Company } from "../types";
+import type { InsolvencyExtractionResult } from "../services/openai";
 import { normalizeForMatch, suggestCompanies } from "../services/companyMatch";
 import CreateCompanyForm from "./molecules/CreateCompanyForm";
 import SuggestedMatchCard from "./molecules/SuggestedMatchCard";
 
 interface AttachToCompanyStepProps {
-  draftCase: ContractCase;
-  extractionResult: ContractExtractionResult;
+  caseSummary: { caseNumber: string; debtorName: string };
+  extractionResult: InsolvencyExtractionResult;
   companies: Company[];
   suggestedCompanyId?: string | null;
   onCreateCompany: (company: Company) => Promise<void>;
   onAttach: (companyId: string) => void;
   onCancel: () => void;
   createdBy: string;
+  sourceFileName: string;
 }
 
-type PrefillSource = "beneficiary" | "contractor";
-
 export default function AttachToCompanyStep({
-  draftCase,
+  caseSummary,
   extractionResult,
   companies,
   suggestedCompanyId = null,
@@ -27,24 +26,25 @@ export default function AttachToCompanyStep({
   onAttach,
   onCancel,
   createdBy,
+  sourceFileName,
 }: AttachToCompanyStepProps) {
   const suggestedCompany = suggestedCompanyId
     ? companies.find((c) => c.id === suggestedCompanyId) ?? null
     : null;
   const [mode, setMode] = useState<"select" | "create">("select");
-  const [prefillSource, setPrefillSource] = useState<PrefillSource>("beneficiary");
   const [search, setSearch] = useState("");
-  const [createName, setCreateName] = useState("");
-  const [createCuiRo, setCreateCuiRo] = useState("");
-  const [createAddress, setCreateAddress] = useState("");
+  const debtor = extractionResult.parties?.debtor;
+  const [createName, setCreateName] = useState(debtor?.name && debtor.name !== "Not found" ? debtor.name : "");
+  const [createCuiRo, setCreateCuiRo] = useState(debtor?.cui && debtor.cui !== "Not found" ? debtor.cui : "");
+  const [createAddress, setCreateAddress] = useState(debtor?.address && debtor.address !== "Not found" ? debtor.address : "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const suggested = useMemo(() => {
-    const name = prefillSource === "beneficiary" ? extractionResult.beneficiary : extractionResult.contractor;
-    const identifiers = prefillSource === "beneficiary" ? extractionResult.beneficiaryIdentifiers : extractionResult.contractorIdentifiers;
+    const name = debtor?.name ?? "";
+    const identifiers = debtor?.cui ?? "";
     return suggestCompanies(companies, name, identifiers);
-  }, [companies, extractionResult, prefillSource]);
+  }, [companies, debtor?.name, debtor?.cui]);
 
   const filteredCompanies = useMemo(() => {
     if (!search.trim()) return companies;
@@ -52,19 +52,15 @@ export default function AttachToCompanyStep({
     return companies.filter((c) => normalizeForMatch(c.name).includes(q) || (c.cuiRo && c.cuiRo.toLowerCase().includes(q)));
   }, [companies, search]);
 
-  const prefillFromScan = (source: PrefillSource) => {
-    setPrefillSource(source);
-    const name = source === "beneficiary" ? extractionResult.beneficiary : extractionResult.contractor;
-    const address = source === "beneficiary" ? extractionResult.beneficiaryAddress : extractionResult.contractorAddress;
-    const identifiers = source === "beneficiary" ? extractionResult.beneficiaryIdentifiers : extractionResult.contractorIdentifiers;
-    if (name && name !== "Not found") setCreateName(name);
-    if (address && address !== "Not found") setCreateAddress(address);
-    if (identifiers && identifiers !== "Not found") setCreateCuiRo(identifiers);
+  const prefillFromDebtor = () => {
+    if (debtor?.name && debtor.name !== "Not found") setCreateName(debtor.name);
+    if (debtor?.address && debtor.address !== "Not found") setCreateAddress(debtor.address);
+    if (debtor?.cui && debtor.cui !== "Not found") setCreateCuiRo(debtor.cui);
   };
 
   const handleCreateNew = () => {
     setMode("create");
-    prefillFromScan("beneficiary");
+    prefillFromDebtor();
   };
 
   const handleAttachExisting = (companyId: string) => {
@@ -103,11 +99,9 @@ export default function AttachToCompanyStep({
         name={createName}
         cuiRo={createCuiRo}
         address={createAddress}
-        prefillSource={prefillSource}
         error={error}
         saving={saving}
-        onPrefillBeneficiary={() => prefillFromScan("beneficiary")}
-        onPrefillContractor={() => prefillFromScan("contractor")}
+        onPrefillDebtor={prefillFromDebtor}
         onNameChange={setCreateName}
         onCuiRoChange={setCreateCuiRo}
         onAddressChange={setCreateAddress}
@@ -121,11 +115,12 @@ export default function AttachToCompanyStep({
     <div className="mx-auto max-w-xl pt-12">
       <h2 className="text-xl font-semibold text-foreground">Attach to company</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Choose an existing company or create a new one for this document.
+        Choose the debtor company or create a new one for this insolvency case.
       </p>
-      <p className="mt-0.5 text-xs text-muted-foreground truncate" title={draftCase.title}>
-        Document: {draftCase.title || draftCase.sourceFileName}
+      <p className="mt-0.5 text-xs text-muted-foreground truncate" title={sourceFileName}>
+        Case: {caseSummary.caseNumber} – {caseSummary.debtorName || "—"}
       </p>
+      <p className="mt-0.5 text-xs text-muted-foreground truncate">File: {sourceFileName}</p>
 
       {suggestedCompany && (
         <SuggestedMatchCard

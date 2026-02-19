@@ -12,7 +12,7 @@ export default function ProcessingOverlay({fileName}: ProcessingOverlayProps) {
       <h3 className="text-lg font-semibold text-foreground">Analyzing document...</h3>
       <p className="mt-1 text-sm text-muted-foreground">{fileName}</p>
       <p className="mt-4 max-w-xs text-center text-xs text-muted-foreground">
-        Extracting parties, dates, financials, scope and legal clauses using AI
+        Extracting case number, debtor, deadlines, tables and reports using AI
       </p>
     </div>
   );

@@ -37,10 +37,10 @@ export default function UploadModal({
               id="upload-modal-title"
               className="text-xl font-semibold text-card-foreground"
             >
-              Upload a Contract
+              Upload an insolvency document
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Upload a contract document to automatically extract key information
+              Upload a decision, notification, claims table or report to extract case number, debtor, deadlines and more
             </p>
           </div>
           <Button

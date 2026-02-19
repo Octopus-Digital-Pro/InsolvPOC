@@ -1,17 +1,13 @@
-import { useState, useCallback, useEffect } from "react";
-import type { CompanyTask } from "../types";
-import { storage } from "../services/storage";
+import {useState, useCallback, useEffect} from "react";
+import type {CompanyTask} from "../types";
+import {storage} from "../services/storage";
 
 export function useTasks(userId: string | null) {
   const [tasks, setTasks] = useState<CompanyTask[]>([]);
   const [loading, setLoading] = useState(true);
 
   const myTasks =
-    userId == null
-      ? []
-      : tasks.filter(
-          (t) => t.assignedTo == null || t.assignedTo === userId,
-        );
+    userId == null ? [] : tasks.filter((t) => t.assignedTo === userId);
 
   const refresh = useCallback(async () => {
     const data = await storage.getTasks();
@@ -20,23 +16,28 @@ export function useTasks(userId: string | null) {
 
   useEffect(() => {
     let cancelled = false;
-    storage.getTasks().then((data) => {
-      if (!cancelled) {
-        setTasks(data);
-      }
-    }).catch((err) => {
-      console.error("Failed to load tasks from Firestore:", err);
-    }).finally(() => {
-      if (!cancelled) {
-        setLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
+    storage
+      .getTasks()
+      .then((data) => {
+        if (!cancelled) {
+          setTasks(data);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load tasks from Firestore:", err);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const getByCompany = useCallback(
-    (companyId: string) =>
-      tasks.filter((t) => t.companyId === companyId),
+    (companyId: string) => tasks.filter((t) => t.companyId === companyId),
     [tasks],
   );
 

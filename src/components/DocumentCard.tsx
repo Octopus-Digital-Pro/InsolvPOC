@@ -1,22 +1,28 @@
-import type {ContractCase} from "../types";
-import {formatDateTime} from "@/lib/dateUtils";
+import type { InsolvencyDocument } from "../types";
+import { formatDateTime } from "@/lib/dateUtils";
 
 interface DocumentCardProps {
-  contractCase: ContractCase;
+  document: InsolvencyDocument;
   isActive: boolean;
   onClick: () => void;
 }
 
+function formatDocType(docType: string): string {
+  return (docType || "other").replace(/_/g, " ");
+}
+
 export default function DocumentCard({
-  contractCase,
+  document,
   isActive,
   onClick,
 }: DocumentCardProps) {
-  const creationDate = formatDateTime(contractCase.createdAt);
-  const dueLabel =
-    contractCase.contractDate && contractCase.contractDate !== "Not found"
-      ? contractCase.contractDate
-      : "—";
+  const uploadedAt = formatDateTime(document.uploadedAt);
+  const docDate =
+    typeof document.documentDate === "string"
+      ? document.documentDate
+      : (document.documentDate as { iso?: string; text?: string })?.iso ??
+        (document.documentDate as { text?: string })?.text ??
+        "—";
 
   return (
     <button
@@ -32,14 +38,17 @@ export default function DocumentCard({
       <h3
         className={`truncate text-sm font-semibold ${isActive ? "text-sidebar-primary" : "text-foreground"}`}
       >
-        {contractCase.title || "Untitled"}
+        {formatDocType(document.docType)}
       </h3>
       <div className="mt-2 space-y-1 text-xs text-muted-foreground">
         <p>
-          <span className="text-muted-foreground">Created:</span> {creationDate}
+          <span className="text-muted-foreground">Uploaded:</span> {uploadedAt}
         </p>
         <p>
-          <span className="text-muted-foreground">Contract date:</span> {dueLabel}
+          <span className="text-muted-foreground">Document date:</span> {docDate}
+        </p>
+        <p className="truncate" title={document.sourceFileName}>
+          {document.sourceFileName}
         </p>
       </div>
     </button>
