@@ -8,6 +8,7 @@ import CompanyDetailView from "./components/CompanyDetailView";
 import CaseDetail from "./components/CaseDetail";
 import ProcessingOverlay from "./components/ProcessingOverlay";
 import AttachToCompanyStep from "./components/AttachToCompanyStep";
+import ExtractionReviewStep from "./components/ExtractionReviewStep";
 import {useCases} from "./hooks/useCases";
 import {useCompanies} from "./hooks/useCompanies";
 import {useTasks} from "./hooks/useTasks";
@@ -67,6 +68,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pendingExtraction, setPendingExtraction] = useState<import("./services/openai").InsolvencyExtractionResult | null>(null);
+  const [pendingReviewConfirmed, setPendingReviewConfirmed] = useState(false);
   const [pendingFileName, setPendingFileName] = useState("");
   const [pendingExistingCaseId, setPendingExistingCaseId] = useState<string | null>(null);
   const [pendingNewCase, setPendingNewCase] = useState<InsolvencyCase | null>(null);
@@ -90,6 +92,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     setProcessingFileName(file.name);
     setActiveCaseId(null);
     setPendingExtraction(null);
+    setPendingReviewConfirmed(false);
     setPendingExistingCaseId(null);
     setPendingNewCase(null);
     setSuggestedCompanyId(null);
@@ -113,6 +116,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
       const matchedCompany = getBestMatchingCompany(companies, result);
       setSuggestedCompanyId(matchedCompany?.id ?? null);
       setPendingFileName(fileName);
+      setPendingReviewConfirmed(false);
       setPendingExtraction(result);
 
       if (existing) {
@@ -184,6 +188,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
 
   const handleAttachCancel = () => {
     setPendingExtraction(null);
+    setPendingReviewConfirmed(false);
     setPendingFileName("");
     setPendingExistingCaseId(null);
     setPendingNewCase(null);
@@ -341,6 +346,15 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
             </div>
           ) : isProcessing ? (
             <ProcessingOverlay fileName={processingFileName} />
+          ) : pendingExtraction && pendingCaseSummary && !pendingReviewConfirmed ? (
+            <ExtractionReviewStep
+              extractionResult={pendingExtraction}
+              sourceFileName={pendingFileName}
+              currentUserName={user.name}
+              onConfirm={() => setPendingReviewConfirmed(true)}
+              onCancel={handleAttachCancel}
+              onExtractionChange={setPendingExtraction}
+            />
           ) : pendingExtraction && pendingCaseSummary ? (
             <AttachToCompanyStep
               caseSummary={pendingCaseSummary}
