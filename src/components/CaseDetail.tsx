@@ -173,13 +173,7 @@ export default function CaseDetail({
               </select>
             </div>
           )}
-          <AssigneeDropdown
-            dueDateDisplay={contractCase.contractDate}
-            alertAt={contractCase.alertAt}
-            onSetAlert={(iso) =>
-              onUpdate(contractCase.id, {alertAt: iso ?? undefined})
-            }
-          />
+          <AssigneeDropdown dueDateDisplay={contractCase.contractDate} />
         </div>
       </div>
 

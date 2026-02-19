@@ -1,5 +1,5 @@
 import type {ContractCase} from "../types";
-import {formatDate, formatDateTime} from "@/lib/dateUtils";
+import {formatDateTime} from "@/lib/dateUtils";
 
 interface DocumentCardProps {
   contractCase: ContractCase;
@@ -17,9 +17,6 @@ export default function DocumentCard({
     contractCase.contractDate && contractCase.contractDate !== "Not found"
       ? contractCase.contractDate
       : "—";
-  const alertLabel = contractCase.alertAt
-    ? formatDate(contractCase.alertAt)
-    : null;
 
   return (
     <button
@@ -44,11 +41,6 @@ export default function DocumentCard({
         <p>
           <span className="text-muted-foreground">Contract date:</span> {dueLabel}
         </p>
-        {alertLabel !== null && (
-          <p>
-            <span className="text-muted-foreground">Alert:</span> {alertLabel}
-          </p>
-        )}
       </div>
     </button>
   );

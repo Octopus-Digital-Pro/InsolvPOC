@@ -1,48 +1,57 @@
-import type {Company, ContractCase} from "../types";
+import {useState} from "react";
+import type {Company, CompanyTask, ContractCase} from "../types";
 import {USERS, type User} from "../types";
 import DocumentCard from "./DocumentCard";
 import BackButton from "@/components/ui/BackButton";
 import AssigneeDropdown from "@/components/molecules/AssigneeDropdown";
 import UserSelect from "@/components/molecules/UserSelect";
 import {Button} from "@/components/ui/button";
-import {Upload} from "lucide-react";
+import {Upload, Plus} from "lucide-react";
+import TaskTable from "./TaskTable";
+import TaskFormModal from "./TaskFormModal";
 
 interface CompanyDetailViewProps {
   company: Company | null;
   cases: ContractCase[];
+  companyTasks: CompanyTask[];
   activeCaseId: string | null;
   onSelectCase: (id: string) => void;
   onBack: () => void;
   onUpdateCompany?: (id: string, updates: Partial<Company>) => void;
   onUpdateCase?: (id: string, updates: Partial<ContractCase>) => void;
   onUploadClick?: () => void;
+  onAddTask?: (task: CompanyTask) => void;
+  onUpdateTask?: (id: string, updates: Partial<CompanyTask>) => void;
+  onDeleteTask?: (id: string) => void;
 }
 
 export default function CompanyDetailView({
   company,
   cases,
+  companyTasks,
   activeCaseId,
   onSelectCase,
   onBack,
   onUpdateCompany,
-  onUpdateCase,
   onUploadClick,
+  onAddTask,
+  onUpdateTask,
+  onDeleteTask,
 }: CompanyDetailViewProps) {
+  const [taskFormOpen, setTaskFormOpen] = useState(false);
+  const [taskFormEditing, setTaskFormEditing] = useState<CompanyTask | null>(
+    null,
+  );
+
   const sortedCases = [...cases].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
-  /** Case used for due date / notification (active when selected, else first). */
+  /** Case used for due date (active when selected, else first). */
   const focusedCase =
     activeCaseId != null
       ? sortedCases.find((c) => c.id === activeCaseId)
       : (sortedCases[0] ?? null);
   const dueDateDisplay = focusedCase?.contractDate;
-  const alertAt = focusedCase?.alertAt;
-  const handleSetAlert = (iso: string | undefined) => {
-    if (focusedCase && onUpdateCase) {
-      onUpdateCase(focusedCase.id, {alertAt: iso ?? undefined});
-    }
-  };
 
   const selectedUser: User | null =
     company?.assignedTo != null
@@ -87,14 +96,77 @@ export default function CompanyDetailView({
               value={selectedUser}
               onChange={handleSelectAssignee}
             />
-            <AssigneeDropdown
-              dueDateDisplay={dueDateDisplay}
-              alertAt={alertAt}
-              onSetAlert={handleSetAlert}
-            />
+            <AssigneeDropdown dueDateDisplay={dueDateDisplay} />
           </div>
         </div>
       </div>
+
+      <div className="mb-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Tasks ({companyTasks.length})
+          </h2>
+          {company && onAddTask && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setTaskFormEditing(null);
+                setTaskFormOpen(true);
+              }}
+              className="gap-1.5 text-muted-foreground hover:text-primary hover:bg-accent"
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              <span>Create task</span>
+            </Button>
+          )}
+        </div>
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <TaskTable
+            tasks={companyTasks}
+            onEdit={
+              onUpdateTask
+                ? (task) => {
+                    setTaskFormEditing(task);
+                    setTaskFormOpen(true);
+                  }
+                : undefined
+            }
+            onDelete={
+              onDeleteTask
+                ? (task) => {
+                    if (window.confirm("Delete this task?")) {
+                      onDeleteTask(task.id);
+                    }
+                  }
+                : undefined
+            }
+          />
+        </div>
+      </div>
+
+      {company && onAddTask && onUpdateTask && (
+        <TaskFormModal
+          open={taskFormOpen}
+          onClose={() => {
+            setTaskFormOpen(false);
+            setTaskFormEditing(null);
+          }}
+          companyId={company.id}
+          task={taskFormEditing}
+          onSubmit={(payload, existingTask) => {
+            if (existingTask) {
+              onUpdateTask(existingTask.id, payload);
+            } else {
+              onAddTask({
+                id: crypto.randomUUID(),
+                companyId: company.id,
+                ...payload,
+              });
+            }
+          }}
+        />
+      )}
 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

@@ -45,6 +45,19 @@ export interface Company {
   createdBy?: string;
 }
 
+export type CompanyTaskStatus = "open" | "blocked" | "done";
+
+export interface CompanyTask {
+  id: string;
+  companyId: string;
+  title: string;
+  description: string;
+  deadline: string;
+  status: CompanyTaskStatus;
+  assignedTo?: string;
+  createdAt?: string;
+}
+
 export interface ContractCase {
   id: string;
   title: string;
@@ -52,7 +65,6 @@ export interface ContractCase {
   createdAt: string;
   createdBy: string;
   companyId?: string;
-  alertAt?: string;
 
   // Per-field edit tracking: { fieldKey: { editedBy, editedAt } }
   edits?: Record<string, FieldEdit>;
@@ -102,4 +114,11 @@ export interface StorageProvider {
   saveCompany(company: Company): Promise<void>;
   updateCompany(id: string, updates: Partial<Company>): Promise<void>;
   deleteCompany(id: string): Promise<void>;
+
+  getTasks(): Promise<CompanyTask[]>;
+  getTasksByCompany(companyId: string): Promise<CompanyTask[]>;
+  getTask(id: string): Promise<CompanyTask | undefined>;
+  saveTask(task: CompanyTask): Promise<void>;
+  updateTask(id: string, updates: Partial<CompanyTask>): Promise<void>;
+  deleteTask(id: string): Promise<void>;
 }

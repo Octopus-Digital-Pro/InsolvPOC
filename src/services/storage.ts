@@ -11,14 +11,22 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import type { Company, ContractCase, StorageProvider, User } from "../types";
+import type {
+  Company,
+  CompanyTask,
+  ContractCase,
+  StorageProvider,
+  User,
+} from "../types";
 
 const CASES_COLLECTION = "cases";
 const COMPANIES_COLLECTION = "companies";
+const TASKS_COLLECTION = "tasks";
 const USER_KEY = "insolvpoc_current_user";
 
 const casesRef = collection(db, CASES_COLLECTION);
 const companiesRef = collection(db, COMPANIES_COLLECTION);
+const tasksRef = collection(db, TASKS_COLLECTION);
 
 class FirestoreProvider implements StorageProvider {
   async getCases(): Promise<ContractCase[]> {
@@ -81,6 +89,56 @@ class FirestoreProvider implements StorageProvider {
 
   async deleteCompany(id: string): Promise<void> {
     await deleteDoc(doc(db, COMPANIES_COLLECTION, id));
+  }
+
+  async getTasks(): Promise<CompanyTask[]> {
+    const snapshot = await getDocs(tasksRef);
+    const tasks = snapshot.docs.map((d) => d.data() as CompanyTask);
+    return tasks.sort((a, b) => {
+      const da = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+      const db = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+      return da - db;
+    });
+  }
+
+  async getTasksByCompany(companyId: string): Promise<CompanyTask[]> {
+    const snapshot = await getDocs(tasksRef);
+    const tasks = snapshot.docs
+      .map((d) => d.data() as CompanyTask)
+      .filter((t) => t.companyId === companyId);
+    return tasks.sort((a, b) => {
+      const da = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+      const db = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+      return da - db;
+    });
+  }
+
+  async getTask(id: string): Promise<CompanyTask | undefined> {
+    const snap = await getDoc(doc(db, TASKS_COLLECTION, id));
+    return snap.exists() ? (snap.data() as CompanyTask) : undefined;
+  }
+
+  async saveTask(task: CompanyTask): Promise<void> {
+    await setDoc(doc(db, TASKS_COLLECTION, task.id), {
+      ...task,
+      createdAt: task.createdAt ?? new Date().toISOString(),
+    });
+  }
+
+  async updateTask(id: string, updates: Partial<CompanyTask>): Promise<void> {
+    const payload: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined) {
+        payload[key] = deleteField();
+      } else {
+        payload[key] = value;
+      }
+    }
+    await updateDoc(doc(db, TASKS_COLLECTION, id), payload);
+  }
+
+  async deleteTask(id: string): Promise<void> {
+    await deleteDoc(doc(db, TASKS_COLLECTION, id));
   }
 }
 

@@ -10,6 +10,7 @@ import ProcessingOverlay from "./components/ProcessingOverlay";
 import AttachToCompanyStep from "./components/AttachToCompanyStep";
 import {useCases} from "./hooks/useCases";
 import {useCompanies} from "./hooks/useCompanies";
+import {useTasks} from "./hooks/useTasks";
 import {processFile} from "./services/fileProcessor";
 import {extractContractInfo} from "./services/openai";
 import {getBestMatchingCompany} from "./services/companyMatch";
@@ -19,6 +20,10 @@ import {
   clearCurrentUser,
 } from "./services/storage";
 import type {Company, ContractCase, User} from "./types";
+import TaskTable from "./components/TaskTable";
+import TaskFormModal from "./components/TaskFormModal";
+import CompanyCard from "./components/CompanyCard";
+import FloatingUploadCTA from "./components/FloatingUploadCTA";
 
 function App() {
   const [currentUser, setUser] = useState<User | null>(() => getCurrentUser());
@@ -52,6 +57,8 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     loading,
   } = useCases();
   const {companies, addCompany, updateCompany} = useCompanies();
+  const {myTasks, getByCompany, addTask, updateTask, deleteTask} =
+    useTasks(user.id);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingFileName, setProcessingFileName] = useState("");
@@ -74,6 +81,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   );
   const [draftCase, setDraftCase] = useState<ContractCase | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const handleFileAccepted = async (file: File) => {
     setError(null);
@@ -246,6 +254,12 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
         error={error}
       />
 
+      <FloatingUploadCTA
+        onUploadClick={() => setUploadModalOpen(true)}
+        onFileAccepted={handleUploadFileAccepted}
+        isProcessing={isProcessing}
+      />
+
       <div className="flex flex-1 overflow-hidden">
         <aside
           className={`
@@ -256,12 +270,6 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
           <CompaniesSidebar
             open={sidebarOpen}
             companies={companies}
-            caseCountByCompanyId={caseCountByCompanyId}
-            myCompanies={myCompanies}
-            otherCompanies={otherCompanies}
-            noCompanyCount={noCompanyCount}
-            selectedCompanyId={selectedCompanyId}
-            onCompanyClick={handleCompanyClick}
             onUploadClick={() => setUploadModalOpen(true)}
             showAddCompany={showAddCompany}
             onToggleAddCompany={(show) => {
@@ -355,12 +363,20 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
             <CompanyDetailView
               company={selectedCompany}
               cases={casesForSelectedCompany}
+              companyTasks={
+                selectedCompany ? getByCompany(selectedCompany.id) : []
+              }
               activeCaseId={activeCaseId}
               onSelectCase={(id) => setActiveCaseId(id)}
               onBack={() => setSelectedCompanyId(null)}
               onUpdateCompany={updateCompany}
               onUpdateCase={updateCase}
               onUploadClick={() => setUploadModalOpen(true)}
+              onAddTask={(task) =>
+                addTask({ ...task, assignedTo: task.assignedTo ?? user.id })
+              }
+              onUpdateTask={updateTask}
+              onDeleteTask={deleteTask}
             />
           ) : (
             <div className="mx-auto max-w-3xl pt-12">
@@ -373,10 +389,100 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
                   />
                 </div>
               )}
-              <h2 className="text-xl font-semibold text-foreground">Dashboard</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Widgets will be added later.
+              <h2 className="text-xl font-semibold text-foreground">
+                Dashboard
+              </h2>
+              <p className="mt-2 mb-4 text-sm text-muted-foreground">
+                Tasks sorted by deadline (closest first).
               </p>
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <TaskTable
+                  tasks={myTasks}
+                  companyNameById={(id) => companyById.get(id)?.name ?? id}
+                  onOpenCompany={(companyId) => handleCompanyClick(companyId)}
+                  onTaskClick={(task) => setSelectedTaskId(task.id)}
+                />
+              </div>
+              {selectedTaskId != null && (() => {
+                const selectedTask = myTasks.find(
+                  (t) => t.id === selectedTaskId,
+                );
+                if (!selectedTask) return null;
+                return (
+                  <TaskFormModal
+                    open
+                    onClose={() => setSelectedTaskId(null)}
+                    companyId={selectedTask.companyId}
+                    task={selectedTask}
+                    mode="view"
+                    companyName={companyById.get(selectedTask.companyId)?.name}
+                    onSubmit={(payload, existingTask) => {
+                      if (existingTask) {
+                        updateTask(existingTask.id, payload);
+                      }
+                      setSelectedTaskId(null);
+                    }}
+                  />
+                );
+              })()}
+
+              <section className="mt-8">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Assigned to me ({myCompanies.length})
+                </h3>
+                {myCompanies.length === 0 ? (
+                  <p className="py-4 text-sm text-muted-foreground">
+                    No companies
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-1">
+                    {myCompanies.map((company) => (
+                      <CompanyCard
+                        key={company.id}
+                        company={company}
+                        documentCount={
+                          caseCountByCompanyId.get(company.id) ?? 0
+                        }
+                        isActive={selectedCompanyId === company.id}
+                        onClick={() => handleCompanyClick(company.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="mt-8">
+                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  Other
+                </h3>
+                {otherCompanies.length === 0 && noCompanyCount === 0 ? (
+                  <p className="py-4 text-sm text-muted-foreground">
+                    No companies
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-1">
+                    {otherCompanies.map((company) => (
+                      <CompanyCard
+                        key={company.id}
+                        company={company}
+                        documentCount={
+                          caseCountByCompanyId.get(company.id) ?? 0
+                        }
+                        isActive={selectedCompanyId === company.id}
+                        onClick={() => handleCompanyClick(company.id)}
+                      />
+                    ))}
+                    {noCompanyCount > 0 && (
+                      <CompanyCard
+                        company={null}
+                        documentCount={noCompanyCount}
+                        isActive={selectedCompanyId === "none"}
+                        onClick={() => handleCompanyClick("none")}
+                      />
+                    )}
+                  </div>
+                )}
+              </section>
             </div>
           )}
         </main>
