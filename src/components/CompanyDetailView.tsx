@@ -1,10 +1,14 @@
 import {useState} from "react";
 import type {Company, CompanyTask, InsolvencyCase} from "../types";
 import {USERS, type User} from "../types";
-import CaseCard from "./CaseCard";
+import type {CaseWithDocuments} from "../hooks/useCases";
+import {aggregateDeadlines} from "../domain/insolvencyCase";
+import {toTitleCase} from "@/lib/dateUtils";
 import BackButton from "@/components/ui/BackButton";
 import AssigneeDropdown from "@/components/molecules/AssigneeDropdown";
 import UserSelect from "@/components/molecules/UserSelect";
+import Section from "@/components/molecules/Section";
+import DocumentCard from "./DocumentCard";
 import {Button} from "@/components/ui/button";
 import {Upload, Plus} from "lucide-react";
 import TaskTable from "./TaskTable";
@@ -13,9 +17,11 @@ import TaskFormModal from "./TaskFormModal";
 interface CompanyDetailViewProps {
   company: Company | null;
   cases: InsolvencyCase[];
+  casesWithDocs: CaseWithDocuments[];
   companyTasks: CompanyTask[];
   activeCaseId: string | null;
   onSelectCase: (id: string) => void;
+  onSelectDocument?: (caseId: string, documentId: string) => void;
   onBack: () => void;
   onUpdateCompany?: (id: string, updates: Partial<Company>) => void;
   onUpdateCase?: (id: string, updates: Partial<InsolvencyCase>) => void;
@@ -27,10 +33,10 @@ interface CompanyDetailViewProps {
 
 export default function CompanyDetailView({
   company,
-  cases,
+  casesWithDocs,
   companyTasks,
-  activeCaseId,
   onSelectCase,
+  onSelectDocument,
   onBack,
   onUpdateCompany,
   onUploadClick,
@@ -43,8 +49,15 @@ export default function CompanyDetailView({
     null,
   );
 
-  const sortedCases = [...cases].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  const allDocuments = casesWithDocs.flatMap(({case: c, documents: docs}) =>
+    docs.map((doc) => ({
+      caseId: c.id,
+      caseNumber: c.caseNumber,
+      document: doc,
+    })),
+  );
+  const deadlines = aggregateDeadlines(
+    casesWithDocs.flatMap(({documents}) => documents),
   );
 
   const selectedUser: User | null =
@@ -85,7 +98,7 @@ export default function CompanyDetailView({
             )}
           </>
         )}
-        <div className="my-8 flex flex-row flex-wrap gap-x-6 gap-y-2 justify-between items-center">
+        <div className="mt-4 flex flex-row flex-wrap gap-x-6 gap-y-2 justify-between items-center">
           <div className="flex flex-row items-center gap-6">
             <UserSelect
               users={USERS}
@@ -96,6 +109,73 @@ export default function CompanyDetailView({
           </div>
         </div>
       </div>
+
+      <Section title="Deadlines">
+        {deadlines.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No deadlines extracted yet.
+          </p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {deadlines.slice(0, 10).map((d, i) => (
+              <li key={i} className="flex flex-wrap gap-x-2 gap-y-1">
+                <span className="font-medium">
+                  {toTitleCase(d.type.replace(/_/g, " "))}:
+                </span>
+                <span className="text-muted-foreground">
+                  {d.date?.iso ?? d.date?.text ?? "—"}{" "}
+                  {d.time ? ` ${d.time}` : ""}
+                </span>
+                {d.notes && (
+                  <span className="text-muted-foreground">({d.notes})</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="Documents">
+        {allDocuments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No documents yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {allDocuments.map(({caseId, document: doc}) => {
+              const key = `${caseId}-${doc.id}`;
+              return (
+                <DocumentCard
+                  key={key}
+                  document={doc}
+                  isActive={false}
+                  onClick={() => {
+                    if (onSelectDocument) {
+                      onSelectDocument(caseId, doc.id);
+                    } else {
+                      onSelectCase(caseId);
+                    }
+                  }}
+                />
+              );
+            })}
+          </div>
+        )}
+        <div className="mb-3 flex items-center justify-between">
+          {onUploadClick && (
+            <div className="mt-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onUploadClick}
+                title="Upload insolvency document"
+                className="gap-1.5 text-muted-foreground hover:text-primary hover:bg-accent"
+              >
+                <Upload className="h-4 w-4 shrink-0" />
+                <span>+ Upload document</span>
+              </Button>
+            </div>
+          )}
+        </div>
+      </Section>
 
       <div className="mb-6">
         <div className="mb-3 flex items-center justify-between">
@@ -164,26 +244,7 @@ export default function CompanyDetailView({
         />
       )}
 
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Insolvency documents ({sortedCases.length})
-        </h2>
-        {onUploadClick && (
-          <div className="border-b border-border px-4 py-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onUploadClick}
-              title="Upload insolvency document"
-              className="gap-1.5 text-muted-foreground hover:text-primary hover:bg-accent"
-            >
-              <Upload className="h-4 w-4 shrink-0" />
-              <span>+ Upload document</span>
-            </Button>
-          </div>
-        )}
-      </div>
-      {sortedCases.length === 0 ? (
+      {/* {sortedCases.length === 0 ? (
         <p className="py-6 text-sm text-muted-foreground">
           No insolvency cases yet.
         </p>
@@ -199,7 +260,7 @@ export default function CompanyDetailView({
             />
           ))}
         </div>
-      )}
+      )} */}
     </div>
   );
 }

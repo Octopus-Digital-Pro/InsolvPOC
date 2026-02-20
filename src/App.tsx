@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import Header from "./components/Header";
 import LoginScreen from "./components/LoginScreen";
 import UploadModal from "./components/UploadModal";
@@ -9,7 +9,7 @@ import CaseDetail from "./components/CaseDetail";
 import ProcessingOverlay from "./components/ProcessingOverlay";
 import AttachToCompanyStep from "./components/AttachToCompanyStep";
 import ExtractionReviewStep from "./components/ExtractionReviewStep";
-import {useCases} from "./hooks/useCases";
+import {useCases, type CaseWithDocuments} from "./hooks/useCases";
 import {useCompanies} from "./hooks/useCompanies";
 import {useTasks} from "./hooks/useTasks";
 import {processFile} from "./services/fileProcessor";
@@ -58,6 +58,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     deleteCase,
     addDocumentToCase,
     updateDocument,
+    getCaseWithDocuments,
     loading,
   } = useCases();
   const {companies, addCompany, updateCompany} = useCompanies();
@@ -86,6 +87,43 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
   );
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [companyCasesWithDocs, setCompanyCasesWithDocs] = useState<
+    CaseWithDocuments[]
+  >([]);
+  const [initialSelectedDocId, setInitialSelectedDocId] = useState<
+    string | null
+  >(null);
+
+  const casesForSelectedCompany =
+    selectedCompanyId === null
+      ? []
+      : selectedCompanyId === "none"
+        ? cases.filter((c) => !c.companyId)
+        : cases.filter((c) => c.companyId === selectedCompanyId);
+
+  const companyCaseIds =
+    casesForSelectedCompany.length > 0
+      ? casesForSelectedCompany.map((c) => c.id).join(",")
+      : "";
+
+  useEffect(() => {
+    if (companyCaseIds === "") {
+      setCompanyCasesWithDocs([]);
+      return;
+    }
+    const ids = companyCaseIds.split(",").filter(Boolean);
+    let cancelled = false;
+    Promise.all(ids.map((id) => getCaseWithDocuments(id))).then((pairs) => {
+      if (!cancelled) {
+        setCompanyCasesWithDocs(
+          pairs.filter((p): p is CaseWithDocuments => p != null),
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyCaseIds, getCaseWithDocuments]);
 
   const handleFileAccepted = async (file: File) => {
     setError(null);
@@ -252,12 +290,6 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     setActiveCaseId(null);
   };
 
-  const casesForSelectedCompany =
-    selectedCompanyId === null
-      ? []
-      : selectedCompanyId === "none"
-        ? noCompanyCases
-        : cases.filter((c) => c.companyId === selectedCompanyId);
   const selectedCompany =
     selectedCompanyId === null || selectedCompanyId === "none"
       ? null
@@ -378,21 +410,33 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
               }
               companies={companies}
               currentUserName={user.name}
+              initialSelectedDocId={initialSelectedDocId}
               onUpdate={updateCase}
               onUpdateCompany={updateCompany}
               onUpdateDocument={updateDocument}
               onDelete={deleteCase}
-              onBack={() => setActiveCaseId(null)}
+              onBack={() => {
+                setActiveCaseId(null);
+                setInitialSelectedDocId(null);
+              }}
             />
           ) : selectedCompanyId !== null ? (
             <CompanyDetailView
               company={selectedCompany}
               cases={casesForSelectedCompany}
+              casesWithDocs={companyCasesWithDocs}
               companyTasks={
                 selectedCompany ? getByCompany(selectedCompany.id) : []
               }
               activeCaseId={activeCaseId}
-              onSelectCase={(id) => setActiveCaseId(id)}
+              onSelectCase={(id) => {
+                setInitialSelectedDocId(null);
+                setActiveCaseId(id);
+              }}
+              onSelectDocument={(caseId, documentId) => {
+                setInitialSelectedDocId(documentId);
+                setActiveCaseId(caseId);
+              }}
               onBack={() => setSelectedCompanyId(null)}
               onUpdateCompany={updateCompany}
               onUpdateCase={updateCase}
