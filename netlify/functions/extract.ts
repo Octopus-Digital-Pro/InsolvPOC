@@ -92,8 +92,366 @@ If explicit, capture the legal rank text, e.g.:
 "Creanțe bugetare (art. 161 alin. (1) pct. 5)"
 If not explicit: "Not found".
 
+CANONICAL KEY NAMES (use these so the review UI can read fields):
+- document: use "docType" (not "type"), "documentDate" (not "issuanceDate"), "documentNumber".
+- case: use "caseNumber" (not "fileNumber"); use "court" as an object with "name", "section", "registryAddress", "registryPhone", "registryHours" (not a string).
+- parties: use "debtor" as an object with "name", "cui", "tradeRegisterNo", "address", "locality", "county", "administrator", etc.; use "practitioner" (not "appointedLiquidator") with "name", "fiscalId", "rfo", "address", "role".
+
 Now output JSON with EXACTLY this schema:
 { ... }`;
+
+/** Canonical keys (use these so the review UI can read fields): document.docType, document.documentDate, document.documentNumber; case.caseNumber; case.court as object with .name; parties.debtor as object; parties.practitioner (not appointedLiquidator). */
+
+const str = (v: unknown) =>
+  typeof v === "string" && v.trim() ? v : "Not found";
+
+function dateObj(v: unknown): { text: string; iso: string | null } {
+  if (v && typeof v === "object" && "text" in (v as object) && "iso" in (v as object)) {
+    const d = v as { text?: string; iso?: string | null };
+    return {
+      text: typeof d.text === "string" ? d.text : "Not found",
+      iso: typeof d.iso === "string" ? d.iso : null,
+    };
+  }
+  if (typeof v === "string" && v.trim()) return { text: v, iso: null };
+  return { text: "Not found", iso: null };
+}
+
+const defaultCourt = {
+  name: "Not found",
+  section: "Not found",
+  registryAddress: "Not found",
+  registryPhone: "Not found",
+  registryHours: "Not found",
+};
+
+const defaultProcedure = {
+  law: "Legea 85/2014",
+  procedureType: "other",
+  stage: "unknown",
+  administrationRightLifted: null as boolean | null,
+  legalBasisArticles: [] as string[],
+};
+
+const defaultImportantDates = {
+  requestFiledDate: { text: "Not found", iso: null as string | null },
+  openingDate: { text: "Not found", iso: null as string | null },
+  nextHearingDateTime: { text: "Not found", iso: null as string | null },
+};
+
+const defaultPractitioner = {
+  role: "Not found",
+  name: "Not found",
+  fiscalId: "Not found",
+  rfo: "Not found",
+  representative: "Not found",
+  address: "Not found",
+  email: "Not found",
+  phone: "Not found",
+  fax: "Not found",
+  appointedDate: { text: "Not found", iso: null as string | null },
+  confirmedDate: { text: "Not found", iso: null as string | null },
+};
+
+const defaultClaims = {
+  tableType: "unknown",
+  tableDate: { text: "Not found", iso: null as string | null },
+  totalAdmittedRon: null as number | null,
+  totalDeclaredRon: null as number | null,
+  currency: "Not found",
+  entries: [] as unknown[],
+};
+
+const defaultCreditorsMeeting = {
+  meetingDate: { text: "Not found", iso: null as string | null },
+  meetingTime: "Not found",
+  location: "Not found",
+  quorumPercent: null as number | null,
+  agenda: [] as string[],
+  decisions: {
+    practitionerConfirmed: null as boolean | null,
+    committeeFormed: null as boolean | null,
+    committeeNotes: "Not found",
+    feeApproved: {
+      fixedFeeRon: null as number | null,
+      vatIncluded: null as boolean | null,
+      successFeePercent: null as number | null,
+      paymentSource: "unknown" as const,
+    },
+  },
+  votingSummary: "Not found",
+};
+
+const defaultReports = {
+  art97: {
+    issuedDate: { text: "Not found", iso: null as string | null },
+    causesOfInsolvency: [] as string[],
+    litigationFound: null as boolean | null,
+    avoidanceReview: {
+      reviewed: null as boolean | null,
+      suspiciousTransactionsFound: null as boolean | null,
+      actionsFiled: null as boolean | null,
+      notes: "Not found",
+    },
+    liabilityAssessmentArt169: {
+      reviewed: null as boolean | null,
+      culpablePersonsIdentified: null as boolean | null,
+      actionProposedOrFiled: null as boolean | null,
+      notes: "Not found",
+    },
+    financials: {
+      yearsCovered: [] as string[],
+      totalAssetsRon: null as number | null,
+      totalLiabilitiesRon: null as number | null,
+      netEquityRon: null as number | null,
+      cashRon: null as number | null,
+      receivablesRon: null as number | null,
+      notes: "Not found",
+    },
+  },
+  finalArt167: {
+    issuedDate: { text: "Not found", iso: null as string | null },
+    assetsIdentified: null as boolean | null,
+    saleableAssetsFound: null as boolean | null,
+    sumsAvailableForDistributionRon: null as number | null,
+    recoveryRatePercent: null as number | null,
+    finalBalanceSheetDate: { text: "Not found", iso: null as string | null },
+    closureProposed: null as boolean | null,
+    closureLegalBasis: "Not found",
+    deregistrationORCProposed: null as boolean | null,
+    practitionerFeeRequestedFromUNPIR: null as boolean | null,
+    notes: "Not found",
+  },
+};
+
+const defaultComplianceFlags = {
+  administrationRightLifted: null as boolean | null,
+  individualActionsSuspended: null as boolean | null,
+  publicationInBPIReferenced: null as boolean | null,
+};
+
+function normalizeExtraction(
+  parsed: Record<string, unknown> | null,
+  content: string,
+): Record<string, unknown> {
+  const doc = (parsed?.document as Record<string, unknown> | undefined) ?? {};
+  const caseData = (parsed?.case as Record<string, unknown> | undefined) ?? {};
+  const partiesData = (parsed?.parties as Record<string, unknown> | undefined) ?? {};
+
+  // Document: map type → docType, issuanceDate → documentDate, case.fileNumber → documentNumber
+  const document = {
+    docType: doc.type ?? doc.docType ?? "other",
+    language: str(doc.language) === "Not found" ? "ro" : str(doc.language),
+    issuingEntity: str(doc.issuingEntity),
+    documentNumber: str(doc.documentNumber) !== "Not found" ? str(doc.documentNumber) : str(caseData.fileNumber),
+    documentDate: dateObj(doc.issuanceDate ?? doc.documentDate),
+    sourceHints: str(doc.sourceHints),
+  };
+
+  // Case: caseNumber from fileNumber or caseNumber; court string → { name, ... }
+  const courtRaw = caseData.court;
+  const court =
+    typeof courtRaw === "string"
+      ? { ...defaultCourt, name: courtRaw.trim() || "Not found" }
+      : courtRaw && typeof courtRaw === "object"
+        ? {
+            name: str((courtRaw as Record<string, unknown>).name) !== "Not found" ? str((courtRaw as Record<string, unknown>).name) : "Not found",
+            section: str((courtRaw as Record<string, unknown>).section),
+            registryAddress: str((courtRaw as Record<string, unknown>).registryAddress),
+            registryPhone: str((courtRaw as Record<string, unknown>).registryPhone),
+            registryHours: str((courtRaw as Record<string, unknown>).registryHours),
+          }
+        : defaultCourt;
+
+  const procedureRaw = caseData.procedure;
+  const procedure =
+    procedureRaw && typeof procedureRaw === "object"
+      ? {
+          law: str((procedureRaw as Record<string, unknown>).law) !== "Not found" ? str((procedureRaw as Record<string, unknown>).law) : "Legea 85/2014",
+          procedureType: (procedureRaw as Record<string, unknown>).procedureType ?? (procedureRaw as Record<string, unknown>).type ?? defaultProcedure.procedureType,
+          stage: (procedureRaw as Record<string, unknown>).stage ?? defaultProcedure.stage,
+          administrationRightLifted: (procedureRaw as Record<string, unknown>).administrationRightLifted ?? defaultProcedure.administrationRightLifted,
+          legalBasisArticles: Array.isArray((procedureRaw as Record<string, unknown>).legalBasisArticles)
+            ? (procedureRaw as Record<string, unknown>).legalBasisArticles as string[]
+            : defaultProcedure.legalBasisArticles,
+        }
+      : defaultProcedure;
+
+  const importantDatesRaw = caseData.importantDates;
+  const importantDates =
+    importantDatesRaw && typeof importantDatesRaw === "object"
+      ? {
+          requestFiledDate: dateObj((importantDatesRaw as Record<string, unknown>).requestFiledDate),
+          openingDate: dateObj((importantDatesRaw as Record<string, unknown>).openingDate),
+          nextHearingDateTime: dateObj((importantDatesRaw as Record<string, unknown>).nextHearingDateTime),
+        }
+      : defaultImportantDates;
+
+  const caseResult = {
+    caseNumber: str(caseData.caseNumber) !== "Not found" ? str(caseData.caseNumber) : str(caseData.fileNumber),
+    court,
+    judgeSyndic: str(caseData.judgeSyndic),
+    procedure,
+    importantDates,
+  };
+
+  // Parties – debtor: from parties.debtor (object) or case.debtor + parties.debtor (string); administrators → administrator
+  const caseDebtor = caseData.debtor as Record<string, unknown> | undefined;
+  const caseDebtorId = caseDebtor?.identifier as Record<string, unknown> | undefined;
+  const partiesDebtorRaw = partiesData.debtor;
+  const administratorsArr = partiesData.administrators;
+
+  let debtor: Record<string, unknown>;
+  if (partiesDebtorRaw && typeof partiesDebtorRaw === "object" && !Array.isArray(partiesDebtorRaw)) {
+    const d = partiesDebtorRaw as Record<string, unknown>;
+    debtor = {
+      name: str(d.name),
+      cui: str(d.cui),
+      tradeRegisterNo: str(d.tradeRegisterNo),
+      address: str(d.address),
+      locality: str(d.locality),
+      county: str(d.county),
+      administrator: str(d.administrator) !== "Not found" ? str(d.administrator) : Array.isArray(administratorsArr) && administratorsArr.length > 0
+        ? (administratorsArr as unknown[]).map(String).join(", ")
+        : "Not found",
+      associateOrShareholder: str(d.associateOrShareholder),
+      caen: str(d.caen),
+      incorporationYear: str(d.incorporationYear),
+      shareCapitalRon: typeof d.shareCapitalRon === "number" ? d.shareCapitalRon : null,
+    };
+  } else {
+    const nameFromParties = typeof partiesDebtorRaw === "string" ? partiesDebtorRaw.trim() || "Not found" : "Not found";
+    debtor = {
+      name: nameFromParties !== "Not found" ? nameFromParties : str(caseDebtor?.name),
+      cui: str(caseDebtorId?.cui ?? caseDebtor?.cui),
+      tradeRegisterNo: str(caseDebtorId?.registrationNumber ?? caseDebtor?.registrationNumber),
+      address: str(caseDebtor?.address),
+      locality: "Not found",
+      county: "Not found",
+      administrator: Array.isArray(administratorsArr) && administratorsArr.length > 0
+        ? (administratorsArr as unknown[]).map(String).join(", ")
+        : "Not found",
+      associateOrShareholder: "Not found",
+      caen: "Not found",
+      incorporationYear: "Not found",
+      shareCapitalRon: null,
+    };
+  }
+
+  // Parties – practitioner: from parties.practitioner or parties.appointedLiquidator
+  const practitionerRaw = partiesData.practitioner as Record<string, unknown> | undefined;
+  const appointedLiquidator = partiesData.appointedLiquidator as Record<string, unknown> | undefined;
+  const liquidatorId = appointedLiquidator?.identifier as Record<string, unknown> | undefined;
+
+  let practitioner: Record<string, unknown>;
+  if (practitionerRaw && typeof practitionerRaw === "object") {
+    practitioner = {
+      role: str(practitionerRaw.role),
+      name: str(practitionerRaw.name),
+      fiscalId: str(practitionerRaw.fiscalId),
+      rfo: str(practitionerRaw.rfo),
+      representative: str(practitionerRaw.representative),
+      address: str(practitionerRaw.address),
+      email: str(practitionerRaw.email),
+      phone: str(practitionerRaw.phone),
+      fax: str(practitionerRaw.fax),
+      appointedDate: dateObj(practitionerRaw.appointedDate),
+      confirmedDate: dateObj(practitionerRaw.confirmedDate),
+    };
+  } else if (appointedLiquidator && typeof appointedLiquidator === "object") {
+    practitioner = {
+      role: "lichidator_judiciar",
+      name: str(appointedLiquidator.name),
+      fiscalId: str(liquidatorId?.fiscalCode ?? appointedLiquidator.fiscalCode),
+      rfo: str(liquidatorId?.registrationNumber ?? appointedLiquidator.registrationNumber),
+      representative: "Not found",
+      address: str(appointedLiquidator.headquarters ?? appointedLiquidator.address),
+      email: "Not found",
+      phone: "Not found",
+      fax: "Not found",
+      appointedDate: defaultPractitioner.appointedDate,
+      confirmedDate: defaultPractitioner.confirmedDate,
+    };
+  } else {
+    practitioner = { ...defaultPractitioner };
+  }
+
+  const parties = {
+    debtor,
+    practitioner,
+    creditors: Array.isArray(partiesData.creditors) ? partiesData.creditors : [],
+  };
+
+  // Deadlines: pass through
+  const deadlines = Array.isArray(parsed?.deadlines) ? parsed.deadlines : [];
+
+  // Claims: if array or missing, use default object
+  const claimsRaw = parsed?.claims;
+  const claims =
+    claimsRaw && typeof claimsRaw === "object" && !Array.isArray(claimsRaw)
+      ? {
+          tableType: (claimsRaw as Record<string, unknown>).tableType ?? defaultClaims.tableType,
+          tableDate: dateObj((claimsRaw as Record<string, unknown>).tableDate),
+          totalAdmittedRon: (claimsRaw as Record<string, unknown>).totalAdmittedRon ?? defaultClaims.totalAdmittedRon,
+          totalDeclaredRon: (claimsRaw as Record<string, unknown>).totalDeclaredRon ?? defaultClaims.totalDeclaredRon,
+          currency: str((claimsRaw as Record<string, unknown>).currency),
+          entries: Array.isArray((claimsRaw as Record<string, unknown>).entries) ? (claimsRaw as Record<string, unknown>).entries : defaultClaims.entries,
+        }
+      : defaultClaims;
+
+  // Creditors meeting: map single date → meetingDate
+  const cmRaw = parsed?.creditorsMeeting as Record<string, unknown> | undefined;
+  const creditorsMeeting =
+    cmRaw && typeof cmRaw === "object"
+      ? {
+          ...defaultCreditorsMeeting,
+          meetingDate: dateObj(cmRaw.date ?? cmRaw.meetingDate),
+          meetingTime: str(cmRaw.meetingTime),
+          location: str(cmRaw.location),
+          quorumPercent: typeof cmRaw.quorumPercent === "number" ? cmRaw.quorumPercent : null,
+          agenda: Array.isArray(cmRaw.agenda) ? cmRaw.agenda as string[] : [],
+          decisions: cmRaw.decisions && typeof cmRaw.decisions === "object" ? cmRaw.decisions : defaultCreditorsMeeting.decisions,
+          votingSummary: str(cmRaw.votingSummary),
+        }
+      : defaultCreditorsMeeting;
+
+  // Reports: pass through with defaults for missing
+  const reportsRaw = parsed?.reports;
+  const reports =
+    reportsRaw && typeof reportsRaw === "object"
+      ? {
+          art97: (reportsRaw as Record<string, unknown>).art97 && typeof (reportsRaw as Record<string, unknown>).art97 === "object"
+            ? (reportsRaw as Record<string, unknown>).art97
+            : defaultReports.art97,
+          finalArt167: (reportsRaw as Record<string, unknown>).finalArt167 && typeof (reportsRaw as Record<string, unknown>).finalArt167 === "object"
+            ? (reportsRaw as Record<string, unknown>).finalArt167
+            : defaultReports.finalArt167,
+        }
+      : defaultReports;
+
+  const complianceRaw = parsed?.complianceFlags as Record<string, unknown> | undefined;
+  const complianceFlags =
+    complianceRaw && typeof complianceRaw === "object"
+      ? {
+          administrationRightLifted: complianceRaw.administrationRightLifted ?? defaultComplianceFlags.administrationRightLifted,
+          individualActionsSuspended: complianceRaw.individualActionsSuspended ?? defaultComplianceFlags.individualActionsSuspended,
+          publicationInBPIReferenced: complianceRaw.publicationInBPIReferenced ?? defaultComplianceFlags.publicationInBPIReferenced,
+        }
+      : defaultComplianceFlags;
+
+  return {
+    document,
+    case: caseResult,
+    parties,
+    deadlines,
+    claims,
+    creditorsMeeting,
+    reports,
+    complianceFlags,
+    otherImportantInfo: str(parsed?.otherImportantInfo),
+    rawJson: content,
+  };
+}
 
 interface RequestBody {
   images: string[];
@@ -166,151 +524,9 @@ export default async function handler(req: Request) {
       );
     }
 
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(content) as Record<string, unknown> | null;
 
-    const str = (v: unknown) =>
-      typeof v === "string" && v.trim() ? v : "Not found";
-
-    const result = {
-      document: parsed?.document ?? {
-        docType: "other",
-        language: "ro",
-        issuingEntity: "Not found",
-        documentNumber: "Not found",
-        documentDate: {text: "Not found", iso: null},
-        sourceHints: "Not found",
-      },
-      case: parsed?.case ?? {
-        caseNumber: "Not found",
-        court: {
-          name: "Not found",
-          section: "Not found",
-          registryAddress: "Not found",
-          registryPhone: "Not found",
-          registryHours: "Not found",
-        },
-        judgeSyndic: "Not found",
-        procedure: {
-          law: "Legea 85/2014",
-          procedureType: "other",
-          stage: "unknown",
-          administrationRightLifted: null,
-          legalBasisArticles: [],
-        },
-        importantDates: {
-          requestFiledDate: {text: "Not found", iso: null},
-          openingDate: {text: "Not found", iso: null},
-          nextHearingDateTime: {text: "Not found", iso: null},
-        },
-      },
-      parties: parsed?.parties ?? {
-        debtor: {
-          name: "Not found",
-          cui: "Not found",
-          tradeRegisterNo: "Not found",
-          address: "Not found",
-          locality: "Not found",
-          county: "Not found",
-          administrator: "Not found",
-          associateOrShareholder: "Not found",
-          caen: "Not found",
-          incorporationYear: "Not found",
-          shareCapitalRon: null,
-        },
-        practitioner: {
-          role: "Not found",
-          name: "Not found",
-          fiscalId: "Not found",
-          rfo: "Not found",
-          representative: "Not found",
-          address: "Not found",
-          email: "Not found",
-          phone: "Not found",
-          fax: "Not found",
-          appointedDate: {text: "Not found", iso: null},
-          confirmedDate: {text: "Not found", iso: null},
-        },
-        creditors: Array.isArray(parsed?.parties?.creditors)
-          ? parsed.parties.creditors
-          : [],
-      },
-      deadlines: Array.isArray(parsed?.deadlines) ? parsed.deadlines : [],
-      claims: parsed?.claims ?? {
-        tableType: "unknown",
-        tableDate: {text: "Not found", iso: null},
-        totalAdmittedRon: null,
-        totalDeclaredRon: null,
-        currency: "Not found",
-        entries: [],
-      },
-      creditorsMeeting: parsed?.creditorsMeeting ?? {
-        meetingDate: {text: "Not found", iso: null},
-        meetingTime: "Not found",
-        location: "Not found",
-        quorumPercent: null,
-        agenda: [],
-        decisions: {
-          practitionerConfirmed: null,
-          committeeFormed: null,
-          committeeNotes: "Not found",
-          feeApproved: {
-            fixedFeeRon: null,
-            vatIncluded: null,
-            successFeePercent: null,
-            paymentSource: "unknown",
-          },
-        },
-        votingSummary: "Not found",
-      },
-      reports: parsed?.reports ?? {
-        art97: {
-          issuedDate: {text: "Not found", iso: null},
-          causesOfInsolvency: [],
-          litigationFound: null,
-          avoidanceReview: {
-            reviewed: null,
-            suspiciousTransactionsFound: null,
-            actionsFiled: null,
-            notes: "Not found",
-          },
-          liabilityAssessmentArt169: {
-            reviewed: null,
-            culpablePersonsIdentified: null,
-            actionProposedOrFiled: null,
-            notes: "Not found",
-          },
-          financials: {
-            yearsCovered: [],
-            totalAssetsRon: null,
-            totalLiabilitiesRon: null,
-            netEquityRon: null,
-            cashRon: null,
-            receivablesRon: null,
-            notes: "Not found",
-          },
-        },
-        finalArt167: {
-          issuedDate: {text: "Not found", iso: null},
-          assetsIdentified: null,
-          saleableAssetsFound: null,
-          sumsAvailableForDistributionRon: null,
-          recoveryRatePercent: null,
-          finalBalanceSheetDate: {text: "Not found", iso: null},
-          closureProposed: null,
-          closureLegalBasis: "Not found",
-          deregistrationORCProposed: null,
-          practitionerFeeRequestedFromUNPIR: null,
-          notes: "Not found",
-        },
-      },
-      complianceFlags: parsed?.complianceFlags ?? {
-        administrationRightLifted: null,
-        individualActionsSuspended: null,
-        publicationInBPIReferenced: null,
-      },
-      otherImportantInfo: str(parsed?.otherImportantInfo),
-      rawJson: content,
-    };
+    const result = normalizeExtraction(parsed, content);
 
     return new Response(JSON.stringify(result), {
       status: 200,
