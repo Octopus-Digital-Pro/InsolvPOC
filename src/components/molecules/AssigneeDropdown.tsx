@@ -2,19 +2,8 @@ interface AssigneeDropdownProps {
   dueDateDisplay?: string;
 }
 
-export default function AssigneeDropdown({
-  dueDateDisplay,
-}: AssigneeDropdownProps) {
-  return (
-    <div className="flex items-center gap-2">
-      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Due date
-      </label>
-      <span className="text-sm text-foreground">
-        {dueDateDisplay && dueDateDisplay !== "Not found"
-          ? dueDateDisplay
-          : "—"}
-      </span>
-    </div>
-  );
+// Placeholder for future assignee dropdown; next hearing lives in company/case details.
+export default function AssigneeDropdown(_props: AssigneeDropdownProps) {
+  void _props;
+  return null;
 }

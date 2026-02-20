@@ -2,11 +2,14 @@ import {useState} from "react";
 import type {Company, CompanyTask, InsolvencyCase} from "../types";
 import {USERS, type User} from "../types";
 import type {CaseWithDocuments} from "../hooks/useCases";
-import {aggregateDeadlines} from "../domain/insolvencyCase";
+import {
+  aggregateDeadlines,
+  getNextUpcomingHearingIso,
+} from "../domain/insolvencyCase";
 import {toTitleCase} from "@/lib/dateUtils";
 import BackButton from "@/components/ui/BackButton";
-import AssigneeDropdown from "@/components/molecules/AssigneeDropdown";
 import UserSelect from "@/components/molecules/UserSelect";
+import {formatDateOnly} from "@/lib/dateUtils";
 import Section from "@/components/molecules/Section";
 import DocumentCard from "./DocumentCard";
 import {Button} from "@/components/ui/button";
@@ -56,9 +59,9 @@ export default function CompanyDetailView({
       document: doc,
     })),
   );
-  const deadlines = aggregateDeadlines(
-    casesWithDocs.flatMap(({documents}) => documents),
-  );
+  const allCaseDocuments = casesWithDocs.flatMap(({documents}) => documents);
+  const deadlines = aggregateDeadlines(allCaseDocuments);
+  const nextHearingIso = getNextUpcomingHearingIso(allCaseDocuments);
 
   const selectedUser: User | null =
     company?.assignedTo != null
@@ -98,14 +101,21 @@ export default function CompanyDetailView({
             )}
           </>
         )}
-        <div className="mt-4 flex flex-row flex-wrap gap-x-6 gap-y-2 justify-between items-center">
-          <div className="flex flex-row items-center gap-6">
+        <div className="mt-4 flex flex-row flex-wrap gap-x-6 gap-y-2 justify-between">
+          <div className="flex flex-row items-center justify-between gap-6">
             <UserSelect
               users={USERS}
               value={selectedUser}
               onChange={handleSelectAssignee}
             />
-            <AssigneeDropdown dueDateDisplay={undefined} />
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Next hearing:{" "}
+                <span className="text-sm text-foreground">
+                  {nextHearingIso ? formatDateOnly(nextHearingIso) : "—"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

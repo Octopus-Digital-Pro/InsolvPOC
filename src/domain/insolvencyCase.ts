@@ -97,3 +97,31 @@ export function dateToIso(d: InsolvencyDate | undefined): string | null {
   if (typeof d === "string") return d;
   return d.iso ?? null;
 }
+
+/**
+ * Get the next upcoming (earliest) hearing date across all case documents.
+ * Considers both case.importantDates.nextHearingDateTime and deadlines with
+ * type "next_hearing" (extraction may populate one or the other).
+ * Returns ISO string or null if none found.
+ */
+export function getNextUpcomingHearingIso(
+  documents: InsolvencyDocument[],
+): string | null {
+  const isos: string[] = [];
+  for (const doc of documents) {
+    const raw = doc.rawExtraction as InsolvencyExtractionResult | undefined;
+    const fromImportantDates = raw?.case?.importantDates?.nextHearingDateTime;
+    const iso1 = dateToIso(fromImportantDates);
+    if (iso1) isos.push(iso1);
+    const deadlineList = raw?.deadlines ?? [];
+    for (const entry of deadlineList) {
+      if (entry.type === "next_hearing") {
+        const iso2 = dateToIso(entry.date);
+        if (iso2) isos.push(iso2);
+      }
+    }
+  }
+  if (isos.length === 0) return null;
+  isos.sort((a, b) => a.localeCompare(b));
+  return isos[0];
+}

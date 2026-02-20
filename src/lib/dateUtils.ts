@@ -45,3 +45,9 @@ export function formatDateTime(iso: string): string {
   const d = new Date(iso);
   return format(d, "d MMM yyyy, HH:mm");
 }
+
+/** Format an ISO date string as YYYY-MM-DD (date only, no time). */
+export function formatDateOnly(iso: string): string {
+  const d = new Date(iso.includes("T") ? iso : `${iso}T12:00:00`);
+  return format(d, "yyyy-MM-dd");
+}

@@ -4,10 +4,9 @@ import type {CaseWithDocuments} from "../hooks/useCases";
 import {
   deriveCaseStage,
   formatStage,
-  dateToIso,
+  getNextUpcomingHearingIso,
 } from "../domain/insolvencyCase";
 import BackButton from "@/components/ui/BackButton";
-import AssigneeDropdown from "@/components/molecules/AssigneeDropdown";
 import Section from "@/components/molecules/Section";
 import RawExtractionBlock from "@/components/molecules/RawExtractionBlock";
 import ConfirmDeleteBar from "@/components/molecules/ConfirmDeleteBar";
@@ -68,12 +67,7 @@ export default function CaseDetail({
   const selectedDoc = selectedDocId
     ? documents.find((d) => d.id === selectedDocId)
     : null;
-  const nextHearing =
-    documents.length > 0
-      ? (documents[0].rawExtraction as InsolvencyExtractionResult | undefined)
-          ?.case?.importantDates?.nextHearingDateTime
-      : undefined;
-  const nextHearingIso = dateToIso(nextHearing);
+  const nextHearingIso = getNextUpcomingHearingIso(documents);
 
   return (
     <div className="mx-auto max-w-3xl pb-12">
@@ -136,7 +130,6 @@ export default function CaseDetail({
               </select>
             </div>
           )}
-          <AssigneeDropdown dueDateDisplay={nextHearingIso ?? undefined} />
         </div>
       </div>
 
