@@ -1,7 +1,7 @@
 import * as React from "react";
-import { DayPicker } from "react-day-picker";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {DayPicker} from "react-day-picker";
+import {ChevronLeft, ChevronRight} from "lucide-react";
+import {cn} from "@/lib/utils";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
@@ -14,9 +14,9 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
+      className={cn("p-6 ", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row gap-2",
+        months: "flex flex-col sm:flex-row px-3",
         month: "flex flex-col gap-4",
         month_caption: "flex justify-center pt-1 relative items-center",
         caption_label: "text-sm font-medium text-foreground",
@@ -27,7 +27,8 @@ function Calendar({
           "absolute right-1 flex h-7 w-7 items-center justify-center rounded-md border border-input bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
         month_grid: "w-full border-collapse space-y-1",
         weekdays: "flex",
-        weekday: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
+        weekday:
+          "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
         week: "flex w-full mt-2",
         day: "relative p-0 text-center text-sm focus-within:relative",
         day_button:
@@ -37,12 +38,13 @@ function Calendar({
         today: "bg-accent text-accent-foreground",
         outside: "text-muted-foreground opacity-50",
         disabled: "text-muted-foreground opacity-50",
-        range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
+        range_middle:
+          "aria-selected:bg-accent aria-selected:text-accent-foreground",
         hidden: "invisible",
         ...classNames,
       }}
       components={{
-        Chevron: ({ orientation }) =>
+        Chevron: ({orientation}) =>
           orientation === "left" ? (
             <ChevronLeft className="h-4 w-4" />
           ) : (
@@ -55,4 +57,4 @@ function Calendar({
 }
 Calendar.displayName = "Calendar";
 
-export { Calendar };
+export {Calendar};

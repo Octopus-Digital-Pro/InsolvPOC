@@ -70,7 +70,7 @@ export default function CaseDetail({
   const nextHearingIso = getNextUpcomingHearingIso(documents);
 
   return (
-    <div className="mx-auto max-w-3xl pb-12">
+    <div className="mx-auto max-w-5xl pb-12">
       <BackButton onClick={onBack}>Back</BackButton>
 
       <div className="mb-2">

@@ -1,7 +1,7 @@
-import type { InsolvencyExtractionResult } from "../services/openai";
-import ExtractionFieldsView, { type FieldEditNote } from "./ExtractionFieldsView";
+import type {InsolvencyExtractionResult} from "../services/openai";
+import ExtractionFieldsView, {type FieldEditNote} from "./ExtractionFieldsView";
 
-export type { FieldEditNote };
+export type {FieldEditNote};
 
 interface ExtractionReviewStepProps {
   extractionResult: InsolvencyExtractionResult;
@@ -21,13 +21,19 @@ export default function ExtractionReviewStep({
   onExtractionChange,
 }: ExtractionReviewStepProps) {
   return (
-    <div className="mx-auto max-w-3xl pb-12">
-      <h2 className="text-2xl font-bold text-foreground">Review extracted data</h2>
+    <div className="mx-auto max-w-5xl pb-12">
+      <h2 className="text-2xl font-bold text-foreground">
+        Review extracted data
+      </h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Review and edit the fields below before adding this document to the system. Nothing
-        is saved until you confirm and then attach it to a company.
+        Review and edit the fields below before adding this document to the
+        system. Nothing is saved until you confirm and then attach it to a
+        company.
       </p>
-      <p className="mt-2 text-xs text-muted-foreground truncate" title={sourceFileName}>
+      <p
+        className="mt-2 text-xs text-muted-foreground truncate"
+        title={sourceFileName}
+      >
         File: {sourceFileName}
       </p>
 

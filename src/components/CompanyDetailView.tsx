@@ -51,6 +51,11 @@ export default function CompanyDetailView({
   const [taskFormEditing, setTaskFormEditing] = useState<CompanyTask | null>(
     null,
   );
+  /** When true and taskFormEditing is set, modal opens in view mode. False = edit is default. */
+  const [viewModeFirst, setViewModeFirst] = useState(false);
+
+  const assigneeNameById = (id: string) =>
+    USERS.find((u) => u.id === id)?.name ?? id;
 
   const allDocuments = casesWithDocs.flatMap(({case: c, documents: docs}) =>
     docs.map((doc) => ({
@@ -75,7 +80,7 @@ export default function CompanyDetailView({
   };
 
   return (
-    <div className="mx-auto max-w-3xl pb-12 ">
+    <div className="mx-auto max-w-5xl pb-12 ">
       <BackButton
         className="cursor-pointer flex flex-row items-center gap-2 mb-2"
         onClick={onBack}
@@ -198,6 +203,7 @@ export default function CompanyDetailView({
               size="sm"
               onClick={() => {
                 setTaskFormEditing(null);
+                setViewModeFirst(false);
                 setTaskFormOpen(true);
               }}
               className="gap-1.5 text-muted-foreground hover:text-primary hover:bg-accent"
@@ -210,10 +216,17 @@ export default function CompanyDetailView({
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <TaskTable
             tasks={companyTasks}
+            assigneeNameById={assigneeNameById}
+            onTaskClick={(task) => {
+              setTaskFormEditing(task);
+              setViewModeFirst(false);
+              setTaskFormOpen(true);
+            }}
             onEdit={
               onUpdateTask
                 ? (task) => {
                     setTaskFormEditing(task);
+                    setViewModeFirst(false);
                     setTaskFormOpen(true);
                   }
                 : undefined
@@ -237,9 +250,13 @@ export default function CompanyDetailView({
           onClose={() => {
             setTaskFormOpen(false);
             setTaskFormEditing(null);
+            setViewModeFirst(false);
           }}
           companyId={company.id}
           task={taskFormEditing}
+          mode={viewModeFirst && taskFormEditing ? "view" : "edit"}
+          companyName={company.name}
+          users={USERS}
           onSubmit={(payload, existingTask) => {
             if (existingTask) {
               onUpdateTask(existingTask.id, payload);

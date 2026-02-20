@@ -21,7 +21,13 @@ import {
   clearCurrentUser,
   storage,
 } from "./services/storage";
-import type {Company, InsolvencyCase, InsolvencyDocument, User} from "./types";
+import {
+  USERS,
+  type Company,
+  type InsolvencyCase,
+  type InsolvencyDocument,
+  type User,
+} from "./types";
 import TaskTable from "./components/TaskTable";
 import TaskFormModal from "./components/TaskFormModal";
 import CompanyCard from "./components/CompanyCard";
@@ -62,18 +68,25 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     loading,
   } = useCases();
   const {companies, addCompany, updateCompany} = useCompanies();
-  const {myTasks, getByCompany, addTask, updateTask, deleteTask} =
-    useTasks(user.id);
+  const {myTasks, getByCompany, addTask, updateTask, deleteTask} = useTasks(
+    user.id,
+  );
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingFileName, setProcessingFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [pendingExtraction, setPendingExtraction] = useState<import("./services/openai").InsolvencyExtractionResult | null>(null);
+  const [pendingExtraction, setPendingExtraction] = useState<
+    import("./services/openai").InsolvencyExtractionResult | null
+  >(null);
   const [pendingReviewConfirmed, setPendingReviewConfirmed] = useState(false);
   const [pendingFileName, setPendingFileName] = useState("");
-  const [pendingExistingCaseId, setPendingExistingCaseId] = useState<string | null>(null);
-  const [pendingNewCase, setPendingNewCase] = useState<InsolvencyCase | null>(null);
+  const [pendingExistingCaseId, setPendingExistingCaseId] = useState<
+    string | null
+  >(null);
+  const [pendingNewCase, setPendingNewCase] = useState<InsolvencyCase | null>(
+    null,
+  );
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState("");
   const [newCompanyCuiRo, setNewCompanyCuiRo] = useState("");
@@ -175,7 +188,9 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
       }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Failed to analyze insolvency document";
+        err instanceof Error
+          ? err.message
+          : "Failed to analyze insolvency document";
       setError(message);
     } finally {
       setIsProcessing(false);
@@ -191,7 +206,9 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     const documentDate =
       typeof docDate === "string"
         ? docDate
-        : docDate?.iso ?? docDate?.text ?? new Date().toISOString().slice(0, 10);
+        : (docDate?.iso ??
+          docDate?.text ??
+          new Date().toISOString().slice(0, 10));
 
     const document: InsolvencyDocument = {
       id: crypto.randomUUID(),
@@ -207,12 +224,12 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     try {
       if (pendingExistingCaseId) {
         document.caseId = pendingExistingCaseId;
-        await updateCase(pendingExistingCaseId, { companyId });
+        await updateCase(pendingExistingCaseId, {companyId});
         await addDocumentToCase(pendingExistingCaseId, document);
         setActiveCaseId(pendingExistingCaseId);
       } else if (pendingNewCase) {
         document.caseId = pendingNewCase.id;
-        await addCase({ ...pendingNewCase, companyId });
+        await addCase({...pendingNewCase, companyId});
         await addDocumentToCase(pendingNewCase.id, document);
         setActiveCaseId(pendingNewCase.id);
       }
@@ -279,9 +296,13 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     pendingExtraction && (pendingExistingCaseId || pendingNewCase)
       ? {
           caseNumber:
-            pendingExtraction.case?.caseNumber ?? pendingNewCase?.caseNumber ?? "",
+            pendingExtraction.case?.caseNumber ??
+            pendingNewCase?.caseNumber ??
+            "",
           debtorName:
-            pendingExtraction.parties?.debtor?.name ?? pendingNewCase?.debtorName ?? "",
+            pendingExtraction.parties?.debtor?.name ??
+            pendingNewCase?.debtorName ??
+            "",
         }
       : null;
 
@@ -379,7 +400,9 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
             </div>
           ) : isProcessing ? (
             <ProcessingOverlay fileName={processingFileName} />
-          ) : pendingExtraction && pendingCaseSummary && !pendingReviewConfirmed ? (
+          ) : pendingExtraction &&
+            pendingCaseSummary &&
+            !pendingReviewConfirmed ? (
             <ExtractionReviewStep
               extractionResult={pendingExtraction}
               sourceFileName={pendingFileName}
@@ -442,13 +465,13 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
               onUpdateCase={updateCase}
               onUploadClick={() => setUploadModalOpen(true)}
               onAddTask={(task) =>
-                addTask({ ...task, assignedTo: task.assignedTo ?? user.id })
+                addTask({...task, assignedTo: task.assignedTo ?? user.id})
               }
               onUpdateTask={updateTask}
               onDeleteTask={deleteTask}
             />
           ) : (
-            <div className="mx-auto max-w-3xl pt-12">
+            <div className="mx-auto max-w-5xl pt-12">
               {error && (
                 <div className="mb-6">
                   <ErrorAlert
@@ -468,32 +491,39 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
                 <TaskTable
                   tasks={myTasks}
                   companyNameById={(id) => companyById.get(id)?.name ?? id}
+                  assigneeNameById={(id) =>
+                    USERS.find((u) => u.id === id)?.name ?? "—"
+                  }
                   onOpenCompany={(companyId) => handleCompanyClick(companyId)}
                   onTaskClick={(task) => setSelectedTaskId(task.id)}
                 />
               </div>
-              {selectedTaskId != null && (() => {
-                const selectedTask = myTasks.find(
-                  (t) => t.id === selectedTaskId,
-                );
-                if (!selectedTask) return null;
-                return (
-                  <TaskFormModal
-                    open
-                    onClose={() => setSelectedTaskId(null)}
-                    companyId={selectedTask.companyId}
-                    task={selectedTask}
-                    mode="view"
-                    companyName={companyById.get(selectedTask.companyId)?.name}
-                    onSubmit={(payload, existingTask) => {
-                      if (existingTask) {
-                        updateTask(existingTask.id, payload);
+              {selectedTaskId != null &&
+                (() => {
+                  const selectedTask = myTasks.find(
+                    (t) => t.id === selectedTaskId,
+                  );
+                  if (!selectedTask) return null;
+                  return (
+                    <TaskFormModal
+                      open
+                      onClose={() => setSelectedTaskId(null)}
+                      companyId={selectedTask.companyId}
+                      task={selectedTask}
+                      mode="edit"
+                      companyName={
+                        companyById.get(selectedTask.companyId)?.name
                       }
-                      setSelectedTaskId(null);
-                    }}
-                  />
-                );
-              })()}
+                      users={USERS}
+                      onSubmit={(payload, existingTask) => {
+                        if (existingTask) {
+                          updateTask(existingTask.id, payload);
+                        }
+                        setSelectedTaskId(null);
+                      }}
+                    />
+                  );
+                })()}
 
               <section className="mt-8">
                 <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">

@@ -52,6 +52,8 @@ export interface CompanyTask {
   companyId: string;
   title: string;
   description: string;
+  /** Free-text labels (e.g. "urgent, review"). */
+  labels?: string;
   deadline: string;
   status: CompanyTaskStatus;
   assignedTo?: string;

@@ -30,26 +30,38 @@ const STATUS_LABEL: Record<CompanyTask["status"], string> = {
 interface TaskTableProps {
   tasks: CompanyTask[];
   companyNameById?: (id: string) => string;
+  assigneeNameById?: (id: string) => string;
   onEdit?: (task: CompanyTask) => void;
   onDelete?: (task: CompanyTask) => void;
   onOpenCompany?: (companyId: string) => void;
-  /** When provided, task row (title cell) is clickable to open detail view. */
   onTaskClick?: (task: CompanyTask) => void;
 }
 
-const DESC_MAX = 80;
+// const DESC_MAX = 80;
+
+/** Split free-text labels into trimmed non-empty parts for pill display. */
+function parseLabels(labels: string | undefined): string[] {
+  if (!labels?.trim()) return [];
+  return labels
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 export default function TaskTable({
   tasks,
   companyNameById,
+  assigneeNameById,
   onEdit,
   onDelete,
   onOpenCompany,
   onTaskClick,
 }: TaskTableProps) {
   const showCompany = Boolean(companyNameById ?? onOpenCompany);
+  const showAssignee = Boolean(assigneeNameById);
   const showActions = Boolean(onEdit ?? onDelete);
-  const colCount = 3 + (showCompany ? 1 : 0) + (showActions ? 1 : 0);
+  const colCount =
+    3 + (showCompany ? 1 : 0) + (showAssignee ? 1 : 0) + (showActions ? 1 : 0);
 
   return (
     <Table>
@@ -57,6 +69,7 @@ export default function TaskTable({
         <TableRow>
           <TableHead className="ps-4 max-w-0 w-2/5">Task</TableHead>
           {showCompany && <TableHead className="ps-4">Company</TableHead>}
+          {showAssignee && <TableHead className="ps-4">Assignee</TableHead>}
           <TableHead className="ps-4">Status</TableHead>
           <TableHead className="ps-4">Deadline</TableHead>
           {showActions && (
@@ -83,11 +96,7 @@ export default function TaskTable({
                     ? "ps-4 max-w-0 w-2/5 cursor-pointer hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-inset"
                     : "ps-4 max-w-0 w-2/5"
                 }
-                onClick={
-                  onTaskClick
-                    ? () => onTaskClick(task)
-                    : undefined
-                }
+                onClick={onTaskClick ? () => onTaskClick(task) : undefined}
                 role={onTaskClick ? "button" : undefined}
                 tabIndex={onTaskClick ? 0 : undefined}
                 onKeyDown={
@@ -102,16 +111,27 @@ export default function TaskTable({
                 }
               >
                 <div>
-                  <p className="font-medium truncate">
-                    {task.title || "Untitled"}
-                  </p>
-                  {task.description && (
-                    <p className="text-xs text-muted-foreground truncate max-w-md">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <span className="font-medium truncate">
+                      {task.title || "Untitled"}
+                    </span>
+                    {parseLabels(task.labels).map((label) => (
+                      <Badge
+                        key={label}
+                        variant="secondary"
+                        className="shrink-0 text-xs font-normal"
+                      >
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                  {/* {task.description && (
+                    <p className="text-xs text-muted-foreground truncate max-w-md mt-0.5">
                       {task.description.length > DESC_MAX
                         ? `${task.description.slice(0, DESC_MAX)}…`
                         : task.description}
                     </p>
-                  )}
+                  )} */}
                 </div>
               </TableCell>
               {showCompany && (
@@ -130,6 +150,13 @@ export default function TaskTable({
                       Open company
                     </Button>
                   ) : null}
+                </TableCell>
+              )}
+              {showAssignee && (
+                <TableCell className="ps-4 text-sm text-muted-foreground">
+                  {task.assignedTo && assigneeNameById
+                    ? assigneeNameById(task.assignedTo)
+                    : "—"}
                 </TableCell>
               )}
               <TableCell className="ps-4">

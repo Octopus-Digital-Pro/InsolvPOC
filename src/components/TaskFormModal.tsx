@@ -1,10 +1,12 @@
 import {useState} from "react";
-import type {CompanyTask, CompanyTaskStatus} from "../types";
+import type {CompanyTask, CompanyTaskStatus, User} from "../types";
 import {Button} from "@/components/ui/button";
 import {DatePicker} from "@/components/ui/date-picker";
 import {format} from "date-fns";
 import {X} from "lucide-react";
 import {formatDate} from "@/lib/dateUtils";
+import UserSelect from "@/components/molecules/UserSelect";
+import {Badge} from "@/components/ui/badge";
 
 const STATUS_LABEL: Record<CompanyTaskStatus, string> = {
   open: "Open",
@@ -12,24 +14,27 @@ const STATUS_LABEL: Record<CompanyTaskStatus, string> = {
   done: "Done",
 };
 
+export type TaskFormPayload = {
+  title: string;
+  description: string;
+  labels: string;
+  deadline: string;
+  status: CompanyTaskStatus;
+  assignedTo?: string;
+};
+
 interface TaskFormModalProps {
   open: boolean;
   onClose: () => void;
   companyId: string;
   task: CompanyTask | null;
-  onSubmit: (
-    payload: {
-      title: string;
-      description: string;
-      deadline: string;
-      status: CompanyTaskStatus;
-    },
-    existingTask: CompanyTask | null,
-  ) => void;
+  onSubmit: (payload: TaskFormPayload, existingTask: CompanyTask | null) => void;
   /** When "view", task details are read-only with Edit/Close. Default "edit". */
   mode?: "view" | "edit";
   /** Optional company name to show in view mode. */
   companyName?: string;
+  /** Users list for assignee resolution and selector. */
+  users: User[];
 }
 
 const STATUS_OPTIONS: {value: CompanyTaskStatus; label: string}[] = [
@@ -38,18 +43,29 @@ const STATUS_OPTIONS: {value: CompanyTaskStatus; label: string}[] = [
   {value: "done", label: "Done"},
 ];
 
+function parseLabels(labels: string | undefined): string[] {
+  if (!labels?.trim()) return [];
+  return labels
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function getInitialFormState(task: CompanyTask | null) {
   if (!task) {
     return {
       title: "",
       description: "",
+      labels: "",
       deadline: undefined as Date | undefined,
       status: "open" as CompanyTaskStatus,
+      assignedTo: null as string | null,
     };
   }
   return {
     title: task.title,
     description: task.description ?? "",
+    labels: task.labels ?? "",
     deadline: task.deadline
       ? new Date(
           task.deadline.includes("T")
@@ -58,28 +74,35 @@ function getInitialFormState(task: CompanyTask | null) {
         )
       : undefined,
     status: task.status,
+    assignedTo: task.assignedTo ?? null,
   };
 }
 
 function TaskFormContent({
   task,
+  users,
   onClose,
   onSubmit,
   mode,
   companyName,
 }: Pick<
   TaskFormModalProps,
-  "task" | "onClose" | "onSubmit" | "mode" | "companyName"
+  "task" | "users" | "onClose" | "onSubmit" | "mode" | "companyName"
 >) {
   const initial = getInitialFormState(task);
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description);
+  const [labels, setLabels] = useState(initial.labels);
   const [deadline, setDeadline] = useState<Date | undefined>(initial.deadline);
   const [status, setStatus] = useState<CompanyTaskStatus>(initial.status);
+  const [assignedTo, setAssignedTo] = useState<string | null>(initial.assignedTo);
   const [isEditing, setIsEditing] = useState(mode !== "view");
 
   const isEdit = task != null;
   const showViewMode = mode === "view" && task != null && !isEditing;
+  const assigneeUser = task?.assignedTo
+    ? users.find((u) => u.id === task.assignedTo)
+    : null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,8 +111,10 @@ function TaskFormContent({
       {
         title: title.trim(),
         description: description.trim(),
+        labels: labels.trim(),
         deadline: deadlineStr,
         status,
+        assignedTo: assignedTo ?? undefined,
       },
       task,
     );
@@ -124,9 +149,20 @@ function TaskFormContent({
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Title
             </p>
-            <p className="text-sm text-foreground">
-              {task.title || "Untitled"}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="text-sm text-foreground">
+                {task.title || "Untitled"}
+              </span>
+              {parseLabels(task.labels).map((label) => (
+                <Badge
+                  key={label}
+                  variant="secondary"
+                  className="text-xs font-normal"
+                >
+                  {label}
+                </Badge>
+              ))}
+            </div>
           </div>
           {task.description && (
             <div>
@@ -160,6 +196,14 @@ function TaskFormContent({
             </p>
             <p className="text-sm text-foreground">
               {STATUS_LABEL[task.status]}
+            </p>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Assignee
+            </p>
+            <p className="text-sm text-foreground">
+              {assigneeUser ? assigneeUser.name : "Unassigned"}
             </p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -231,6 +275,22 @@ function TaskFormContent({
           />
         </div>
         <div>
+          <label
+            htmlFor="task-labels"
+            className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            Labels
+          </label>
+          <input
+            id="task-labels"
+            type="text"
+            value={labels}
+            onChange={(e) => setLabels(e.target.value)}
+            placeholder="e.g. urgent, review, Q1"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+          />
+        </div>
+        <div>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Deadline
           </label>
@@ -261,6 +321,18 @@ function TaskFormContent({
             ))}
           </select>
         </div>
+        <div>
+          <UserSelect
+            users={users}
+            value={
+              assignedTo
+                ? users.find((u) => u.id === assignedTo) ?? null
+                : null
+            }
+            onChange={(userId) => setAssignedTo(userId)}
+            label="Assignee"
+          />
+        </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
@@ -279,6 +351,7 @@ export default function TaskFormModal({
   onSubmit,
   mode = "edit",
   companyName,
+  users,
 }: TaskFormModalProps) {
   if (!open) return null;
 
@@ -293,6 +366,7 @@ export default function TaskFormModal({
       <TaskFormContent
         key={task?.id ?? "new"}
         task={task}
+        users={users}
         onClose={onClose}
         onSubmit={onSubmit}
         mode={mode}
