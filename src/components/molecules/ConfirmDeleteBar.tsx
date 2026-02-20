@@ -27,15 +27,9 @@ export default function ConfirmDeleteBar({
       {showConfirm ? (
         <>
           <span className="text-sm text-muted-foreground">
-            {isDraft
-              ? "Discard this draft?"
-              : "Delete this case permanently?"}
+            {isDraft ? "Discard this draft?" : "Delete this case permanently?"}
           </span>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onConfirmDelete}
-          >
+          <Button variant="destructive" size="sm" onClick={onConfirmDelete}>
             {isDraft ? "Yes, discard" : "Yes, delete"}
           </Button>
           <Button variant="secondary" size="sm" onClick={onCancelConfirm}>
@@ -49,7 +43,7 @@ export default function ConfirmDeleteBar({
           onClick={onStartConfirm}
           className="hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
         >
-          {isDraft ? "Discard draft" : "Delete case"}
+          {isDraft ? "Discard draft" : "Delete document"}
         </Button>
       )}
     </div>

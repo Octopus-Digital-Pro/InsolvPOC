@@ -79,7 +79,9 @@ export default function CompanyDetailView({
               </p>
             )}
             {company.address && (
-              <p className="mt-0.5 text-sm text-muted-foreground">{company.address}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {company.address}
+              </p>
             )}
           </>
         )}
@@ -164,7 +166,7 @@ export default function CompanyDetailView({
 
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Insolvency cases ({sortedCases.length})
+          Insolvency documents ({sortedCases.length})
         </h2>
         {onUploadClick && (
           <div className="border-b border-border px-4 py-2">
@@ -182,7 +184,9 @@ export default function CompanyDetailView({
         )}
       </div>
       {sortedCases.length === 0 ? (
-        <p className="py-6 text-sm text-muted-foreground">No insolvency cases yet.</p>
+        <p className="py-6 text-sm text-muted-foreground">
+          No insolvency cases yet.
+        </p>
       ) : (
         <div className="space-y-2">
           {sortedCases.map((c) => (

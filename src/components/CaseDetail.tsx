@@ -1,6 +1,6 @@
-import { useState } from "react";
-import type { Company, InsolvencyDocument } from "../types";
-import type { CaseWithDocuments } from "../hooks/useCases";
+import {useState} from "react";
+import type {Company, InsolvencyDocument} from "../types";
+import type {CaseWithDocuments} from "../hooks/useCases";
 import {
   deriveCaseStage,
   aggregateDeadlines,
@@ -13,15 +13,18 @@ import Section from "@/components/molecules/Section";
 import RawExtractionBlock from "@/components/molecules/RawExtractionBlock";
 import ConfirmDeleteBar from "@/components/molecules/ConfirmDeleteBar";
 import DocumentCard from "./DocumentCard";
-import type { InsolvencyExtractionResult } from "../services/openai";
-import { formatDateTime } from "@/lib/dateUtils";
+import type {InsolvencyExtractionResult} from "../services/openai";
+import {formatDateTime, toTitleCase} from "@/lib/dateUtils";
 
 interface CaseDetailProps {
   caseWithDocs: CaseWithDocuments;
   company?: Company | null;
   companies?: Company[];
   currentUserName: string;
-  onUpdate: (id: string, updates: Partial<import("../types").InsolvencyCase>) => void;
+  onUpdate: (
+    id: string,
+    updates: Partial<import("../types").InsolvencyCase>,
+  ) => void;
   onUpdateCompany?: (id: string, updates: Partial<Company>) => void;
   onDelete: (id: string) => void;
   onBack: () => void;
@@ -35,7 +38,7 @@ export default function CaseDetail({
   onDelete,
   onBack,
 }: CaseDetailProps) {
-  const { case: insolvencyCase, documents } = caseWithDocs;
+  const {case: insolvencyCase, documents} = caseWithDocs;
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
@@ -57,7 +60,8 @@ export default function CaseDetail({
 
       <div className="mb-2">
         <h1 className="text-2xl font-bold text-foreground">
-          {insolvencyCase.caseNumber || "No case number"} – {insolvencyCase.debtorName || "Unknown debtor"}
+          {insolvencyCase.caseNumber || "No case number"} –{" "}
+          {insolvencyCase.debtorName || "Unknown debtor"}
         </h1>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>Court: {insolvencyCase.courtName || "—"}</span>
@@ -73,9 +77,14 @@ export default function CaseDetail({
         <div className="mt-1 flex flex-wrap items-center gap-2">
           {company ? (
             <p className="text-sm text-muted-foreground">
-              Company: <span className="font-medium text-foreground">{company.name}</span>
+              Company:{" "}
+              <span className="font-medium text-foreground">
+                {company.name}
+              </span>
               {company.cuiRo && (
-                <span className="ml-2 text-muted-foreground">CUI/RO: {company.cuiRo}</span>
+                <span className="ml-2 text-muted-foreground">
+                  CUI/RO: {company.cuiRo}
+                </span>
               )}
             </p>
           ) : (
@@ -110,6 +119,30 @@ export default function CaseDetail({
         </div>
       </div>
 
+      <Section title="Deadlines">
+        {deadlines.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No deadlines extracted yet.
+          </p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {deadlines.slice(0, 10).map((d, i) => (
+              <li key={i} className="flex flex-wrap gap-x-2 gap-y-1">
+                <span className="font-medium">
+                  {toTitleCase(d.type.replace(/_/g, " "))}:
+                </span>
+                <span className="text-muted-foreground">
+                  {d.date?.iso ?? d.date?.text ?? "—"}{" "}
+                  {d.time ? ` ${d.time}` : ""}
+                </span>
+                {d.notes && (
+                  <span className="text-muted-foreground">({d.notes})</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
       <Section title="Documents">
         {documents.length === 0 ? (
           <p className="text-sm text-muted-foreground">No documents yet.</p>
@@ -120,7 +153,9 @@ export default function CaseDetail({
                 key={doc.id}
                 document={doc}
                 isActive={selectedDocId === doc.id}
-                onClick={() => setSelectedDocId(selectedDocId === doc.id ? null : doc.id)}
+                onClick={() =>
+                  setSelectedDocId(selectedDocId === doc.id ? null : doc.id)
+                }
               />
             ))}
           </div>
@@ -133,24 +168,6 @@ export default function CaseDetail({
         </Section>
       )}
 
-      <Section title="Deadlines">
-        {deadlines.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No deadlines extracted yet.</p>
-        ) : (
-          <ul className="space-y-2 text-sm">
-            {deadlines.slice(0, 10).map((d, i) => (
-              <li key={i} className="flex flex-wrap gap-x-2 gap-y-1">
-                <span className="font-medium">{d.type.replace(/_/g, " ")}</span>
-                <span className="text-muted-foreground">
-                  {d.date?.iso ?? d.date?.text ?? "—"} {d.time ? ` ${d.time}` : ""}
-                </span>
-                {d.notes && <span className="text-muted-foreground">({d.notes})</span>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
       <ConfirmDeleteBar
         isDraft={false}
         showConfirm={showConfirmDelete}
@@ -162,28 +179,42 @@ export default function CaseDetail({
   );
 }
 
-function DocumentDetailView({ document }: { document: InsolvencyDocument }) {
+function DocumentDetailView({document}: {document: InsolvencyDocument}) {
   const raw = document.rawExtraction as InsolvencyExtractionResult | undefined;
   const rawJson = raw?.rawJson ?? "{}";
   const docType = document.docType?.replace(/_/g, " ") ?? "—";
   return (
     <div className="space-y-4">
       <div className="text-sm text-muted-foreground">
-        <p><span className="font-medium">Type:</span> {docType}</p>
-        <p><span className="font-medium">Document date:</span> {document.documentDate}</p>
-        <p><span className="font-medium">File:</span> {document.sourceFileName}</p>
-        <p><span className="font-medium">Uploaded:</span> {formatDateTime(document.uploadedAt)} by {document.uploadedBy}</p>
+        <p>
+          <span className="font-medium">Type:</span> {docType}
+        </p>
+        <p>
+          <span className="font-medium">Document date:</span>{" "}
+          {document.documentDate}
+        </p>
+        <p>
+          <span className="font-medium">File:</span> {document.sourceFileName}
+        </p>
+        <p>
+          <span className="font-medium">Uploaded:</span>{" "}
+          {formatDateTime(document.uploadedAt)} by {document.uploadedBy}
+        </p>
       </div>
       {raw?.parties?.debtor && (
         <div className="text-sm">
           <p className="font-medium text-foreground">Debtor</p>
-          <p className="text-muted-foreground">{raw.parties.debtor.name} · CUI: {raw.parties.debtor.cui}</p>
+          <p className="text-muted-foreground">
+            {raw.parties.debtor.name} · CUI: {raw.parties.debtor.cui}
+          </p>
         </div>
       )}
       {raw?.parties?.practitioner?.name && (
         <div className="text-sm">
           <p className="font-medium text-foreground">Practitioner</p>
-          <p className="text-muted-foreground">{raw.parties.practitioner.name}</p>
+          <p className="text-muted-foreground">
+            {raw.parties.practitioner.name}
+          </p>
         </div>
       )}
       <RawExtractionBlock rawJson={rawJson} />
