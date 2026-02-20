@@ -101,44 +101,50 @@ interface RequestBody {
 
 export default async function handler(req: Request) {
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+    return new Response(JSON.stringify({error: "Method not allowed"}), {
       status: 405,
-      headers: { "Content-Type": "application/json" },
+      headers: {"Content-Type": "application/json"},
     });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: "OPENAI_API_KEY not configured on server" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({error: "OPENAI_API_KEY not configured on server"}),
+      {status: 500, headers: {"Content-Type": "application/json"}},
     );
   }
 
   try {
     const body = (await req.json()) as RequestBody;
 
-    if (!body.images || !Array.isArray(body.images) || body.images.length === 0) {
+    if (
+      !body.images ||
+      !Array.isArray(body.images) ||
+      body.images.length === 0
+    ) {
       return new Response(
-        JSON.stringify({ error: "Request must include a non-empty 'images' array" }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        JSON.stringify({
+          error: "Request must include a non-empty 'images' array",
+        }),
+        {status: 400, headers: {"Content-Type": "application/json"}},
       );
     }
 
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({apiKey});
 
     const imageMessages: OpenAI.Chat.Completions.ChatCompletionContentPart[] =
       body.images.map((img: string) => ({
         type: "image_url" as const,
-        image_url: { url: img, detail: "high" as const },
+        image_url: {url: img, detail: "high" as const},
       }));
 
     const response = await client.chat.completions.create({
       model: "gpt-4o",
-      response_format: { type: "json_object" },
-      max_tokens: 1800,
+      response_format: {type: "json_object"},
+      max_tokens: 2200,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        {role: "system", content: SYSTEM_PROMPT},
         {
           role: "user",
           content: [
@@ -155,8 +161,8 @@ export default async function handler(req: Request) {
     const content = response.choices[0]?.message?.content;
     if (!content) {
       return new Response(
-        JSON.stringify({ error: "No response received from OpenAI" }),
-        { status: 502, headers: { "Content-Type": "application/json" } },
+        JSON.stringify({error: "No response received from OpenAI"}),
+        {status: 502, headers: {"Content-Type": "application/json"}},
       );
     }
 
@@ -171,7 +177,7 @@ export default async function handler(req: Request) {
         language: "ro",
         issuingEntity: "Not found",
         documentNumber: "Not found",
-        documentDate: { text: "Not found", iso: null },
+        documentDate: {text: "Not found", iso: null},
         sourceHints: "Not found",
       },
       case: parsed?.case ?? {
@@ -192,9 +198,9 @@ export default async function handler(req: Request) {
           legalBasisArticles: [],
         },
         importantDates: {
-          requestFiledDate: { text: "Not found", iso: null },
-          openingDate: { text: "Not found", iso: null },
-          nextHearingDateTime: { text: "Not found", iso: null },
+          requestFiledDate: {text: "Not found", iso: null},
+          openingDate: {text: "Not found", iso: null},
+          nextHearingDateTime: {text: "Not found", iso: null},
         },
       },
       parties: parsed?.parties ?? {
@@ -221,8 +227,8 @@ export default async function handler(req: Request) {
           email: "Not found",
           phone: "Not found",
           fax: "Not found",
-          appointedDate: { text: "Not found", iso: null },
-          confirmedDate: { text: "Not found", iso: null },
+          appointedDate: {text: "Not found", iso: null},
+          confirmedDate: {text: "Not found", iso: null},
         },
         creditors: Array.isArray(parsed?.parties?.creditors)
           ? parsed.parties.creditors
@@ -231,14 +237,14 @@ export default async function handler(req: Request) {
       deadlines: Array.isArray(parsed?.deadlines) ? parsed.deadlines : [],
       claims: parsed?.claims ?? {
         tableType: "unknown",
-        tableDate: { text: "Not found", iso: null },
+        tableDate: {text: "Not found", iso: null},
         totalAdmittedRon: null,
         totalDeclaredRon: null,
         currency: "Not found",
         entries: [],
       },
       creditorsMeeting: parsed?.creditorsMeeting ?? {
-        meetingDate: { text: "Not found", iso: null },
+        meetingDate: {text: "Not found", iso: null},
         meetingTime: "Not found",
         location: "Not found",
         quorumPercent: null,
@@ -258,7 +264,7 @@ export default async function handler(req: Request) {
       },
       reports: parsed?.reports ?? {
         art97: {
-          issuedDate: { text: "Not found", iso: null },
+          issuedDate: {text: "Not found", iso: null},
           causesOfInsolvency: [],
           litigationFound: null,
           avoidanceReview: {
@@ -284,12 +290,12 @@ export default async function handler(req: Request) {
           },
         },
         finalArt167: {
-          issuedDate: { text: "Not found", iso: null },
+          issuedDate: {text: "Not found", iso: null},
           assetsIdentified: null,
           saleableAssetsFound: null,
           sumsAvailableForDistributionRon: null,
           recoveryRatePercent: null,
-          finalBalanceSheetDate: { text: "Not found", iso: null },
+          finalBalanceSheetDate: {text: "Not found", iso: null},
           closureProposed: null,
           closureLegalBasis: "Not found",
           deregistrationORCProposed: null,
@@ -308,14 +314,14 @@ export default async function handler(req: Request) {
 
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {"Content-Type": "application/json"},
     });
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : "Internal server error";
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({error: message}), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: {"Content-Type": "application/json"},
     });
   }
 }

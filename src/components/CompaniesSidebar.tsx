@@ -98,7 +98,7 @@ export default function CompaniesSidebar({
               className="gap-1.5 text-muted-foreground hover:text-primary hover:bg-sidebar-accent"
             >
               <Upload className="h-4 w-4 shrink-0" />
-              <span>+ Upload document</span>
+              <span>Upload document</span>
             </Button>
           </div>
           <div className="border-b border-sidebar-border px-4 py-2">
@@ -119,7 +119,8 @@ export default function CompaniesSidebar({
       <div className="flex-1 overflow-y-auto p-3">
         {companies.length === 0 ? (
           <p className="px-2 py-8 text-center text-xs text-muted-foreground">
-            No companies yet. Add a debtor company or upload an insolvency document.
+            No companies yet. Add a debtor company or upload an insolvency
+            document.
           </p>
         ) : null}
       </div>
