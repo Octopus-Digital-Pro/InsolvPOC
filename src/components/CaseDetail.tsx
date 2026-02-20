@@ -13,8 +13,21 @@ import Section from "@/components/molecules/Section";
 import RawExtractionBlock from "@/components/molecules/RawExtractionBlock";
 import ConfirmDeleteBar from "@/components/molecules/ConfirmDeleteBar";
 import DocumentCard from "./DocumentCard";
+import ExtractionFieldsView from "./ExtractionFieldsView";
 import type {InsolvencyExtractionResult} from "../services/openai";
 import {formatDateTime, toTitleCase} from "@/lib/dateUtils";
+
+function isInsolvencyExtractionResult(
+  raw: unknown,
+): raw is InsolvencyExtractionResult {
+  return (
+    raw !== null &&
+    typeof raw === "object" &&
+    "document" in (raw as object) &&
+    "case" in (raw as object) &&
+    "parties" in (raw as object)
+  );
+}
 
 interface CaseDetailProps {
   caseWithDocs: CaseWithDocuments;
@@ -26,6 +39,11 @@ interface CaseDetailProps {
     updates: Partial<import("../types").InsolvencyCase>,
   ) => void;
   onUpdateCompany?: (id: string, updates: Partial<Company>) => void;
+  onUpdateDocument?: (
+    caseId: string,
+    documentId: string,
+    updates: Partial<InsolvencyDocument>,
+  ) => Promise<void>;
   onDelete: (id: string) => void;
   onBack: () => void;
 }
@@ -34,7 +52,9 @@ export default function CaseDetail({
   caseWithDocs,
   company,
   companies = [],
+  currentUserName,
   onUpdate,
+  onUpdateDocument,
   onDelete,
   onBack,
 }: CaseDetailProps) {
@@ -163,9 +183,28 @@ export default function CaseDetail({
       </Section>
 
       {selectedDoc && (
-        <Section title="Document detail">
-          <DocumentDetailView document={selectedDoc} />
-        </Section>
+        <>
+          <Section title="Document detail">
+            <DocumentDetailView document={selectedDoc} />
+          </Section>
+          {selectedDoc.rawExtraction &&
+            isInsolvencyExtractionResult(selectedDoc.rawExtraction) &&
+            onUpdateDocument && (
+              <Section title="Extracted data">
+                <ExtractionFieldsView
+                  key={selectedDoc.id}
+                  extractionResult={selectedDoc.rawExtraction}
+                  currentUserName={currentUserName}
+                  onExtractionChange={(updated) =>
+                    onUpdateDocument(insolvencyCase.id, selectedDoc.id, {
+                      rawExtraction: updated,
+                    })
+                  }
+                  showRawJson={false}
+                />
+              </Section>
+            )}
+        </>
       )}
 
       <ConfirmDeleteBar

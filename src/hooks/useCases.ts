@@ -93,6 +93,21 @@ export function useCases() {
     [activeCaseId, refresh],
   );
 
+  const updateDocument = useCallback(
+    async (
+      caseId: string,
+      documentId: string,
+      updates: Partial<InsolvencyDocument>,
+    ) => {
+      await storage.updateDocument(caseId, documentId, updates);
+      if (activeCaseId === caseId) {
+        const pair = await storage.getCaseWithDocuments(caseId);
+        setActiveCaseWithDocs(pair ?? null);
+      }
+    },
+    [activeCaseId],
+  );
+
   const getCaseWithDocuments = useCallback(
     async (caseId: string) => storage.getCaseWithDocuments(caseId),
     [],
@@ -107,6 +122,7 @@ export function useCases() {
     updateCase,
     deleteCase,
     addDocumentToCase,
+    updateDocument,
     getCaseWithDocuments,
     refresh,
     loading,

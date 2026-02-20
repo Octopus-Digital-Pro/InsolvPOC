@@ -144,6 +144,7 @@ export interface StorageProvider {
   updateInsolvencyCase(id: string, updates: Partial<InsolvencyCase>): Promise<void>;
   deleteInsolvencyCase(id: string): Promise<void>;
   addDocumentToCase(caseId: string, document: InsolvencyDocument): Promise<void>;
+  updateDocument(caseId: string, documentId: string, updates: Partial<InsolvencyDocument>): Promise<void>;
   getInsolvencyDocuments(caseId: string): Promise<InsolvencyDocument[]>;
 
   getCompanies(): Promise<Company[]>;

@@ -57,6 +57,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
     updateCase,
     deleteCase,
     addDocumentToCase,
+    updateDocument,
     loading,
   } = useCases();
   const {companies, addCompany, updateCompany} = useCompanies();
@@ -379,6 +380,7 @@ function MainApp({user, onLogout}: {user: User; onLogout: () => void}) {
               currentUserName={user.name}
               onUpdate={updateCase}
               onUpdateCompany={updateCompany}
+              onUpdateDocument={updateDocument}
               onDelete={deleteCase}
               onBack={() => setActiveCaseId(null)}
             />

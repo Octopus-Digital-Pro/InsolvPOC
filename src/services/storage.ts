@@ -133,6 +133,18 @@ class FirestoreProvider implements StorageProvider {
     );
   }
 
+  async updateDocument(
+    _caseId: string,
+    documentId: string,
+    updates: Partial<InsolvencyDocument>,
+  ): Promise<void> {
+    const payload: Record<string, unknown> = { ...updates };
+    await updateDoc(
+      doc(db, INSOLVENCY_DOCUMENTS_COLLECTION, documentId),
+      payload,
+    );
+  }
+
   async getInsolvencyDocuments(caseId: string): Promise<InsolvencyDocument[]> {
     const q = query(
       insolvencyDocumentsRef,
