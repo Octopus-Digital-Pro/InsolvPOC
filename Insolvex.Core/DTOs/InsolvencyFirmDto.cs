@@ -1,0 +1,50 @@
+namespace Insolvex.Core.DTOs;
+
+public record InsolvencyFirmDto(
+    Guid Id,
+    Guid TenantId,
+    string FirmName,
+    string? CuiRo,
+    string? TradeRegisterNo,
+    string? VatNumber,
+ string? UnpirRegistrationNo,
+    string? UnpirRfo,
+    string? Address,
+    string? Locality,
+    string? County,
+    string? Country,
+    string? PostalCode,
+    string? Phone,
+    string? Fax,
+    string? Email,
+    string? Website,
+    string? ContactPerson,
+    string? Iban,
+    string? BankName,
+    string? SecondaryIban,
+ string? SecondaryBankName,
+  string? LogoUrl
+);
+
+public record UpsertInsolvencyFirmRequest(
+    string FirmName,
+    string? CuiRo,
+    string? TradeRegisterNo,
+    string? VatNumber,
+  string? UnpirRegistrationNo,
+    string? UnpirRfo,
+    string? Address,
+    string? Locality,
+    string? County,
+  string? Country,
+    string? PostalCode,
+    string? Phone,
+    string? Fax,
+    string? Email,
+ string? Website,
+    string? ContactPerson,
+    string? Iban,
+ string? BankName,
+    string? SecondaryIban,
+    string? SecondaryBankName
+);

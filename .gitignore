@@ -7,6 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Ignore Visual Studio workspace folder
+/.vs
+
 node_modules
 dist
 dist-ssr
@@ -25,7 +28,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-/.vs
 /.vs
 /.vs
 /Insolvex.API/bin/Debug/net8.0
@@ -116,4 +118,3 @@ coverage/
 coverage.*
 
 # End of .gitignore
-/.vs

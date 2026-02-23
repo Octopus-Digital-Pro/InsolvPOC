@@ -1,0 +1,413 @@
+export type Locale = "en" | "ro" | "hu";
+
+export interface Translations {
+  // Common
+  common: {
+    appName: string;
+    appTagline: string;
+    loading: string;
+    save: string;
+    cancel: string;
+    create: string;
+    edit: string;
+    delete: string;
+    close: string;
+    back: string;
+    viewAll: string;
+    search: string;
+    noResults: string;
+    confirm: string;
+    yes: string;
+    no: string;
+    or: string;
+    actions: string;
+    status: string;
+    filterBy: string;
+    all: string;
+    pending: string;
+    sent: string;
+    resolved: string;
+    active: string;
+    inactive: string;
+    unassigned: string;
+    unknown: string;
+    signIn: string;
+    signOut: string;
+    email: string;
+    password: string;
+    more: string;
+    total: string;
+    retries: string;
+    user: string;
+    accepted: string;
+    expired: string;
+  };
+
+  // Navigation
+  nav: {
+    dashboard: string;
+    cases: string;
+    companies: string;
+    tasks: string;
+    auditTrail: string;
+    settings: string;
+    admin: string;
+    uploadDocument: string;
+    tenants: string;
+  };
+
+  // Login
+  login: {
+    title: string;
+    subtitle: string;
+    emailPlaceholder: string;
+    passwordPlaceholder: string;
+    loginFailed: string;
+    demoHint: string;
+    // Demo panel
+    demoTitle: string;
+    demoDesc: string;
+    demoNote: string;
+    demoRoleAdmin: string;
+    demoRolePractitioner: string;
+    demoRoleSecretary: string;
+  };
+
+  // Dashboard
+  dashboard: {
+    totalCases: string;
+    openCases: string;
+    companies: string;
+    pendingTasks: string;
+    overdue: string;
+    upcomingDeadlines: string;
+    noDeadlines: string;
+    myTasks: string;
+    noTasks: string;
+    eventsOn: string;
+    noEvents: string;
+    hearings: string;
+    taskDeadlines: string;
+    today: string;
+    quickUpload: string;
+    quickUploadDesc: string;
+    dragDrop: string;
+    fileTypes: string;
+    browseFiles: string;
+    processingAi: string;
+    recent: string;
+    newCase: string;
+    fileToCase: string;
+  };
+
+  // Cases
+  cases: {
+    title: string;
+    newCase: string;
+    searchPlaceholder: string;
+    noCases: string;
+    caseNumber: string;
+    court: string;
+    courtSection: string;
+    judgeSyndic: string;
+    debtorName: string;
+    debtorCui: string;
+    procedureType: string;
+    stage: string;
+    lawReference: string;
+    practitioner: string;
+    practitionerRole: string;
+    openingDate: string;
+    nextHearing: string;
+    claimsDeadline: string;
+    company: string;
+    assignedTo: string;
+    documents: string;
+    noDocuments: string;
+    uploadDocument: string;
+    backToCases: string;
+    createCase: string;
+    attachToCompany: string;
+    noneStandalone: string;
+    hearing: string;
+    docs: string;
+  };
+
+  // Procedure types
+  procedures: {
+    generalInsolvency: string;
+    simplifiedBankruptcy: string;
+    reorganization: string;
+    preventiveConcordat: string;
+    adHocMandate: string;
+  };
+
+  // Stages
+  stages: {
+    opened: string;
+    claimsWindow: string;
+    preliminaryTable: string;
+    definitiveTable: string;
+    liquidation: string;
+    closed: string;
+    unknown: string;
+  };
+
+  // Workflow phases
+  phases: {
+    title: string;
+    openingRequest: string;
+    observationPeriod: string;
+    creditorNotification: string;
+    claimsFiling: string;
+    preliminaryClaimsTable: string;
+    claimsContestations: string;
+    definitiveClaimsTable: string;
+    causesReport: string;
+    reorganizationPlanProposal: string;
+    reorganizationPlanVoting: string;
+    reorganizationPlanConfirmation: string;
+    reorganizationExecution: string;
+    bankruptcyConversion: string;
+    assetLiquidation: string;
+    creditorDistribution: string;
+    finalReport: string;
+    procedureClosure: string;
+  };
+
+  // Phase statuses
+  phaseStatus: {
+    notStarted: string;
+    inProgress: string;
+    completed: string;
+    skipped: string;
+    blocked: string;
+  };
+
+  // Party roles
+  partyRoles: {
+    debtor: string;
+    insolvencyPractitioner: string;
+    securedCreditor: string;
+    unsecuredCreditor: string;
+    budgetaryCreditor: string;
+    employeeCreditor: string;
+    judgeSyndic: string;
+    courtExpert: string;
+    creditorsCommittee: string;
+    specialAdministrator: string;
+    guarantor: string;
+    thirdParty: string;
+  };
+
+  // Firms
+  firm: {
+    title: string;
+    description: string;
+    firmName: string;
+    unpirRegistrationNo: string;
+    unpirRfo: string;
+    fax: string;
+    website: string;
+    secondaryIban: string;
+    secondaryBankName: string;
+    saveFirm: string;
+  };
+
+  // Companies
+  companies: {
+    title: string;
+    addCompany: string;
+    searchPlaceholder: string;
+    noCompanies: string;
+    companyName: string;
+    companyType: string;
+    cuiRo: string;
+    tradeRegisterNo: string;
+    vatNumber: string;
+    address: string;
+    locality: string;
+    county: string;
+    country: string;
+    postalCode: string;
+    caen: string;
+    incorporationYear: string;
+    assignedTo: string;
+    backToCompanies: string;
+    backToCompany: string;
+    newCompany: string;
+    editCompany: string;
+    saveChanges: string;
+    createCompany: string;
+    casesCount: string;
+    tasksCount: string;
+    createTask: string;
+    // Contact & Banking
+    contactSection: string;
+    phone: string;
+    email: string;
+    contactPerson: string;
+    iban: string;
+    bankName: string;
+  };
+
+  // Tasks
+  tasks: {
+    title: string;
+    myTasks: string;
+    allTasks: string;
+    searchPlaceholder: string;
+    noTasks: string;
+    taskTitle: string;
+    description: string;
+    labels: string;
+    deadline: string;
+    status: string;
+    open: string;
+    blocked: string;
+    done: string;
+  };
+
+  // Document review
+  docReview: {
+    title: string;
+    subtitle: string;
+    confidence: string;
+    documentDetails: string;
+    file: string;
+    size: string;
+    type: string;
+    extractedText: string;
+    recommendedAction: string;
+    createNewCase: string;
+    createNewCaseDesc: string;
+    fileToExisting: string;
+    fileToExistingDesc: string;
+    newCaseDetails: string;
+    selectCase: string;
+    chooseCase: string;
+    createAndAttach: string;
+    fileToSelected: string;
+    backToDashboard: string;
+  };
+
+  // Settings
+  settings: {
+    title: string;
+    organization: string;
+    users: string;
+    scheduledEmails: string;
+    errorLogs: string;
+    orgSettings: string;
+    orgName: string;
+    domain: string;
+    domainPlaceholder: string;
+    saveSettings: string;
+    saved: string;
+    planUsage: string;
+    plan: string;
+    expires: string;
+    never: string;
+    teamMembers: string;
+    inviteUser: string;
+    sendInvitation: string;
+    pendingInvitations: string;
+    firstName: string;
+    lastName: string;
+    emailPlaceholder: string;
+    role: string;
+    roleGlobalAdmin: string;
+    roleTenantAdmin: string;
+    rolePractitioner: string;
+    roleSecretary: string;
+    permissions: string;
+    permissionsGranted: string;
+    emailTo: string;
+    emailError: string;
+    noBody: string;
+    noEmails: string;
+    noErrors: string;
+    showResolved: string;
+    resolve: string;
+    markResolved: string;
+    noAccess: string;
+    language: string;
+    languageDesc: string;
+    storage: string;
+    storageDesc: string;
+    storageProvider: string;
+    templates: string;
+    templatesDesc: string;
+    uploadTemplate: string;
+    noTemplates: string;
+    demo: string;
+    demoDesc: string;
+    demoReset: string;
+    demoResetConfirm: string;
+    demoResetSuccess: string;
+    demoResetWarning: string;
+    tenants: string;
+    tenantsDesc: string;
+    createTenant: string;
+    signing: string;
+    signingDesc: string;
+    uploadKey: string;
+    noKeys: string;
+    signDocument: string;
+    // User edit
+    editUser: string;
+    adminResetPassword: string;
+    newPassword: string;
+    resetPassword: string;
+    passwordResetSuccess: string;
+    // Signing
+    pfxFile: string;
+    certificatePassword: string;
+    pfxPasswordPlaceholder: string;
+    keyNameLabel: string;
+    keyNamePlaceholder: string;
+    keyUploaded: string;
+    yourSigningKeys: string;
+    deactivateKey: string;
+    validRange: string;
+    lastUsed: string;
+    recentSignatures: string;
+    noReason: string;
+    validSignature: string;
+    invalidSignature: string;
+  };
+
+  // Tenants
+  tenants: {
+    title: string;
+    createTenant: string;
+    editTenant: string;
+    name: string;
+    domain: string;
+    plan: string;
+    noTenants: string;
+    noAccess: string;
+  };
+
+  // Audit trail
+  audit: {
+    title: string;
+    filterAction: string;
+    searchPlaceholder: string;
+    from: string;
+    to: string;
+    severity: string;
+    category: string;
+    method: string;
+    path: string;
+    status: string;
+    duration: string;
+    entity: string;
+    oldValues: string;
+    newValues: string;
+    changes: string;
+    totalEvents: string;
+    noLogs: string;
+    noAccess: string;
+  };
+}

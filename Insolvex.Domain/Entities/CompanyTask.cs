@@ -1,0 +1,62 @@
+using Insolvex.Domain.Enums;
+
+namespace Insolvex.Domain.Entities;
+
+public class CompanyTask : TenantScopedEntity
+{
+    public Guid CompanyId { get; set; }
+    public virtual Company? Company { get; set; }
+
+    /// <summary>Optional link to an insolvency case (null for company-level tasks).</summary>
+    public Guid? CaseId { get; set; }
+    public virtual InsolvencyCase? Case { get; set; }
+
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Labels { get; set; }
+
+    /// <summary>Mandatory deadline per InsolvencyAppRules.</summary>
+    public DateTime? Deadline { get; set; }
+
+    /// <summary>Source of the deadline: Notice, CompanyDefault, Manual.</summary>
+    public string? DeadlineSource { get; set; }
+
+    /// <summary>Whether this is a critical deadline that triggers escalation.</summary>
+    public bool IsCriticalDeadline { get; set; }
+
+    /// <summary>Category: Document, Email, Filing, Meeting, Call, Review, Payment, Report, Compliance.</summary>
+    public string? Category { get; set; }
+
+    /// <summary>The workflow stage this task belongs to.</summary>
+    public CaseStage? Stage { get; set; }
+
+    public Enums.TaskStatus Status { get; set; } = Enums.TaskStatus.Open;
+
+    /// <summary>Default assignee = uploader unless workflow says otherwise.</summary>
+    public Guid? AssignedToUserId { get; set; }
+    public virtual User? AssignedTo { get; set; }
+
+    /// <summary>Who created this task.</summary>
+    public Guid? CreatedByUserId { get; set; }
+
+    /// <summary>JSON array of task IDs that must complete before this task can start.</summary>
+    public string? DependenciesJson { get; set; }
+
+    /// <summary>Escalation policy ID reference (configurable per tenant).</summary>
+    public string? EscalationPolicyId { get; set; }
+
+    /// <summary>Reminder schedule ID reference.</summary>
+    public string? ReminderScheduleId { get; set; }
+
+    /// <summary>JSON array of related party IDs.</summary>
+    public string? RelatedPartyIdsJson { get; set; }
+
+    /// <summary>JSON array of related document IDs.</summary>
+    public string? RelatedDocumentIdsJson { get; set; }
+
+    /// <summary>Related email ID (for email send tasks).</summary>
+    public Guid? RelatedEmailId { get; set; }
+
+    /// <summary>Date/time the task was completed.</summary>
+    public DateTime? CompletedAt { get; set; }
+}
