@@ -25,3 +25,95 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+/.vs
+/.vs
+/.vs
+/Insolvex.API/bin/Debug/net8.0
+/.vs
+
+# Existing entries...
+# Add .NET and Visual Studio specific ignores
+# Build artifacts
+[Bb]in/
+[Oo]bj/
+**/[Bb]in/
+**/[Oo]bj/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# ReSharper
+_ReSharper*/
+*.DotSettings.user
+
+# NuGet
+*.nupkg
+packages/
+.nuget/packages/
+
+# MSBuild
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Publish outputs
+publish/
+*.Publish.xml
+
+# EF Core Migrations temporary
+**/Migrations/*
+
+# Local DB / SQL Server files
+*.mdf
+*.ldf
+*.ndf
+*.db
+
+# Logs
+*.log
+
+# User-specific files
+*.rsuser
+*.DotSettings.user
+
+# Azure
+secrets.json
+
+# Dotnet local tools
+.dotnet/
+
+# VS Code
+.vscode/
+
+# Frontend
+node_modules/
+Insolvex.Web/node_modules/
+dist/
+Insolvex.Web/dist/
+
+# npm lock at repo root (if present and unmanaged)
+package-lock.json
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# OS generated
+Thumbs.db
+.DS_Store
+
+# Ignore generated coverage files
+coverage/
+coverage.*
+
+# End of .gitignore
+/.vs
