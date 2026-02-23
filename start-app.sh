@@ -60,8 +60,8 @@ if ! docker info &>/dev/null; then
     for i in $(seq 1 30); do
         sleep 2
         if docker info &>/dev/null; then
-      break
-   fi
+            break
+    fi
         echo "  ...still waiting ($((i*2))s)"
     done
     docker info &>/dev/null || die "Docker daemon did not start in time. Please start Docker Desktop manually and re-run."
@@ -78,7 +78,7 @@ success ".NET SDK found: $(dotnet --version)"
 # --- Node.js / npm ---
 if ! command -v node &>/dev/null; then
     warn "Node.js not found. Installing via Homebrew..."
-  brew install node
+    brew install node
 fi
 success "Node.js found: $(node --version)  |  npm: $(npm --version)"
 
@@ -103,8 +103,8 @@ MAX_RETRIES=40
 
 while true; do
     if [[ $RETRIES -ge $MAX_RETRIES ]]; then
-    echo ""
-        die "SQL Server did not become ready within ~80 seconds.\n    Check: docker logs insolvex-db"
+        echo ""
+        die "SQL Server did not become ready within ~80 seconds. Check: docker logs insolvex-db"
     fi
 
     # Method 1: check Docker healthcheck status
@@ -114,16 +114,16 @@ while true; do
      break
     fi
 
-    # Method 2: fallback ñ direct sqlcmd probe
+    # Method 2: fallback ù direct sqlcmd probe
     if docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd \
-      -S localhost -U sa -P "InsolvexDev2025#Strong" \
-        -Q "SELECT 1" -C -b &>/dev/null 2>&1; then
+        -S localhost -U sa -P "InsolvexDev2025#Strong" \
+        -Q "SELECT 1" -C -b &>/dev/null; then
         success "SQL Server is ready!  [sqlcmd]"
         break
     fi
 
     RETRIES=$((RETRIES + 1))
- echo "  Waiting... ($RETRIES/$MAX_RETRIES)  status=${HEALTH:-unknown}"
+    echo "  Waiting... ($RETRIES/$MAX_RETRIES)  status=${HEALTH:-unknown}"
     sleep 2
 done
 
@@ -142,11 +142,12 @@ fi
 export PATH="$PATH:$HOME/.dotnet/tools"
 
 # -----------------------------------------------
-# 4. Apply database migrations
+# 4. Restore NuGet packages and apply database migrations
 # -----------------------------------------------
-info "[4/6] Applying database migrations..."
+info "[4/6] Restoring NuGet packages and applying database migrations..."
 cd "$SCRIPT_DIR/Insolvex.API"
-dotnet ef database update || die "Failed to apply migrations.\n    Check connection string in appsettings.json"
+dotnet restore || die "Failed to restore NuGet packages."
+dotnet ef database update || die "Failed to apply migrations. Check connection string in appsettings.json"
 success "Migrations applied successfully!"
 
 # -----------------------------------------------
@@ -183,7 +184,7 @@ echo ""
 echo -e "${BOLD} ============================================${NC}"
 echo ""
 
-# Start backend in a new Terminal tab/window
+# Start backend in a new Terminal tab/window (macOS Terminal.app; on Linux run the two commands manually in two terminals)
 osascript \
   -e 'tell application "Terminal"' \
   -e "  do script \"cd '$SCRIPT_DIR/Insolvex.API' && dotnet run --launch-profile Insolvex.API\"" \
@@ -203,5 +204,5 @@ osascript \
 
 echo ""
 success "Both servers are starting in separate Terminal windows."
-echo "  This launcher window can be closed ó the servers will keep running."
+echo "  This launcher window can be closed ù the servers will keep running."
 echo ""
