@@ -34,10 +34,12 @@ const buildCrud = (basePath: string) => ({
   update: (id: string, data: Record<string, unknown>) => client.put(`${basePath}/${id}`, data),
   delete: (id: string) => client.delete(`${basePath}/${id}`),
   importCsv: (file: File) => {
-  const formData = new FormData();
+    const formData = new FormData();
     formData.append("file", file);
+    // Unset Content-Type so axios removes the default 'application/json' and the
+    // browser sets 'multipart/form-data; boundary=...' automatically
     return client.post<{ imported: number; errors: string[] }>(`${basePath}/import-csv`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      headers: { "Content-Type": undefined },
     });
   },
   exportCsvUrl: `${basePath}/export-csv`,

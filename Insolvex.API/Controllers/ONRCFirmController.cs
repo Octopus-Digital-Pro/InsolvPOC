@@ -64,8 +64,9 @@ public class ONRCFirmController : ControllerBase
   [HttpPost("import")]
     [RequirePermission(Permission.SettingsEdit)]
  [RequestSizeLimit(100_000_000)] // 100MB for large ONRC exports
+    [Consumes("multipart/form-data")]
     public async Task<IActionResult> ImportCsv(
-   IFormFile file,
+   [FromForm] IFormFile file,
         [FromQuery] SystemRegion region = SystemRegion.Romania,
         CancellationToken ct = default)
     {

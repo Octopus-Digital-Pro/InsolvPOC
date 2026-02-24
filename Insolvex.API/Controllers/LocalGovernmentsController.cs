@@ -148,7 +148,8 @@ new { item.Name, item.County, item.Phone, item.Email });
 
     [HttpPost("import-csv")]
     [RequirePermission(Permission.SettingsEdit)]
-    public async Task<IActionResult> ImportCsv(IFormFile file)
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> ImportCsv([FromForm] IFormFile file)
     {
         if (file == null || file.Length == 0)
             return BadRequest(new { message = "No file uploaded" });
