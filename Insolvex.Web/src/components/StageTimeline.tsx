@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { workflowApi } from "@/services/api/workflow";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
     CheckCircle2, Circle, PlayCircle, ChevronRight,
     Loader2, AlertTriangle,
@@ -167,7 +166,7 @@ className="w-full mt-2 text-xs bg-green-600 hover:bg-green-700"
 
              {!validation.canAdvance && (
                <p className="text-[10px] text-amber-600 font-medium mt-1">
-          Cannot advance — resolve the items above
+          Cannot advance ï¿½ resolve the items above
            first.
             </p>
     )}

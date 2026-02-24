@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { auditLogsApi } from "@/services/api";
 import type { AuditLogDto, AuditLogStats } from "@/services/api/types";
-import { Loader2, Search, FileText, RefreshCw, Shield, ChevronDown, ChevronRight, Activity, AlertTriangle, Info, AlertCircle } from "lucide-react";
+import { Loader2, Search, FileText, RefreshCw, Shield, ChevronDown, ChevronRight, AlertTriangle, Info, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 
 const SEVERITY_CONFIG: Record<string, { icon: typeof Info; color: string; bg: string }> = {
@@ -27,6 +27,64 @@ const CATEGORY_COLORS: Record<string, string> = {
   User: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
   System: "bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300",
 };
+
+// Human-readable labels for audit action codes
+const ACTION_LABELS: Record<string, string> = {
+  // Auth
+  "Auth.Login": "User signed in",
+  "Auth.Logout": "User signed out",
+  "Auth.LoginFailed": "Failed sign-in attempt",
+  "Auth.PasswordChanged": "Password changed",
+  "Auth.PasswordReset": "Password reset",
+  // Cases
+  "Case.Created": "Case opened",
+  "Case.Updated": "Case updated",
+  "Case.Deleted": "Case deleted",
+  "Case.StageAdvanced": "Case stage advanced",
+  "Case.Closed": "Case closed",
+  // Documents
+  "Document.Uploaded": "Document uploaded",
+  "Document.Reviewed": "Document reviewed",
+  "Document.Deleted": "Document deleted",
+  "Document.Signed": "Document digitally signed",
+  // Tasks
+  "Task.Created": "Task created",
+  "Task.Updated": "Task updated",
+  "Task.Completed": "Task completed",
+  "Task.Deleted": "Task deleted",
+  // Parties
+  "Party.Added": "Party added to case",
+  "Party.Updated": "Party details updated",
+  "Party.Removed": "Party removed from case",
+  // Users
+  "User.Invited": "User invited",
+  "User.Updated": "User profile updated",
+  "User.Deactivated": "User deactivated",
+  "User.PasswordAdminReset": "Admin reset user password",
+  // Workflow
+  "Workflow.PhaseStarted": "Workflow phase started",
+  "Workflow.PhaseCompleted": "Workflow phase completed",
+  "Workflow.PhaseSkipped": "Workflow phase skipped",
+  // Signing
+  "Signing.KeyUploaded": "Signing certificate uploaded",
+  "Signing.KeyDeactivated": "Signing certificate deactivated",
+  "Signing.DocumentSigned": "Document digitally signed",
+  // Settings
+  "Settings.TenantUpdated": "Organisation settings saved",
+  "Settings.FirmUpdated": "Firm details updated",
+  "Settings.DeadlineSettingsUpdated": "Deadline settings updated",
+// System / ONRC
+  "ONRCFirmDatabase.Imported": "Firms database imported",
+  "SystemData": "System data updated",
+};
+
+function friendlyAction(action: string): string {
+  if (ACTION_LABELS[action]) return ACTION_LABELS[action];
+  // Fallback: split on dot/camelCase
+  const parts = action.split(".");
+  if (parts.length === 2) return `${parts[0]}: ${parts[1].replace(/([A-Z])/g, " $1").trim()}`;
+  return action.replace(/([A-Z])/g, " $1").trim();
+}
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -55,50 +113,57 @@ function AuditRow({ log, t }: { log: AuditLogDto; t: any }) {
   const sev = SEVERITY_CONFIG[log.severity] ?? SEVERITY_CONFIG.Info;
   const SevIcon = sev.icon;
   const catColor = CATEGORY_COLORS[log.category] ?? CATEGORY_COLORS.System;
+  const label = friendlyAction(log.action);
+  const hasDetails = log.description || log.oldValues || log.newValues || log.changes ||
+    log.requestMethod || log.requestPath || log.ipAddress || log.entityId;
 
   return (
     <div className={`px-4 py-2.5 ${expanded ? sev.bg : "hover:bg-muted/30"} transition-colors`}>
-      <div className="flex items-start gap-3 cursor-pointer" onClick={() => setExpanded(!expanded)}>
- <div className="mt-0.5 shrink-0">
-       {expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+      <div className={`flex items-start gap-3 ${hasDetails ? "cursor-pointer" : ""}`} onClick={() => hasDetails && setExpanded(!expanded)}>
+        <div className="mt-0.5 shrink-0 w-3.5">
+   {hasDetails ? (expanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />) : null}
         </div>
-   <SevIcon className={`h-4 w-4 mt-0.5 shrink-0 ${sev.color}`} />
+        <SevIcon className={`h-4 w-4 mt-0.5 shrink-0 ${sev.color}`} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-  <Badge className={`text-[10px] px-1.5 py-0 ${catColor}`}>{log.category}</Badge>
-            <span className="text-xs font-medium text-foreground">{log.action}</span>
-       {log.userEmail && <span className="text-[11px] text-muted-foreground">{log.userEmail}</span>}
-    </div>
-          {log.entityType && (
-        <p className="text-[10px] text-muted-foreground mt-0.5">
-    {log.entityType}{log.entityId ? ` · ${log.entityId.slice(0, 8)}…` : ""}
-         </p>
-       )}
+    <Badge className={`text-[10px] px-1.5 py-0 ${catColor}`}>{log.category}</Badge>
+       <span className="text-xs font-semibold text-foreground">{label}</span>
+      {log.userEmail && <span className="text-[11px] text-muted-foreground">{log.userEmail}</span>}
+          </div>
+          {log.description && (
+<p className="text-[11px] text-muted-foreground mt-0.5 truncate">{log.description}</p>
+        )}
+          {!log.description && log.entityType && (
+  <p className="text-[10px] text-muted-foreground mt-0.5">
+{log.entityType}{log.entityId ? ` · ${log.entityId.slice(0, 8)}…` : ""}
+      </p>
+  )}
+     </div>
+        <div className="text-right shrink-0">
+          <p className="text-xs text-foreground">{format(new Date(log.timestamp), "dd MMM yyyy")}</p>
+    <p className="text-[10px] text-muted-foreground">{format(new Date(log.timestamp), "HH:mm:ss")}</p>
         </div>
-     <div className="text-right shrink-0">
-       <p className="text-xs text-foreground">{format(new Date(log.timestamp), "dd MMM yyyy")}</p>
-  <p className="text-[10px] text-muted-foreground">{format(new Date(log.timestamp), "HH:mm:ss")}</p>
-        </div>
-        {log.durationMs != null && (
-   <span className="text-[10px] text-muted-foreground shrink-0 hidden lg:block">{log.durationMs}ms</span>
+ {log.durationMs != null && (
+       <span className="text-[10px] text-muted-foreground shrink-0 hidden lg:block">{log.durationMs}ms</span>
         )}
       </div>
 
       {expanded && (
-        <div className="ml-10 mt-2 space-y-1 pb-1">
-  <DetailRow label={t.audit.method ?? "Method"} value={log.requestMethod} />
-    <DetailRow label={t.audit.path ?? "Path"} value={log.requestPath} />
- <DetailRow label={t.audit.status ?? "Status"} value={log.responseStatusCode?.toString()} />
-          <DetailRow label={t.audit.duration ?? "Duration"} value={log.durationMs != null ? `${log.durationMs}ms` : null} />
+   <div className="ml-10 mt-2 space-y-1 pb-1">
+          {log.description && <DetailRow label="Description" value={log.description} />}
+      <DetailRow label={t.audit.method ?? "Method"} value={log.requestMethod} />
+          <DetailRow label={t.audit.path ?? "Path"} value={log.requestPath} />
+          <DetailRow label={t.audit.status ?? "Status"} value={log.responseStatusCode?.toString()} />
+   <DetailRow label={t.audit.duration ?? "Duration"} value={log.durationMs != null ? `${log.durationMs}ms` : null} />
           <DetailRow label="IP" value={log.ipAddress} />
-       <DetailRow label={t.audit.entity ?? "Entity"} value={log.entityId} />
+<DetailRow label={t.audit.entity ?? "Entity"} value={log.entityId} />
           <DetailRow label="Correlation" value={log.correlationId} />
-          <JsonBlock label={t.audit.oldValues ?? "Old Values"} json={log.oldValues} />
-          <JsonBlock label={t.audit.newValues ?? "New Values"} json={log.newValues} />
-          <JsonBlock label={t.audit.changes ?? "Changes"} json={log.changes} />
+       <JsonBlock label={t.audit.oldValues ?? "Before"} json={log.oldValues} />
+<JsonBlock label={t.audit.newValues ?? "After"} json={log.newValues} />
+       <JsonBlock label={t.audit.changes ?? "Changes"} json={log.changes} />
         </div>
-)}
-    </div>
+      )}
+ </div>
   );
 }
 

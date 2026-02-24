@@ -16,6 +16,8 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
+        proxyTimeout: 300_000, // 5 minutes for large ONRC CSV uploads
+        timeout: 300_000,
       },
     },
   },

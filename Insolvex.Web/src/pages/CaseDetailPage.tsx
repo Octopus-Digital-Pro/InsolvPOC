@@ -15,10 +15,11 @@ import CreditorMeetingModal from "@/components/CreditorMeetingModal";
 import DocumentSigningPanel from "@/components/DocumentSigningPanel";
 import CaseTasksTab from "@/components/CaseTasksTab";
 import CaseEmailsTab from "@/components/CaseEmailsTab";
+import { downloadAuthFile } from "@/utils/downloadAuthFile";
 import {
   Loader2, FileText, Upload, Users, GitBranch, ChevronRight,
   Check, Clock, Ban, SkipForward, Brain, CalendarDays, RefreshCw,
-  ListChecks, Mail,
+  ListChecks, Mail, Download,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -338,9 +339,17 @@ export default function CaseDetailPage() {
                 <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <FileText className="h-3.5 w-3.5" /> {t.cases.documents} ({documents.length})
                 </h2>
-                <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5">
-                  <Upload className="h-3.5 w-3.5" />{t.cases.uploadDocument}
-                </Button>
+                <div className="flex gap-1.5">
+                  {documents.length > 0 && (
+                    <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
+                      onClick={() => downloadAuthFile(casesApi.downloadZipUrl(id!), `case_${caseData.caseNumber.replace(/\//g, "-")}_docs.zip`)}>
+                      <Download className="h-3.5 w-3.5" />ZIP
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5">
+                    <Upload className="h-3.5 w-3.5" />{t.cases.uploadDocument}
+                  </Button>
+                </div>
               </div>
               <div className="rounded-xl border border-border bg-card divide-y divide-border">
                 {documents.length === 0 ? (

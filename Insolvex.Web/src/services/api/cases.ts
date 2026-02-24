@@ -45,4 +45,8 @@ export const casesApi = {
 
   advancePhase: (caseId: string) =>
     client.post<CasePhaseDto[]>(`/cases/${caseId}/phases/advance`),
+
+  // Export helpers (use raw fetch with auth for file downloads)
+  exportCsvUrl: "/cases/export-csv",
+  downloadZipUrl: (caseId: string) => `/cases/${caseId}/documents/download-zip`,
 };

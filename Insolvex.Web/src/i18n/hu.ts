@@ -305,6 +305,8 @@ export const hu: Translations = {
     eSigning: "E-Aláírás",
     onrcDatabase: "ONRC Adatbázis",
     onrcDatabaseDesc: "Az Országos Cégjegyzék (ONRC) cégadatbázis feltöltése és keresése. A cégek CUI vagy név szerinti keresésekor ez a fő forrás.",
+firmsDatabase: "Cégadatbázis",
+    firmsDatabaseDesc: "A nemzeti cégnyilvántartás adatbázisának feltöltése és keresése. A cégek CUI vagy név szerinti keresésekor ez az elsődleges forrás.",
     onrcUpload: "ONRC CSV Feltöltés",
     onrcStats: "Adatbázis Statisztika",
     onrcTotalRecords: "Összes Rekord",

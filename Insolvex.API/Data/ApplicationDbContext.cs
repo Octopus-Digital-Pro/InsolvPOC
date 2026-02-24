@@ -398,15 +398,18 @@ e.HasKey(t => t.Id);
      e.Property(g => g.FileHash).HasMaxLength(128);
        e.Property(g => g.DeliveryStatus).HasMaxLength(32);
  e.Property(g => g.ErrorMessage).HasMaxLength(2000);
-   e.HasOne(g => g.Case).WithMany(ic => ic.GeneratedLetters).HasForeignKey(g => g.CaseId).OnDelete(DeleteBehavior.NoAction);
- e.HasOne(g => g.Template).WithMany().HasForeignKey(g => g.TemplateId).OnDelete(DeleteBehavior.SetNull);
-     // Use string FK overload with no navigation — GeneratedLetter has no Tenant nav property.
-     // This overrides the default Cascade on TenantId to NoAction to break the cascade cycle.
-     e.HasOne<Tenant>().WithMany().HasForeignKey("TenantId").OnDelete(DeleteBehavior.NoAction).IsRequired();
+   e.HasOne(g => g.Case).WithMany(ic => ic.GeneratedLetters)
+      .HasForeignKey(g => g.CaseId).OnDelete(DeleteBehavior.NoAction);
+            e.HasOne(g => g.Template).WithMany()
+          .HasForeignKey(g => g.TemplateId).OnDelete(DeleteBehavior.SetNull);
    e.HasIndex(g => new { g.CaseId, g.TemplateType });
         });
 
-        // TenantDeadlineSettings
+        // Override the TenantId FK delete behaviour for GeneratedLetter after query filters are applied.
+        // Must be done AFTER ApplyTenantQueryFilters() since that loop registers the FK.
+        // We do this in a model-finalizing step below.
+
+    // TenantDeadlineSettings
         modelBuilder.Entity<TenantDeadlineSettings>(e =>
     {
             e.HasKey(t => t.Id);
@@ -435,7 +438,7 @@ e.HasKey(t => t.Id);
             e.HasKey(f => f.Id);
         e.Property(f => f.CUI).HasMaxLength(64).IsRequired();
           e.Property(f => f.Name).HasMaxLength(512).IsRequired();
-    e.Property(f => e.TradeRegisterNo).HasMaxLength(128);
+  e.Property(f => f.TradeRegisterNo).HasMaxLength(128);
     e.Property(f => f.CAEN).HasMaxLength(32);
       e.Property(f => f.Address).HasMaxLength(512);
  e.Property(f => f.Locality).HasMaxLength(256);
@@ -452,6 +455,11 @@ e.HasKey(t => t.Id);
 
     // ----- Tenant query filters -----
     ApplyTenantQueryFilters(modelBuilder);
+
+        // NOTE: The GeneratedLetter?Tenant FK (TenantId) is registered by ApplyTenantQueryFilters above.
+        // Its delete behaviour defaults to Cascade. We cannot safely override it here without creating
+        // a duplicate FK (TenantId1). Instead the migration sets ON DELETE NO ACTION directly.
+      // See migration 20260223163226_AddONRCFirmDatabaseAndTenantRegion for FK_GeneratedLetters_Tenants_TenantId.
   }
 
     private void ApplyTenantQueryFilters(ModelBuilder modelBuilder)

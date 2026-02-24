@@ -4,8 +4,8 @@ import type { CaseEmailDto, BulkEmailPreview } from "@/services/api/caseWorkspac
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-Mail, Send, Clock, CheckCircle2, XCircle, Users,
-  ChevronDown, ChevronUp, Eye,
+Mail, Clock, CheckCircle2, XCircle, Users,
+  ChevronDown, ChevronUp,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -15,14 +15,13 @@ interface Props {
 onRefresh: () => void;
 }
 
-export default function CaseEmailsTab({ caseId, emails, onRefresh }: Props) {
+export default function CaseEmailsTab({ caseId, emails, onRefresh: _onRefresh }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showBulk, setShowBulk] = useState(false);
   const [bulkPreview, setBulkPreview] = useState<BulkEmailPreview | null>(null);
   const [bulkLoading, setBulkLoading] = useState(false);
 
   const scheduled = emails.filter(e => e.status === "Scheduled");
-  const sent = emails.filter(e => e.status === "Sent" || e.sentAt);
   const failed = emails.filter(e => e.status === "Failed");
 
   const handlePreviewCohort = async () => {
@@ -110,7 +109,7 @@ export default function CaseEmailsTab({ caseId, emails, onRefresh }: Props) {
      {bulkPreview.recipients.map(r => (
        <div key={r.partyId} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${r.hasEmail ? "bg-green-500" : "bg-red-400"}`} />
-    <span className="font-medium truncate flex-1">{r.name ?? "—"}</span>
+    <span className="font-medium truncate flex-1">{r.name ?? "ï¿½"}</span>
       <Badge variant="outline" className="text-[9px]">{r.role}</Badge>
              <span className="text-muted-foreground truncate max-w-[150px]">{r.email ?? "no email"}</span>
    </div>

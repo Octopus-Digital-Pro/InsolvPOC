@@ -5,7 +5,8 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import type { CompanyDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Search, Building2, Plus, Landmark, Scale, DollarSign, Flag, MoreHorizontal } from "lucide-react";
+import { Loader2, Search, Building2, Plus, Landmark, Scale, DollarSign, Flag, MoreHorizontal, Download } from "lucide-react";
+import { downloadAuthFile } from "@/utils/downloadAuthFile";
 
 type CompanyTab = "all" | "Debtor" | "InsolvencyPractitioner" | "Creditor" | "Court" | "GovernmentAgency" | "Other";
 
@@ -70,9 +71,14 @@ export default function CompaniesPage() {
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground">{t.companies.title}</h1>
-        <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary/90" onClick={() => navigate("/companies/new")}>
-          <Plus className="h-3.5 w-3.5" />{t.companies.addCompany}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => downloadAuthFile(companiesApi.exportCsvUrl, "companies.csv")}>
+            <Download className="h-3.5 w-3.5" />{t.common.export ?? "Export CSV"}
+          </Button>
+          <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary/90" onClick={() => navigate("/companies/new")}>
+            <Plus className="h-3.5 w-3.5" />{t.companies.addCompany}
+          </Button>
+        </div>
       </div>
 
       {/* Type tabs */}

@@ -46,6 +46,7 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
           isActive: true,
           subscriptionExpiry: null,
           planName: null,
+          isDemo: false,
         });
         setAvailableTenants([]);
       }

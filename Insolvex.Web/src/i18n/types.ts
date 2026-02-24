@@ -391,6 +391,8 @@ export interface Translations {
     eSigning: string;
     onrcDatabase: string;
     onrcDatabaseDesc: string;
+    firmsDatabase: string;
+    firmsDatabaseDesc: string;
     onrcUpload: string;
     onrcStats: string;
     onrcTotalRecords: string;

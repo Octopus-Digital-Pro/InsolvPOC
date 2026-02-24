@@ -44,9 +44,8 @@ client.get<ONRCFirmResult[]>("/onrc/search/name", { params: { name, region } }),
   importCsv: (file: File, region = "Romania") => {
     const formData = new FormData();
     formData.append("file", file);
-return client.post<ONRCImportResult>(`/onrc/import?region=${encodeURIComponent(region)}`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    // Do NOT set Content-Type manually - axios must auto-set it with the correct multipart boundary
+    return client.post<ONRCImportResult>(`/onrc/import?region=${encodeURIComponent(region)}`, formData);
   },
 
   getStats: (region = "Romania") =>

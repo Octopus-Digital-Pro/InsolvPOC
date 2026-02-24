@@ -1,6 +1,12 @@
+using System.Globalization;
+using System.Text;
+using CsvHelper;
+using CsvHelper.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Insolvex.API.Authorization;
+using Insolvex.API.Data;
 using Insolvex.Core.Abstractions;
 using Insolvex.Domain.Enums;
 
@@ -13,8 +19,15 @@ namespace Insolvex.API.Controllers;
 public class CompaniesController : ControllerBase
 {
     private readonly ICompanyService _companies;
+    private readonly ApplicationDbContext _db;
+    private readonly ICurrentUserService _currentUser;
 
-    public CompaniesController(ICompanyService companies) => _companies = companies;
+    public CompaniesController(ICompanyService companies, ApplicationDbContext db, ICurrentUserService currentUser)
+    {
+        _companies = companies;
+        _db = db;
+        _currentUser = currentUser;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] string? type, CancellationToken ct)
@@ -67,6 +80,46 @@ public class CompaniesController : ControllerBase
     {
         await _companies.DeleteAsync(id, ct);
         return NoContent();
+    }
+
+    /// <summary>Export all companies for the current tenant to CSV.</summary>
+    [HttpGet("export-csv")]
+    public async Task<IActionResult> ExportCsv(CancellationToken ct)
+    {
+        var tenantId = _currentUser.TenantId;
+        var companies = await _db.Companies
+            .AsNoTracking()
+            .Where(c => tenantId == null || c.TenantId == tenantId)
+            .OrderBy(c => c.Name)
+            .ToListAsync(ct);
+
+        using var writer = new StringWriter();
+        using var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.InvariantCulture));
+        csv.WriteRecords(companies.Select(c => new
+        {
+            c.Name,
+            CompanyType = c.CompanyType.ToString(),
+            c.CuiRo,
+            c.TradeRegisterNo,
+            c.VatNumber,
+            c.Address,
+            c.Locality,
+            c.County,
+            c.Country,
+            c.PostalCode,
+            c.Caen,
+            c.IncorporationYear,
+            c.ShareCapitalRon,
+            c.Phone,
+            c.Email,
+            c.ContactPerson,
+            c.Iban,
+            c.BankName,
+            CreatedOn = c.CreatedOn.ToString("yyyy-MM-dd"),
+        }));
+
+        var bytes = Encoding.UTF8.GetBytes(writer.ToString());
+        return File(bytes, "text/csv", $"companies_{DateTime.UtcNow:yyyyMMdd}.csv");
     }
 }
 

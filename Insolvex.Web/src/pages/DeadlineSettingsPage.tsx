@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { deadlineSettingsApi } from "@/services/api/deadlineSettings";
 import type { TenantDeadlineSettingsDto, DeadlinePreviewDto } from "@/services/api/deadlineSettings";
 import { useTranslation } from "@/contexts/LanguageContext";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
 import { useNavigate } from "react-router-dom";
@@ -69,7 +68,7 @@ checked ? "bg-primary" : "bg-muted"
 
 export default function DeadlineSettingsPage() {
   const navigate = useNavigate();
-const { t } = useTranslation();
+  useTranslation(); // keep context subscription
   const [settings, setSettings] = useState<TenantDeadlineSettingsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

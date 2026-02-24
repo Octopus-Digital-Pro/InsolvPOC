@@ -5,8 +5,9 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import type { CaseDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Search, Briefcase, Plus } from "lucide-react";
+import { Loader2, Search, Briefcase, Plus, Download } from "lucide-react";
 import { format } from "date-fns";
+import { downloadAuthFile } from "@/utils/downloadAuthFile";
 
 const STAGE_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
   opened: "default",
@@ -49,11 +50,16 @@ return (
  <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground">{t.cases.title}</h1>
-        <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary/90" onClick={() => navigate("/cases/new")}>
-          <Plus className="h-3.5 w-3.5" />
-          {t.cases.newCase.replace("+ ", "")}
- </Button>
-  </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => downloadAuthFile(casesApi.exportCsvUrl, "cases.csv")}>
+            <Download className="h-3.5 w-3.5" />{t.common.export ?? "Export CSV"}
+          </Button>
+          <Button size="sm" className="gap-1.5 bg-primary hover:bg-primary/90" onClick={() => navigate("/cases/new")}>
+            <Plus className="h-3.5 w-3.5" />
+            {t.cases.newCase.replace("+ ", "")}
+          </Button>
+        </div>
+      </div>
 
       {/* Search */}
       <div className="relative">
@@ -89,7 +95,7 @@ return (
       </Badge>
        </div>
     <p className="text-xs text-muted-foreground truncate">
- {c.debtorName}{c.companyName ? ` · ${c.companyName}` : ""}
+ {c.debtorName}{c.companyName ? ` ï¿½ ${c.companyName}` : ""}
      </p>
        </div>
       <div className="hidden sm:flex flex-col items-end gap-0.5 shrink-0 text-right">

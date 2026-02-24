@@ -131,10 +131,9 @@ function AppRoutes() {
         {/* Settings — sidebar takeover layout */}
         <Route path="/settings" element={<SettingsLayout />}>
           <Route index element={<SettingsPage tab="tenant" />} />
-          <Route path="firm" element={<SettingsPage tab="firm" />} />
           <Route path="users" element={<SettingsPage tab="users" />} />
           <Route path="signing" element={<SettingsPage tab="signing" />} />
-          <Route path="onrc" element={<ONRCSettingsPage />} />
+          <Route path="firms-database" element={<ONRCSettingsPage />} />
           <Route path="tribunals" element={<SettingsPage tab="tribunals" />} />
           <Route path="finance" element={<SettingsPage tab="finance" />} />
           <Route path="localgov" element={<SettingsPage tab="localgov" />} />
@@ -143,6 +142,9 @@ function AppRoutes() {
           <Route path="errors" element={<SettingsPage tab="errors" />} />
           <Route path="permissions" element={<SettingsPage tab="permissions" />} />
           <Route path="demo" element={<SettingsPage tab="demo" />} />
+          {/* Legacy redirects */}
+          <Route path="firm" element={<SettingsPage tab="tenant" />} />
+          <Route path="onrc" element={<ONRCSettingsPage />} />
         </Route>
 
         <Route path="/audit-trail" element={<AuditTrailPage />} />

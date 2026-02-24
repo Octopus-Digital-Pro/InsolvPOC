@@ -18,6 +18,7 @@ export interface TenantDto {
   name: string;
   domain: string | null;
   isActive: boolean;
+  isDemo: boolean;
   subscriptionExpiry: string | null;
   planName: string | null;
   region?: string;
@@ -203,6 +204,7 @@ export interface CalendarEventDto {
 export interface AuditLogDto {
   id: string;
   action: string;
+  description: string | null;
   userId: string | null;
   userEmail: string | null;
   entityType: string | null;

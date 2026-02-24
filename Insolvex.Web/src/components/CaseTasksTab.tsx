@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   ListChecks, Calendar as CalendarIcon, LayoutGrid,
-  Plus, Clock, CheckCircle2, AlertTriangle, Ban,
+  Clock, CheckCircle2, AlertTriangle, Ban,
 } from "lucide-react";
 import { format, isPast, isToday, addDays, startOfWeek, endOfWeek } from "date-fns";
 
@@ -24,7 +24,7 @@ const STATUS_COLUMNS = [
   { key: "done", label: "Done", icon: CheckCircle2, color: "text-green-500" },
 ] as const;
 
-export default function CaseTasksTab({ caseId, tasks, onRefresh }: Props) {
+export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Props) {
   const [view, setView] = useState<ViewMode>("list");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
@@ -41,7 +41,6 @@ export default function CaseTasksTab({ caseId, tasks, onRefresh }: Props) {
   };
 
   const overdue = tasks.filter(t => t.deadline && isPast(new Date(t.deadline)) && t.status !== "done");
-  const upcoming = tasks.filter(t => t.deadline && !isPast(new Date(t.deadline)) && t.status !== "done");
 
   return (
     <div className="space-y-3">
@@ -195,7 +194,7 @@ isOverdue ? "text-destructive" : isDueToday ? "text-amber-500" : "text-muted-for
 }
 
 /* ?? Kanban View ?????????????????????????????????????? */
-function KanbanView({ tasks, onStatusChange, updatingId }: {
+function KanbanView({ tasks, onStatusChange, updatingId: _updatingId }: {
   tasks: TaskDto[];
   onStatusChange: (id: string, status: string) => void;
   updatingId: string | null;
@@ -274,7 +273,7 @@ function CalendarView({ tasks }: { tasks: TaskDto[] }) {
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(w => w - 1)}>? Prev</Button>
         <span className="text-xs font-medium text-muted-foreground">
-       {format(weekStart, "dd MMM")} – {format(weekEnd, "dd MMM yyyy")}
+       {format(weekStart, "dd MMM")} ï¿½ {format(weekEnd, "dd MMM yyyy")}
         </span>
         <div className="flex gap-1">
           <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(0)}>Today</Button>

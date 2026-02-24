@@ -16,6 +16,7 @@ interface TenantRow {
   name: string;
 domain: string | null;
   isActive: boolean;
+  isDemo: boolean;
   planName: string | null;
   region: string;
   subscriptionExpiry: string | null;
@@ -40,6 +41,7 @@ function EditTenantModal({
   const [planName, setPlanName] = useState(tenant?.planName ?? "Free");
   const [region, setRegion] = useState(tenant?.region ?? "Romania");
   const [isActive, setIsActive] = useState(tenant?.isActive ?? true);
+  const [isDemo, setIsDemo] = useState(tenant?.isDemo ?? false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,9 +50,9 @@ setSaving(true);
     setError("");
     try {
       if (tenant) {
-   await tenantsApi.update(tenant.id, { name, domain: domain || undefined, planName, isActive, region });
+   await tenantsApi.update(tenant.id, { name, domain: domain || undefined, planName, isActive, isDemo, region });
  } else {
-        await tenantsApi.create({ name, domain: domain || undefined, planName, region });
+        await tenantsApi.create({ name, domain: domain || undefined, planName, region, isDemo });
      }
       onSaved();
     } catch (err: unknown) {
@@ -132,6 +134,12 @@ setSaving(true);
          {t.common.active}
          </label>
         )}
+        {tenant && (
+            <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+    <input type="checkbox" checked={isDemo} onChange={(e) => setIsDemo(e.target.checked)} />
+              Demo tenant (enables Demo Reset feature)
+            </label>
+         )}
         </div>
 
     {error && <p className="text-xs text-destructive">{error}</p>}
@@ -226,8 +234,13 @@ setTenants(r.data as unknown as TenantRow[]);
        {tenant.planName && (
          <Badge variant="outline" className="text-[10px]">
      {tenant.planName}
-      </Badge>
-    )}
+          </Badge>
+       )}
+    {tenant.isDemo && (
+     <Badge variant="secondary" className="text-[10px]">
+     Demo
+   </Badge>
+            )}
     <Badge variant="outline" className="text-[10px]">
 {tenant.region === "Romania" ? "????" : "????"} {tenant.region}
          </Badge>

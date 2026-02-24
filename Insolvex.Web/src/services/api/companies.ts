@@ -16,4 +16,6 @@ export const companiesApi = {
 
   delete: (id: string) =>
     client.delete(`/companies/${id}`),
+
+  exportCsvUrl: "/companies/export-csv",
 };
