@@ -104,6 +104,7 @@ builder.Services.AddScoped<ICaseEmailService, CaseEmailService>();
 builder.Services.AddScoped<IBulkEmailService, BulkEmailService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IONRCFirmService, ONRCFirmService>();
+builder.Services.AddScoped<IFirmLookupService, FirmLookupService>();
 
 // Background services
 builder.Services.AddHostedService<Insolvex.API.BackgroundServices.DeadlineReminderService>();
