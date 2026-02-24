@@ -10,4 +10,5 @@ export { workflowApi } from "./workflow";
 export { tribunalsApi, financeApi, localGovApi } from "./authorities";
 export { deadlineSettingsApi } from "./deadlineSettings";
 export { caseTasksApi, caseEmailsApi, caseCalendarApi } from "./caseWorkspace";
+export { onrcApi } from "./onrc";
 export type * from "./types";

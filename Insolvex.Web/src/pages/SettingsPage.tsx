@@ -10,11 +10,11 @@ import { Button } from "@/components/ui/button";
 import client from "@/services/api/client";
 import { signingApi } from "@/services/api/signing";
 import {
-    Loader2, Building2, Mail, AlertCircle, Users,
+    Loader2, Mail, AlertCircle,
     Check, Trash2, RefreshCw, Shield, Globe, Landmark,
     KeyRound, Upload, ShieldCheck,
   ChevronDown, ChevronRight, UserPlus, Copy,
-    Pencil, X, Gavel, Receipt, MapPin, Download, AlertTriangle, RotateCcw,
+    Pencil, X, Download, AlertTriangle, RotateCcw,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -121,7 +121,6 @@ function TenantTab() {
 /* ── Users Tab ──────────────────────────────────────────── */
 function UsersTab() {
     const { t } = useTranslation();
-    const { isGlobalAdmin } = useAuth();
     const [users, setUsers] = useState<Array<Record<string, unknown>>>([]);
     const [invitations, setInvitations] = useState<Array<Record<string, unknown>>>([]);
     const [roles, setRoles] = useState<Array<{ value: string; label: string }>>([]);
@@ -179,10 +178,11 @@ function UsersTab() {
    try {
         const r = await client.post("/users/invite", { email: inviteEmail, firstName: inviteFirst, lastName: inviteLast, role: inviteRole });
          setInviteSuccess(r.data.message); setCopiedToken(r.data.token);
-            setInviteEmail(""); setInviteFirst(""); setInviteLast("");
+     setInviteEmail(""); setInviteFirst(""); setInviteLast("");
    load();
-        } catch (err: any) {
-  setInviteError(err?.response?.data?.message || "Failed to send invitation");
+    } catch (err: unknown) {
+  const axErr = err as { response?: { data?: { message?: string } } };
+  setInviteError(axErr?.response?.data?.message || "Failed to send invitation");
         } finally { setInviting(false); }
     };
 
@@ -196,7 +196,7 @@ function UsersTab() {
     };
 
     const handleEditSave = async () => {
-        if (!editUser) return;
+     if (!editUser) return;
      setEditSaving(true); setEditError("");
     try {
      await client.put(`/users/${editUser.id}`, {
@@ -204,11 +204,12 @@ function UsersTab() {
        lastName: editLast,
   role: editRole,
         isActive: editActive,
-            });
+  });
     setEditUser(null);
-            load();
-      } catch (err: any) {
- setEditError(err?.response?.data?.message || "Failed to update user");
+ load();
+      } catch (err: unknown) {
+ const axErr = err as { response?: { data?: { message?: string } } };
+ setEditError(axErr?.response?.data?.message || "Failed to update user");
    } finally { setEditSaving(false); }
     };
 
@@ -216,11 +217,12 @@ function UsersTab() {
         if (!resetUserId || !newPassword) return;
         setResetSaving(true); setResetMsg("");
         try {
-            await client.post(`/users/${resetUserId}/reset-password`, { newPassword });
+        await client.post(`/users/${resetUserId}/reset-password`, { newPassword });
 setResetMsg(t.settings.passwordResetSuccess ?? "Password reset successfully");
   setNewPassword("");
-    } catch (err: any) {
-      setResetMsg(err?.response?.data?.message || "Failed to reset password");
+    } catch (err: unknown) {
+      const axErr = err as { response?: { data?: { message?: string } } };
+      setResetMsg(axErr?.response?.data?.message || "Failed to reset password");
      } finally { setResetSaving(false); }
     };
 
@@ -470,15 +472,15 @@ function EmailsTab() {
         </div>
   {isExpanded && (
  <div className="px-4 pb-3 ml-10 space-y-2">
-        {e.errorMessage && (
+        {e.errorMessage ? (
     <div className="rounded bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
-        {t.settings.emailError ?? "Error"}: {e.errorMessage as string} {e.retryCount ? `(${e.retryCount} ${t.common.retries ?? "retries"})` : ""}
+        {t.settings.emailError ?? "Error"}: {String(e.errorMessage)} {e.retryCount ? `(${e.retryCount} ${t.common.retries ?? "retries"})` : ""}
        </div>
-   )}
+   ) : null}
       <div className="rounded bg-muted/50 p-3 text-xs text-foreground whitespace-pre-wrap max-h-48 overflow-y-auto">
- {(e.body as string) || (t.settings.noBody ?? "No body")}
+ {String(e.body ?? "") || (t.settings.noBody ?? "No body")}
          </div>
-    {e.sentAt && <p className="text-[10px] text-muted-foreground">{t.common.sent}: {format(new Date(e.sentAt as string), "dd MMM yyyy HH:mm")}</p>}
+    {e.sentAt ? <p className="text-[10px] text-muted-foreground">{t.common.sent}: {format(new Date(e.sentAt as string), "dd MMM yyyy HH:mm")}</p> : null}
        </div>
            )}
             </div>
@@ -569,14 +571,14 @@ const load = useCallback(async () => {
   </div>
           {isExpanded && (
           <div className="px-4 pb-3 ml-10 space-y-2">
-     {err.stackTrace && (
-             <pre className="rounded bg-muted/50 p-2 text-[10px] font-mono overflow-x-auto max-h-40 text-foreground">
-            {err.stackTrace as string}
-         </pre>
-  )}
-      {err.userEmail && <p className="text-[11px] text-muted-foreground">{t.common.user ?? "User"}: {err.userEmail as string}</p>}
-          </div>
-          )}
+     {err.stackTrace ? (
+           <pre className="rounded bg-muted/50 p-2 text-[10px] font-mono overflow-x-auto max-h-40 text-foreground">
+         {String(err.stackTrace)}
+    </pre>
+  ) : null}
+      {err.userEmail ? <p className="text-[11px] text-muted-foreground">{t.common.user ?? "User"}: {String(err.userEmail)}</p> : null}
+        </div>
+    )}
        </div>
    );
             })}
@@ -589,7 +591,7 @@ const load = useCallback(async () => {
 /* ── Insolvency Firm Tab ──────────────────────────────── */
 function FirmTab() {
     const { t } = useTranslation();
-    const [_firm, setFirm] = useState<InsolvencyFirmDto | null>(null);
+    const [, setFirm] = useState<InsolvencyFirmDto | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 const [saved, setSaved] = useState(false);
@@ -814,9 +816,10 @@ setKeys(keysRes.data);
       setSuccess(t.settings.keyUploaded ?? "Signing key uploaded successfully");
       setFile(null); setPassword(""); setKeyName("");
             loadKeys();
-        } catch (err: any) {
-            setError(err?.response?.data?.message || "Failed to upload signing key");
-        } finally { setUploading(false); }
+        } catch (err: unknown) {
+     const axErr = err as { response?: { data?: { message?: string } } };
+   setError(axErr?.response?.data?.message || "Failed to upload signing key");
+     } finally { setUploading(false); }
 };
 
     const handleDeactivate = async (id: string) => {
@@ -893,7 +896,7 @@ setKeys(keysRes.data);
         </p>
          <p className="text-[10px] text-muted-foreground">
    {t.settings.validRange ?? "Valid"}: {format(new Date(k.validFrom as string), "dd MMM yyyy")} \u2192 {format(new Date(k.validTo as string), "dd MMM yyyy")}
- {k.lastUsedAt && ` \u00B7 ${t.settings.lastUsed ?? "Last used"}: ${format(new Date(k.lastUsedAt as string), "dd MMM yyyy HH:mm")}`}
+ {k.lastUsedAt ? ` \u00B7 ${t.settings.lastUsed ?? "Last used"}: ${format(new Date(k.lastUsedAt as string), "dd MMM yyyy HH:mm")}` : null}
       </p>
      </div>
      <div className="flex items-center gap-2 shrink-0">
@@ -973,7 +976,7 @@ finally { setLoading(false); }
     const openEdit = (item: AuthorityRecord | null) => {
         setEditing(item);
         const f: Record<string, string> = {};
-        fields.forEach(fd => { f[fd.key] = (item as Record<string, unknown>)?.[fd.key] as string || ""; });
+        fields.forEach(fd => { f[fd.key] = (item as unknown as Record<string, unknown>)?.[fd.key] as string || ""; });
         setForm(f);
     setFormError("");
     };
@@ -981,16 +984,16 @@ finally { setLoading(false); }
     const handleSave = async () => {
    setSaving(true); setFormError("");
         try {
-            if (editing) {
+      if (editing) {
       await api.update(editing.id, form);
  } else {
-          await api.create(form);
-      }
+     await api.create(form);
+    }
    setEditing(undefined);
-            load();
+     load();
   } catch (err: unknown) {
-     const msg = (err as Record<string, Record<string, string>>)?.response?.data?.message;
- setFormError(msg || "Failed to save");
+     const axErr = err as { response?: { data?: { message?: string } } };
+ setFormError(axErr?.response?.data?.message || "Failed to save");
       } finally { setSaving(false); }
     };
 
@@ -1020,7 +1023,8 @@ finally { setLoading(false); }
      a.href = url;
  // For auth headers we need fetch
   fetch(url, {
-            headers: {
+            headers:
+             {
   ...(token ? { Authorization: `Bearer ${token}` } : {}),
        ...(tenantId ? { "X-Tenant-Id": tenantId } : {}),
       },
@@ -1085,8 +1089,8 @@ finally { setLoading(false); }
       <p className="text-xs text-muted-foreground truncate">
    {item.county && `${item.county}`}{item.locality && ` · ${item.locality}`}
           {item.phone && ` · ${item.phone}`}{item.email && ` · ${item.email}`}
-           {(item as Record<string, unknown>).registryPhone && ` · ${(item as Record<string, unknown>).registryPhone}`}
-               {(item as Record<string, unknown>).registryEmail && ` · ${(item as Record<string, unknown>).registryEmail}`}
+    {item.registryPhone && ` · ${item.registryPhone}`}
+               {item.registryEmail && ` · ${item.registryEmail}`}
   </p>
   </div>
             <Badge variant={item.isGlobal ? "outline" : "secondary"} className="text-[10px] shrink-0">
@@ -1153,8 +1157,8 @@ function DemoTab() {
      setResult(r.data.message || (t.settings?.demoResetSuccess ?? "Demo data reset successfully"));
          setConfirmed(false);
         } catch (err: unknown) {
-            const msg = (err as Record<string, Record<string, string>>)?.response?.data?.message;
-            setResult(msg || "Failed to reset demo data");
+     const axErr = err as { response?: { data?: { message?: string } } };
+     setResult(axErr?.response?.data?.message || "Failed to reset demo data");
      } finally { setResetting(false); }
     };
 
@@ -1255,110 +1259,79 @@ function PermissionsTab() {
 }
 
 /* ── Settings Page ─────────────────────────────────────── */
-export default function SettingsPage() {
+export default function SettingsPage({ tab }: { tab?: Tab }) {
     const { isGlobalAdmin, isTenantAdmin } = useAuth();
     const { t } = useTranslation();
-    const [tab, setTab] = useState<Tab>("tenant");
-
-    const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-        { id: "tenant", label: t.settings.organization, icon: Building2 },
-        { id: "firm", label: t.firm.title, icon: Landmark },
-        { id: "users", label: t.settings.users, icon: Users },
-        { id: "signing", label: t.settings.signing, icon: KeyRound },
-        { id: "tribunals", label: t.authorities?.tribunals ?? "Tribunals", icon: Gavel },
-        { id: "finance", label: t.authorities?.finance ?? "ANAF", icon: Receipt },
-      { id: "localgov", label: t.authorities?.localGov ?? "Local Gov", icon: MapPin },
-        { id: "emails", label: t.settings.scheduledEmails, icon: Mail },
-        { id: "errors", label: t.settings.errorLogs, icon: AlertCircle },
-  { id: "permissions", label: t.settings.permissions ?? "Permissions", icon: ShieldCheck },
-  ...(isGlobalAdmin ? [{ id: "demo" as Tab, label: t.settings?.demoReset ?? "Demo", icon: RotateCcw }] : []),
-  ];
+    const activeTab = tab ?? "tenant";
 
     if (!isGlobalAdmin && !isTenantAdmin) {
-        return (
-            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <Shield className="h-12 w-12 mb-3 opacity-30" />
-                <p className="text-sm">{t.settings.noAccess}</p>
-            </div>
+    return (
+   <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+ <Shield className="h-12 w-12 mb-3 opacity-30" />
+     <p className="text-sm">{t.settings.noAccess}</p>
+  </div>
         );
     }
 
     return (
-        <div className="mx-auto max-w-5xl">
-            <h1 className="text-xl font-bold text-foreground mb-5">{t.settings.title}</h1>
-
-            {/* Tab bar */}
-            <div className="mb-5 flex gap-1 rounded-lg border border-border bg-card p-1 overflow-x-auto">
-                {TABS.map(tb => (
-                    <button
-                        key={tb.id}
-                        onClick={() => setTab(tb.id)}
-                        className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap
-      ${tab === tb.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}
-          >
-                        <tb.icon className="h-3.5 w-3.5" />
-                        {tb.label}
-                    </button>
-                ))}
-            </div>
-
-            {tab === "tenant" && <TenantTab />}
-            {tab === "firm" && <FirmTab />}
-            {tab === "users" && <UsersTab />}
-            {tab === "signing" && <SigningTab />}
-            {tab === "tribunals" && (
+     <div className="mx-auto max-w-4xl">
+       {activeTab === "tenant" && <TenantTab />}
+    {activeTab === "firm" && <FirmTab />}
+     {activeTab === "users" && <UsersTab />}
+   {activeTab === "signing" && <SigningTab />}
+      {activeTab === "tribunals" && (
          <AuthorityTab api={tribunalsApi} entityLabel={t.authorities?.tribunals ?? "Tribunals"} fields={[
        { key: "name", label: t.common.name ?? "Name", wide: true },
-          { key: "section", label: t.authorities?.section ?? "Section" },
+    { key: "section", label: t.authorities?.section ?? "Section" },
    { key: "county", label: t.companies?.county ?? "County" },
  { key: "locality", label: t.companies?.locality ?? "Locality" },
        { key: "address", label: t.companies?.address ?? "Address", wide: true },
-                 { key: "postalCode", label: t.companies?.postalCode ?? "Postal Code" },
+          { key: "postalCode", label: t.companies?.postalCode ?? "Postal Code" },
     { key: "registryPhone", label: t.authorities?.registryPhone ?? "Registry Phone" },
-                  { key: "registryFax", label: t.authorities?.registryFax ?? "Registry Fax" },
-               { key: "registryEmail", label: t.authorities?.registryEmail ?? "Registry Email" },
-    { key: "registryHours", label: t.authorities?.registryHours ?? "Registry Hours" },
+   { key: "registryFax", label: t.authorities?.registryFax ?? "Registry Fax" },
+     { key: "registryEmail", label: t.authorities?.registryEmail ?? "Registry Email" },
+   { key: "registryHours", label: t.authorities?.registryHours ?? "Registry Hours" },
    { key: "website", label: t.firm?.website ?? "Website" },
     { key: "contactPerson", label: t.companies?.contactPerson ?? "Contact Person" },
-            { key: "notes", label: t.common?.notes ?? "Notes", wide: true },
-    ]} />
+            { key: " notes", label: t.common?.notes ?? "Notes", wide: true },
+]} />
      )}
-            {tab === "finance" && (
+       {activeTab === "finance" && (
    <AuthorityTab api={financeApi} entityLabel={t.authorities?.finance ?? "ANAF"} fields={[
-         { key: "name", label: t.common.name ?? "Name", wide: true },
-        { key: "county", label: t.companies?.county ?? "County" },
+   { key: "name", label: t.common.name ?? "Name", wide: true },
+     { key: "county", label: t.companies?.county ?? "County" },
    { key: "locality", label: t.companies?.locality ?? "Locality" },
       { key: "address", label: t.companies?.address ?? "Address", wide: true },
-         { key: "postalCode", label: t.companies?.postalCode ?? "Postal Code" },
+ { key: "postalCode", label: t.companies?.postalCode ?? "Postal Code" },
      { key: "phone", label: t.companies?.phone ?? "Phone" },
-                { key: "fax", label: t.firm?.fax ?? "Fax" },
-          { key: "email", label: t.companies?.email ?? "Email" },
+            { key: "fax", label: t.firm?.fax ?? "Fax" },
+      { key: "email", label: t.companies?.email ?? "Email" },
   { key: "website", label: t.firm?.website ?? "Website" },
     { key: "contactPerson", label: t.companies?.contactPerson ?? "Contact Person" },
       { key: "scheduleHours", label: t.authorities?.scheduleHours ?? "Schedule Hours" },
-           { key: "notes", label: t.common?.notes ?? "Notes", wide: true },
+         { key: "notes", label: t.common?.notes ?? "Notes", wide: true },
   ]} />
       )}
-  {tab === "localgov" && (
+  {activeTab === "localgov" && (
  <AuthorityTab api={localGovApi} entityLabel={t.authorities?.localGov ?? "Local Government"} fields={[
     { key: "name", label: t.common.name ?? "Name", wide: true },
      { key: "county", label: t.companies?.county ?? "County" },
-            { key: "locality", label: t.companies?.locality ?? "Locality" },
+     { key: "locality", label: t.companies?.locality ?? "Locality" },
        { key: "address", label: t.companies?.address ?? "Address", wide: true },
-             { key: "postalCode", label: t.companies?.postalCode ?? "Postal Code" },
+    { key: "postalCode", label: t.companies?.postalCode ?? "Postal Code" },
        { key: "phone", label: t.companies?.phone ?? "Phone" },
        { key: "fax", label: t.firm?.fax ?? "Fax" },
     { key: "email", label: t.companies?.email ?? "Email" },
      { key: "website", label: t.firm?.website ?? "Website" },
       { key: "contactPerson", label: t.companies?.contactPerson ?? "Contact Person" },
-        { key: "scheduleHours", label: t.authorities?.scheduleHours ?? "Schedule Hours" },
+     { key: "scheduleHours", label: t.authorities?.scheduleHours ?? "Schedule Hours" },
        { key: "notes", label: t.common?.notes ?? "Notes", wide: true },
      ]} />
       )}
-            {tab === "emails" && <EmailsTab />}
-          {tab === "errors" && <ErrorsTab />}
-            {tab === "permissions" && <PermissionsTab />}
-    {tab === "demo" && isGlobalAdmin && <DemoTab />}
+       {activeTab === "emails" && <EmailsTab />}
+       {activeTab === "errors" && <ErrorsTab />}
+      {activeTab === "permissions" && <PermissionsTab />}
+    {activeTab === "demo" && isGlobalAdmin && <DemoTab />}
      </div>
     );
 }

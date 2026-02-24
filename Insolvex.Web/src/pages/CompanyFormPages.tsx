@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { companiesApi, usersApi } from "@/services/api";
+import { companiesApi, usersApi, onrcApi } from "@/services/api";
 import { useTranslation } from "@/contexts/LanguageContext";
 import type { CompanyDto, UserDto } from "@/services/api/types";
+import type { ONRCFirmResult } from "@/services/api/onrc";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
-import { Loader2, Building2, Phone, Landmark, Scale, DollarSign, Flag, MoreHorizontal, ArrowRight } from "lucide-react";
+import { Loader2, Building2, Phone, Landmark, Scale, DollarSign, Flag, MoreHorizontal, ArrowRight, Database } from "lucide-react";
 
 const COMPANY_TYPES = [
   { value: "Debtor", icon: Building2, color: "border-red-200 bg-red-50 hover:border-red-400", textColor: "text-red-700", desc: "Company undergoing insolvency procedure" },
@@ -44,30 +45,70 @@ function CompanyForm({ initial, onSubmit, saving, onCancel, title }: {
   const [assignedToUserId, setAssignedToUserId] = useState(initial.assignedToUserId ?? "");
   const [users, setUsers] = useState<UserDto[]>([]);
 
+  // ONRC lookup state
+  const [onrcQuery, setOnrcQuery] = useState("");
+  const [onrcResults, setOnrcResults] = useState<ONRCFirmResult[]>([]);
+  const [onrcSearching, setOnrcSearching] = useState(false);
+  const [showOnrcDropdown, setShowOnrcDropdown] = useState(false);
+
   useEffect(() => {
     usersApi.getAll().then(r => setUsers(r.data)).catch(console.error);
   }, []);
+
+  // Debounced ONRC search
+  useEffect(() => {
+    if (!onrcQuery || onrcQuery.length < 2) {
+      setOnrcResults([]);
+      setShowOnrcDropdown(false);
+      return;
+ }
+    const timer = setTimeout(async () => {
+      setOnrcSearching(true);
+try {
+        const r = await onrcApi.search(onrcQuery, "Romania", 8);
+        setOnrcResults(r.data);
+        setShowOnrcDropdown(r.data.length > 0);
+    } catch { /* ignore */ }
+  finally { setOnrcSearching(false); }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [onrcQuery]);
+
+const fillFromOnrc = (firm: ONRCFirmResult) => {
+    setName(firm.name);
+    setCuiRo(firm.cui);
+    if (firm.tradeRegisterNo) setTradeRegisterNo(firm.tradeRegisterNo);
+    if (firm.caen) setCaen(firm.caen);
+    if (firm.address) setAddress(firm.address);
+    if (firm.locality) setLocality(firm.locality);
+    if (firm.county) setCounty(firm.county);
+    if (firm.postalCode) setPostalCode(firm.postalCode);
+    if (firm.phone) setPhone(firm.phone);
+    if (firm.incorporationYear) setIncorporationYear(firm.incorporationYear);
+    setShowOnrcDropdown(false);
+    setOnrcQuery("");
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
       name, companyType,
-      cuiRo: cuiRo || undefined,
+    cuiRo: cuiRo || undefined,
       tradeRegisterNo: tradeRegisterNo || undefined,
       vatNumber: vatNumber || undefined,
       address: address || undefined,
       locality: locality || undefined,
-    county: county || undefined,
+county: county || undefined,
       country: country || undefined,
       postalCode: postalCode || undefined,
       caen: caen || undefined,
-      incorporationYear: incorporationYear || undefined,
-      phone: phone || undefined,
-      email: email || undefined,
-      contactPerson: contactPerson || undefined,
-      iban: iban || undefined,
-bankName: bankName || undefined,
-      assignedToUserId: assignedToUserId || undefined,
+  incorporationYear: incorporationYear || undefined,
+    phone: phone || undefined,
+  email: email || undefined,
+ contactPerson: contactPerson || undefined,
+ iban: iban || undefined,
+    bankName: bankName || undefined,
+   assignedToUserId: assignedToUserId || undefined,
     } as Partial<CompanyDto>);
   };
 
@@ -76,8 +117,60 @@ bankName: bankName || undefined,
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* ONRC Lookup */}
+<div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+     <Database className="h-4 w-4 text-primary" />
+  <h2 className="text-sm font-semibold text-foreground">{t.settings.onrcDatabase ?? "ONRC Lookup"}</h2>
+        <span className="text-[10px] text-muted-foreground ml-auto">Search ONRC to auto-fill company details</span>
+        </div>
+        <div className="relative">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+    value={onrcQuery}
+          onChange={e => setOnrcQuery(e.target.value)}
+        placeholder={t.settings.onrcSearchPlaceholder ?? "Search by CUI or company name..."}
+    className={inputCls}
+        onFocus={() => onrcResults.length > 0 && setShowOnrcDropdown(true)}
+   />
+    {onrcSearching && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+       )}
+      </div>
+ </div>
+          {showOnrcDropdown && (
+   <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg max-h-64 overflow-y-auto">
+  {onrcResults.map(firm => (
+         <button
+         key={firm.id}
+       type="button"
+      onClick={() => fillFromOnrc(firm)}
+                  className="flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-muted/50 transition-colors border-b border-border last:border-0"
+         >
+    <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+          <div className="min-w-0 flex-1">
+   <p className="text-sm font-medium text-foreground truncate">{firm.name}</p>
+           <p className="text-xs text-muted-foreground truncate">
+      CUI: {firm.cui}
+         {firm.tradeRegisterNo && ` · ${firm.tradeRegisterNo}`}
+       {firm.county && ` · ${firm.county}`}
+                  </p>
+   </div>
+         {firm.status && (
+      <span className={`text-[10px] px-1.5 py-0.5 rounded ${firm.status.toUpperCase() === "ACTIV" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+        {firm.status}
+    </span>
+    )}
+   </button>
+              ))}
+            </div>
+     )}
+        </div>
+  </div>
+
       {/* Company Details */}
-  <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+ <div className="rounded-xl border border-border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Building2 className="h-4 w-4 text-primary" />
      <h2 className="text-lg font-bold text-foreground">{title}</h2>

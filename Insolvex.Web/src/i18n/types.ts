@@ -41,6 +41,14 @@ export interface Translations {
     user: string;
     accepted: string;
     expired: string;
+    name: string;
+    notes: string;
+    records: string;
+    noData: string;
+    import: string;
+    export: string;
+    imported: string;
+    errorsOccurred: string;
   };
 
   // Navigation
@@ -375,6 +383,27 @@ export interface Translations {
     noReason: string;
     validSignature: string;
     invalidSignature: string;
+    // Settings navigation
+    backToApp: string;
+    general: string;
+    firmDetails: string;
+    teamUsers: string;
+    eSigning: string;
+    onrcDatabase: string;
+    onrcDatabaseDesc: string;
+    onrcUpload: string;
+    onrcStats: string;
+    onrcTotalRecords: string;
+    onrcLastImport: string;
+    onrcNoData: string;
+    onrcImportSuccess: string;
+    onrcSearchPlaceholder: string;
+    region: string;
+    regionRomania: string;
+    regionHungary: string;
+    regionDesc: string;
+    demoResetButton: string;
+    demoResetDesc: string;
   };
 
   // Tenants
@@ -387,6 +416,7 @@ export interface Translations {
     plan: string;
     noTenants: string;
     noAccess: string;
+    region: string;
   };
 
   // Audit trail
@@ -409,5 +439,21 @@ export interface Translations {
     totalEvents: string;
     noLogs: string;
     noAccess: string;
+  };
+
+  // Authorities
+  authorities: {
+    tribunals: string;
+    finance: string;
+    localGov: string;
+    section: string;
+    registryPhone: string;
+    registryFax: string;
+    registryEmail: string;
+    registryHours: string;
+    scheduleHours: string;
+    global: string;
+    override: string;
+    csvImportDesc: string;
   };
 }

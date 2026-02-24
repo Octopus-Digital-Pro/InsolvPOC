@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { tenantsApi } from "@/services/api";
 import {
-  Loader2, Building2, Shield, Plus, X, Check, Users, Briefcase, Building,
+  Loader2, Building2, Shield, Plus, X, Users, Briefcase, Building,
   RefreshCw, Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -17,6 +17,7 @@ interface TenantRow {
 domain: string | null;
   isActive: boolean;
   planName: string | null;
+  region: string;
   subscriptionExpiry: string | null;
   createdOn: string;
   userCount: number;
@@ -37,22 +38,24 @@ function EditTenantModal({
   const [name, setName] = useState(tenant?.name ?? "");
   const [domain, setDomain] = useState(tenant?.domain ?? "");
   const [planName, setPlanName] = useState(tenant?.planName ?? "Free");
+  const [region, setRegion] = useState(tenant?.region ?? "Romania");
   const [isActive, setIsActive] = useState(tenant?.isActive ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const handleSave = async () => {
-    setSaving(true);
+setSaving(true);
     setError("");
     try {
       if (tenant) {
-   await tenantsApi.update(tenant.id, { name, domain: domain || undefined, planName, isActive });
+   await tenantsApi.update(tenant.id, { name, domain: domain || undefined, planName, isActive, region });
  } else {
-        await tenantsApi.create({ name, domain: domain || undefined, planName });
-      }
+        await tenantsApi.create({ name, domain: domain || undefined, planName, region });
+     }
       onSaved();
-    } catch (err: any) {
-    setError(err?.response?.data?.message || "Failed to save tenant");
+    } catch (err: unknown) {
+    const axErr = err as { response?: { data?: { message?: string } } };
+  setError(axErr?.response?.data?.message || "Failed to save tenant");
  } finally {
       setSaving(false);
     }
@@ -62,46 +65,46 @@ function EditTenantModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
         className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md mx-4 p-5 space-y-4"
-        onClick={(e) => e.stopPropagation()}
+   onClick={(e) => e.stopPropagation()}
       >
      <div className="flex items-center justify-between">
  <h2 className="text-sm font-semibold text-foreground">
        {tenant ? (t.tenants?.editTenant ?? "Edit Tenant") : (t.tenants?.createTenant ?? "Create Tenant")}
-          </h2>
+    </h2>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
   <X className="h-4 w-4" />
    </Button>
         </div>
 
         <div className="space-y-3">
-     <div>
-        <label className="mb-1 block text-[10px] font-semibold uppercase text-muted-foreground">
-          {t.tenants?.name ?? "Name"}
-     </label>
+   <div>
+    <label className="mb-1 block text-[10px] font-semibold uppercase text-muted-foreground">
+              {t.tenants?.name ?? "Name"}
+    </label>
      <input
               value={name}
   onChange={(e) => setName(e.target.value)}
       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
    placeholder="Acme Insolvency Ltd"
     />
-          </div>
+     </div>
           <div>
      <label className="mb-1 block text-[10px] font-semibold uppercase text-muted-foreground">
-              {t.tenants?.domain ?? "Domain"}
+        {t.tenants?.domain ?? "Domain"}
  </label>
             <input
      value={domain}
-              onChange={(e) => setDomain(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+         onChange={(e) => setDomain(e.target.value)}
+       className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
       placeholder="acme.insolvex.com"
             />
-          </div>
+</div>
           <div>
-            <label className="mb-1 block text-[10px] font-semibold uppercase text-muted-foreground">
+      <label className="mb-1 block text-[10px] font-semibold uppercase text-muted-foreground">
  {t.tenants?.plan ?? "Plan"}
             </label>
         <select
-              value={planName}
+         value={planName}
          onChange={(e) => setPlanName(e.target.value)}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
      >
@@ -109,24 +112,37 @@ function EditTenantModal({
    <option value="Professional">Professional</option>
        <option value="Enterprise">Enterprise</option>
    </select>
-          </div>
+       </div>
+          <div>
+     <label className="mb-1 block text-[10px] font-semibold uppercase text-muted-foreground">
+              {t.tenants?.region ?? "Region"}
+  </label>
+            <select
+  value={region}
+              onChange={(e) => setRegion(e.target.value)}
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+         <option value="Romania">???? Romania</option>
+      <option value="Hungary">???? Hungary</option>
+  </select>
+  </div>
           {tenant && (
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+  <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
          {t.common.active}
          </label>
         )}
         </div>
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
+    {error && <p className="text-xs text-destructive">{error}</p>}
 
    <div className="flex justify-end gap-2">
       <Button variant="outline" size="sm" onClick={onClose}>
-            {t.common.cancel}
+    {t.common.cancel}
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
-            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-            {tenant ? t.common.save : t.common.create}
+  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+      {tenant ? t.common.save : t.common.create}
           </Button>
     </div>
       </div>
@@ -212,6 +228,9 @@ setTenants(r.data as unknown as TenantRow[]);
      {tenant.planName}
       </Badge>
     )}
+    <Badge variant="outline" className="text-[10px]">
+{tenant.region === "Romania" ? "????" : "????"} {tenant.region}
+         </Badge>
        </div>
     <p className="text-xs text-muted-foreground">
           {tenant.domain || "No domain"} \u00B7 Created{" "}

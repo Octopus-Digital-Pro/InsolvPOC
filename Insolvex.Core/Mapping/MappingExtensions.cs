@@ -22,9 +22,10 @@ public static class MappingExtensions
         tenant.Id,
         tenant.Name,
 tenant.Domain,
-        tenant.IsActive,
+   tenant.IsActive,
         tenant.SubscriptionExpiry,
-    tenant.PlanName
+ tenant.PlanName,
+tenant.Region.ToString()
     );
 
     public static CompanyDto ToDto(this Company company, int caseCount = 0) => new(

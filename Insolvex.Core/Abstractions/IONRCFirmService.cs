@@ -42,13 +42,13 @@ public class ONRCFirmResult
     public string Region { get; init; } = string.Empty;
 }
 
-public class ONRCImportResult
+public record ONRCImportResult
 {
     public int TotalRows { get; init; }
     public int Imported { get; init; }
     public int Updated { get; init; }
     public int Skipped { get; init; }
-    public List<string> Errors { get; init; } = new();
+  public List<string> Errors { get; init; } = new();
 }
 
 public class ONRCDatabaseStats

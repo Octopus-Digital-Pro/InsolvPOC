@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { TenantProvider } from "./contexts/TenantContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import SidebarNav from "./components/SidebarNav";
+import SettingsLayout from "./components/SettingsLayout";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import CasesPage from "./pages/CasesPage";
@@ -18,6 +19,7 @@ import SettingsPage from "./pages/SettingsPage";
 import DeadlineSettingsPage from "./pages/DeadlineSettingsPage";
 import AuditTrailPage from "./pages/AuditTrailPage";
 import TenantAdminPage from "./pages/TenantAdminPage";
+import ONRCSettingsPage from "./pages/ONRCSettingsPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Loader2, Menu, X } from "lucide-react";
 
@@ -125,8 +127,24 @@ function AppRoutes() {
         <Route path="/companies/:id/edit" element={<EditCompanyPage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/documents/:id/review" element={<DocumentReviewPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/settings/deadlines" element={<DeadlineSettingsPage />} />
+
+        {/* Settings — sidebar takeover layout */}
+        <Route path="/settings" element={<SettingsLayout />}>
+          <Route index element={<SettingsPage tab="tenant" />} />
+          <Route path="firm" element={<SettingsPage tab="firm" />} />
+          <Route path="users" element={<SettingsPage tab="users" />} />
+          <Route path="signing" element={<SettingsPage tab="signing" />} />
+          <Route path="onrc" element={<ONRCSettingsPage />} />
+          <Route path="tribunals" element={<SettingsPage tab="tribunals" />} />
+          <Route path="finance" element={<SettingsPage tab="finance" />} />
+          <Route path="localgov" element={<SettingsPage tab="localgov" />} />
+          <Route path="deadlines" element={<DeadlineSettingsPage />} />
+          <Route path="emails" element={<SettingsPage tab="emails" />} />
+          <Route path="errors" element={<SettingsPage tab="errors" />} />
+          <Route path="permissions" element={<SettingsPage tab="permissions" />} />
+          <Route path="demo" element={<SettingsPage tab="demo" />} />
+        </Route>
+
         <Route path="/audit-trail" element={<AuditTrailPage />} />
         <Route path="/admin/tenants" element={<TenantAdminPage />} />
       </Route>

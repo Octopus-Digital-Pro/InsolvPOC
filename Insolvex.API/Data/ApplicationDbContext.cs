@@ -391,16 +391,19 @@ e.HasKey(t => t.Id);
         // GeneratedLetter
         modelBuilder.Entity<GeneratedLetter>(e =>
         {
-            e.HasKey(g => g.Id);
-e.Property(g => g.StorageKey).HasMaxLength(1024).IsRequired();
-          e.Property(g => g.FileName).HasMaxLength(512).IsRequired();
+   e.HasKey(g => g.Id);
+    e.Property(g => g.StorageKey).HasMaxLength(1024).IsRequired();
+       e.Property(g => g.FileName).HasMaxLength(512).IsRequired();
     e.Property(g => g.ContentType).HasMaxLength(128);
-  e.Property(g => g.FileHash).HasMaxLength(128);
-  e.Property(g => g.DeliveryStatus).HasMaxLength(32);
-    e.Property(g => g.ErrorMessage).HasMaxLength(2000);
-        e.HasOne(g => g.Case).WithMany(ic => ic.GeneratedLetters).HasForeignKey(g => g.CaseId).OnDelete(DeleteBehavior.Cascade);
-      e.HasOne(g => g.Template).WithMany().HasForeignKey(g => g.TemplateId).OnDelete(DeleteBehavior.SetNull);
-            e.HasIndex(g => new { g.CaseId, g.TemplateType });
+     e.Property(g => g.FileHash).HasMaxLength(128);
+       e.Property(g => g.DeliveryStatus).HasMaxLength(32);
+ e.Property(g => g.ErrorMessage).HasMaxLength(2000);
+   e.HasOne(g => g.Case).WithMany(ic => ic.GeneratedLetters).HasForeignKey(g => g.CaseId).OnDelete(DeleteBehavior.NoAction);
+ e.HasOne(g => g.Template).WithMany().HasForeignKey(g => g.TemplateId).OnDelete(DeleteBehavior.SetNull);
+     // Use string FK overload with no navigation — GeneratedLetter has no Tenant nav property.
+     // This overrides the default Cascade on TenantId to NoAction to break the cascade cycle.
+     e.HasOne<Tenant>().WithMany().HasForeignKey("TenantId").OnDelete(DeleteBehavior.NoAction).IsRequired();
+   e.HasIndex(g => new { g.CaseId, g.TemplateType });
         });
 
         // TenantDeadlineSettings
@@ -432,7 +435,7 @@ e.Property(g => g.StorageKey).HasMaxLength(1024).IsRequired();
             e.HasKey(f => f.Id);
         e.Property(f => f.CUI).HasMaxLength(64).IsRequired();
           e.Property(f => f.Name).HasMaxLength(512).IsRequired();
-    e.Property(f => f.TradeRegisterNo).HasMaxLength(128);
+    e.Property(f => e.TradeRegisterNo).HasMaxLength(128);
     e.Property(f => f.CAEN).HasMaxLength(32);
       e.Property(f => f.Address).HasMaxLength(512);
  e.Property(f => f.Locality).HasMaxLength(256);

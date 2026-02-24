@@ -17,6 +17,12 @@ using Insolvex.Domain.Enums;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ----- Kestrel: allow large file uploads (e.g. ONRC CSV imports) -----
+builder.WebHost.ConfigureKestrel(options =>
+{
+  options.Limits.MaxRequestBodySize = 150_000_000; // 150 MB
+});
+
 // ----- Database -----
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
@@ -97,7 +103,7 @@ builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ICaseEmailService, CaseEmailService>();
 builder.Services.AddScoped<IBulkEmailService, BulkEmailService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
-
+builder.Services.AddScoped<IONRCFirmService, ONRCFirmService>();
 
 // Background services
 builder.Services.AddHostedService<Insolvex.API.BackgroundServices.DeadlineReminderService>();

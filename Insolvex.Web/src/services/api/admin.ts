@@ -13,8 +13,8 @@ export const usersApi = {
 export const tenantsApi = {
   getAll: () => client.get<TenantDto[]>("/tenants"),
   getById: (id: string) => client.get<TenantDto>(`/tenants/${id}`),
-  create: (data: { name: string; domain?: string; planName?: string }) => client.post<TenantDto>("/tenants", data),
-  update: (id: string, data: Partial<TenantDto>) => client.put<TenantDto>(`/tenants/${id}`, data),
+  create: (data: { name: string; domain?: string; planName?: string; region?: string }) => client.post<TenantDto>("/tenants", data),
+  update: (id: string, data: Partial<TenantDto> & { region?: string }) => client.put<TenantDto>(`/tenants/${id}`, data),
 };
 
 export const auditLogsApi = {

@@ -61,19 +61,22 @@ public class TenantsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateTenantRequest request)
     {
       var tenant = new Tenant
-        {
-            Id = Guid.NewGuid(),
-   Name = request.Name,
+  {
+        Id = Guid.NewGuid(),
+ Name = request.Name,
   Domain = request.Domain,
     PlanName = request.PlanName,
-        IsActive = true,
+     IsActive = true,
    CreatedOn = DateTime.UtcNow,
-            CreatedBy = "System"
+         CreatedBy = "System"
         };
 
-        _db.Tenants.Add(tenant);
+        if (request.Region != null && Enum.TryParse<SystemRegion>(request.Region, true, out var region))
+            tenant.Region = region;
+
+  _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = tenant.Id }, tenant.ToDto());
+   return CreatedAtAction(nameof(GetById), new { id = tenant.Id }, tenant.ToDto());
     }
 
     [HttpPut("{id:guid}")]

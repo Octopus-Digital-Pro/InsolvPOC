@@ -13,15 +13,19 @@ interface NavItemProps {
 to: string;
   icon: React.ElementType;
   label: string;
+  /** Match any route starting with `to` */
+  matchPrefix?: boolean;
 }
 
-function NavItem({ to, icon: Icon, label }: NavItemProps) {
+function NavItem({ to, icon: Icon, label, matchPrefix = true }: NavItemProps) {
   const { pathname } = useLocation();
-  const isActive = pathname === to || pathname.startsWith(to + "/");
+  const isActive = matchPrefix
+    ? pathname === to || pathname.startsWith(to + "/")
+    : pathname === to;
 
-  return (
+ return (
     <Link
-      to={to}
+ to={to}
       className={`
         flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors
         ${isActive

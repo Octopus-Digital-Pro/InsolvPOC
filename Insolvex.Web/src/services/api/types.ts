@@ -20,6 +20,7 @@ export interface TenantDto {
   isActive: boolean;
   subscriptionExpiry: string | null;
   planName: string | null;
+  region?: string;
 }
 
 export interface CompanyDto {
