@@ -23,8 +23,8 @@ public class TasksController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-     var dto = await _tasks.GetByIdAsync(id, ct);
-     return dto is null ? NotFound() : Ok(dto);
+        var dto = await _tasks.GetByIdAsync(id, ct);
+        return dto is null ? NotFound() : Ok(dto);
     }
 
     [HttpPost]
@@ -33,31 +33,41 @@ public class TasksController : ControllerBase
     {
         var dto = await _tasks.CreateAsync(new CreateTaskCommand
         {
-            CompanyId = body.CompanyId, CaseId = body.CaseId, Title = body.Title,
-     Description = body.Description, Labels = body.Labels, Category = body.Category,
-            Deadline = body.Deadline, DeadlineSource = body.DeadlineSource,
-            IsCriticalDeadline = body.IsCriticalDeadline, AssignedToUserId = body.AssignedToUserId,
+            CompanyId = body.CompanyId,
+            CaseId = body.CaseId,
+            Title = body.Title,
+            Description = body.Description,
+            Labels = body.Labels,
+            Category = body.Category,
+            Deadline = body.Deadline,
+            DeadlineSource = body.DeadlineSource,
+            IsCriticalDeadline = body.IsCriticalDeadline,
+            AssignedToUserId = body.AssignedToUserId,
         }, ct);
-   return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
+        return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
     }
 
     [HttpPut("{id:guid}")]
     [RequirePermission(Permission.TaskEdit)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTaskBody body, CancellationToken ct)
     {
-var dto = await _tasks.UpdateAsync(id, new UpdateTaskCommand
+        var dto = await _tasks.UpdateAsync(id, new UpdateTaskCommand
         {
-     Title = body.Title, Description = body.Description, Labels = body.Labels,
-            Category = body.Category, Deadline = body.Deadline, Status = body.Status,
+            Title = body.Title,
+            Description = body.Description,
+            Labels = body.Labels,
+            Category = body.Category,
+            Deadline = body.Deadline,
+            Status = body.Status,
             AssignedToUserId = body.AssignedToUserId,
-  }, ct);
+        }, ct);
         return Ok(dto);
     }
 
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.TaskDelete)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
-  {
+    {
         await _tasks.DeleteAsync(id, ct);
         return NoContent();
     }

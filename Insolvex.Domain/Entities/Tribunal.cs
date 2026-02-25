@@ -8,7 +8,7 @@ public class Tribunal : BaseEntity
 {
     /// <summary>Null = global record (uploaded by GlobalAdmin). Non-null = tenant override.</summary>
     public Guid? TenantId { get; set; }
- public virtual Tenant? Tenant { get; set; }
+    public virtual Tenant? Tenant { get; set; }
 
     /// <summary>Court name, e.g. "Tribunalul Bucure?ti"</summary>
     public string Name { get; set; } = string.Empty;

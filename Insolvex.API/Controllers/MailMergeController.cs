@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Insolvex.API.Authorization;
-using Insolvex.API.Data;
 using Insolvex.API.Services;
 using Insolvex.Core.Abstractions;
 using Insolvex.Domain.Enums;
@@ -15,26 +13,27 @@ namespace Insolvex.API.Controllers;
 [RequirePermission(Permission.TemplateView)]
 public class MailMergeController : ControllerBase
 {
-    private readonly ApplicationDbContext _db;
     private readonly MailMergeService _mailMerge;
     private readonly IFileStorageService _storage;
     private readonly IAuditService _audit;
+    private readonly ICurrentUserService _currentUser;
 
-    public MailMergeController(ApplicationDbContext db, MailMergeService mailMerge, IFileStorageService storage, IAuditService audit)
+    public MailMergeController(MailMergeService mailMerge, IFileStorageService storage, IAuditService audit, ICurrentUserService currentUser)
     {
-        _db = db;
-   _mailMerge = mailMerge;
+        _mailMerge = mailMerge;
         _storage = storage;
         _audit = audit;
+        _currentUser = currentUser;
     }
 
-  /// <summary>
-    /// List all available document templates.
+    /// <summary>
+    /// List all available document templates (disk + DB overrides merged).
     /// </summary>
     [HttpGet("templates")]
-    public IActionResult GetTemplates()
+    public async Task<IActionResult> GetTemplates()
     {
-    return Ok(_mailMerge.GetAvailableTemplates());
+        var templates = await _mailMerge.GetAvailableTemplatesAsync(_currentUser.TenantId);
+        return Ok(templates);
     }
 
     /// <summary>
@@ -42,30 +41,23 @@ public class MailMergeController : ControllerBase
     /// </summary>
     [HttpPost("generate/{caseId:guid}")]
     [RequirePermission(Permission.TemplateGenerate)]
-    public async Task<IActionResult> Generate(Guid caseId, [FromBody] GenerateDocumentRequest request)
+    public async Task<IActionResult> Generate(Guid caseId, [FromBody] GenerateDocumentRequest request, CancellationToken ct)
     {
-        var cas = await _db.InsolvencyCases
-      .Include(c => c.Company)
-.FirstOrDefaultAsync(c => c.Id == caseId);
-      if (cas == null) return NotFound("Case not found");
-
         if (!Enum.TryParse<DocumentTemplateType>(request.TemplateType, true, out var templateType))
-        return BadRequest($"Unknown template type: {request.TemplateType}");
+            return BadRequest($"Unknown template type: {request.TemplateType}");
 
-        var firm = await _db.InsolvencyFirms.FirstOrDefaultAsync();
+        var result = await _mailMerge.GenerateForCaseAsync(caseId, templateType, ct);
 
-   var result = await _mailMerge.GenerateAsync(templateType, cas, cas.Company, firm);
-
-        await _audit.LogEntityAsync("Document.MailMergeGenerated", "InsolvencyCase", caseId,
- newValues: new { templateType = result.TemplateType, result.FileName, result.FileSizeBytes });
+        await _audit.LogEntityAsync("Document Generated from Template", "InsolvencyCase", caseId,
+            newValues: new { templateType = result.TemplateType, result.FileName, result.FileSizeBytes });
 
         return Ok(new
         {
             result.TemplateType,
-   result.StorageKey,
-    result.FileName,
-  result.FileSizeBytes,
-         downloadUrl = _storage.GetPresignedUrl(result.StorageKey, TimeSpan.FromHours(1)),
+            result.StorageKey,
+            result.FileName,
+            result.FileSizeBytes,
+            downloadUrl = _storage.GetPresignedUrl(result.StorageKey, TimeSpan.FromHours(1)),
         });
     }
 
@@ -74,29 +66,21 @@ public class MailMergeController : ControllerBase
     /// </summary>
     [HttpPost("generate-all/{caseId:guid}")]
     [RequirePermission(Permission.TemplateGenerate)]
-    public async Task<IActionResult> GenerateAll(Guid caseId, [FromQuery] string? detectedDocType = null)
+    public async Task<IActionResult> GenerateAll(Guid caseId, CancellationToken ct, [FromQuery] string? detectedDocType = null)
     {
-        var cas = await _db.InsolvencyCases
-       .Include(c => c.Company)
-            .FirstOrDefaultAsync(c => c.Id == caseId);
-        if (cas == null) return NotFound("Case not found");
+        var results = await _mailMerge.GenerateKeyDocumentsForCaseIdAsync(caseId, detectedDocType, ct);
 
-        var firm = await _db.InsolvencyFirms.FirstOrDefaultAsync();
-
-var results = await _mailMerge.GenerateKeyDocumentsForCaseAsync(
-        cas, cas.Company, firm, detectedDocType);
-
-        await _audit.LogEntityAsync("Document.MailMergeBatchGenerated", "InsolvencyCase", caseId,
- newValues: new { count = results.Count, templates = results.Select(r => r.TemplateType).ToList() });
+        await _audit.LogEntityAsync("Batch Documents Generated from Templates", "InsolvencyCase", caseId,
+            newValues: new { count = results.Count, templates = results.Select(r => r.TemplateType).ToList() });
 
         return Ok(results.Select(r => new
-     {
+        {
             r.TemplateType,
-       r.StorageKey,
-r.FileName,
-      r.FileSizeBytes,
+            r.StorageKey,
+            r.FileName,
+            r.FileSizeBytes,
             downloadUrl = _storage.GetPresignedUrl(r.StorageKey, TimeSpan.FromHours(1)),
-  }));
+        }));
     }
 
     /// <summary>
@@ -105,21 +89,21 @@ r.FileName,
     [HttpGet("download")]
     public async Task<IActionResult> Download([FromQuery] string key)
     {
- if (string.IsNullOrWhiteSpace(key))
- return BadRequest("Key is required");
+        if (string.IsNullOrWhiteSpace(key))
+            return BadRequest("Key is required");
 
-     if (!await _storage.ExistsAsync(key))
-         return NotFound("Document not found");
+        if (!await _storage.ExistsAsync(key))
+            return NotFound("Document not found");
 
-     var stream = await _storage.DownloadAsync(key);
- var fileName = Path.GetFileName(key);
-var contentType = Path.GetExtension(fileName) switch
-    {
-     ".pdf" => "application/pdf",
-     ".doc" => "application/msword",
-  ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        var stream = await _storage.DownloadAsync(key);
+        var fileName = Path.GetFileName(key);
+        var contentType = Path.GetExtension(fileName) switch
+        {
+            ".pdf" => "application/pdf",
+            ".doc" => "application/msword",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             _ => "application/octet-stream",
-   };
+        };
 
         return File(stream, contentType, fileName);
     }

@@ -12,26 +12,31 @@ namespace Insolvex.API.Controllers;
 [RequirePermission(Permission.EmailCreate)]
 public class BulkEmailController : ControllerBase
 {
-    private readonly IBulkEmailService _bulkEmail;
+  private readonly IBulkEmailService _bulkEmail;
 
-    public BulkEmailController(IBulkEmailService bulkEmail) => _bulkEmail = bulkEmail;
+  public BulkEmailController(IBulkEmailService bulkEmail) => _bulkEmail = bulkEmail;
 
-    [HttpPost("creditor-cohort")]
-    public async Task<IActionResult> SendToCreditorCohort(Guid caseId, [FromBody] BulkCreditorEmailBody body, CancellationToken ct)
+  [HttpPost("creditor-cohort")]
+  public async Task<IActionResult> SendToCreditorCohort(Guid caseId, [FromBody] BulkCreditorEmailBody body, CancellationToken ct)
+  {
+    var result = await _bulkEmail.SendToCreditorCohortAsync(caseId, new BulkEmailCommand
     {
-        var result = await _bulkEmail.SendToCreditorCohortAsync(caseId, new BulkEmailCommand
-        {
-     Subject = body.Subject, Body = body.Body, Cc = body.Cc, Bcc = body.Bcc,
-   IsHtml = body.IsHtml, ScheduledFor = body.ScheduledFor,
-      AttachmentsJson = body.AttachmentsJson, RelatedTaskId = body.RelatedTaskId,
-    Roles = body.Roles,
-        }, ct);
-  return Ok(result);
-    }
+      Subject = body.Subject,
+      Body = body.Body,
+      Cc = body.Cc,
+      Bcc = body.Bcc,
+      IsHtml = body.IsHtml,
+      ScheduledFor = body.ScheduledFor,
+      AttachmentsJson = body.AttachmentsJson,
+      RelatedTaskId = body.RelatedTaskId,
+      Roles = body.Roles,
+    }, ct);
+    return Ok(result);
+  }
 
-    [HttpGet("creditor-cohort/preview")]
-    public async Task<IActionResult> PreviewCohort(Guid caseId, [FromQuery] string? roles, CancellationToken ct)
-   => Ok(await _bulkEmail.PreviewCohortAsync(caseId, roles, ct));
+  [HttpGet("creditor-cohort/preview")]
+  public async Task<IActionResult> PreviewCohort(Guid caseId, [FromQuery] string? roles, CancellationToken ct)
+ => Ok(await _bulkEmail.PreviewCohortAsync(caseId, roles, ct));
 }
 
 public record BulkCreditorEmailBody(

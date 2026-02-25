@@ -7,7 +7,7 @@ namespace Insolvex.Domain.Entities;
 /// </summary>
 public class SystemConfig : BaseEntity
 {
- /// <summary>Unique config key (e.g. "StorageProvider", "DefaultClaimDeadlineDays").</summary>
+    /// <summary>Unique config key (e.g. "StorageProvider", "DefaultClaimDeadlineDays").</summary>
     public string Key { get; set; } = string.Empty;
 
     /// <summary>Config value stored as string (parse as needed).</summary>

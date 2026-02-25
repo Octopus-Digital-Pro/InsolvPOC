@@ -106,7 +106,12 @@ const str = (v: unknown) =>
   typeof v === "string" && v.trim() ? v : "Not found";
 
 function dateObj(v: unknown): { text: string; iso: string | null } {
-  if (v && typeof v === "object" && "text" in (v as object) && "iso" in (v as object)) {
+  if (
+    v &&
+    typeof v === "object" &&
+    "text" in (v as object) &&
+    "iso" in (v as object)
+  ) {
     const d = v as { text?: string; iso?: string | null };
     return {
       text: typeof d.text === "string" ? d.text : "Not found",
@@ -236,14 +241,18 @@ function normalizeExtraction(
 ): Record<string, unknown> {
   const doc = (parsed?.document as Record<string, unknown> | undefined) ?? {};
   const caseData = (parsed?.case as Record<string, unknown> | undefined) ?? {};
-  const partiesData = (parsed?.parties as Record<string, unknown> | undefined) ?? {};
+  const partiesData =
+    (parsed?.parties as Record<string, unknown> | undefined) ?? {};
 
   // Document: map type → docType, issuanceDate → documentDate, case.fileNumber → documentNumber
   const document = {
     docType: doc.type ?? doc.docType ?? "other",
     language: str(doc.language) === "Not found" ? "ro" : str(doc.language),
     issuingEntity: str(doc.issuingEntity),
-    documentNumber: str(doc.documentNumber) !== "Not found" ? str(doc.documentNumber) : str(caseData.fileNumber),
+    documentNumber:
+      str(doc.documentNumber) !== "Not found"
+        ? str(doc.documentNumber)
+        : str(caseData.fileNumber),
     documentDate: dateObj(doc.issuanceDate ?? doc.documentDate),
     sourceHints: str(doc.sourceHints),
   };
@@ -255,11 +264,20 @@ function normalizeExtraction(
       ? { ...defaultCourt, name: courtRaw.trim() || "Not found" }
       : courtRaw && typeof courtRaw === "object"
         ? {
-            name: str((courtRaw as Record<string, unknown>).name) !== "Not found" ? str((courtRaw as Record<string, unknown>).name) : "Not found",
+            name:
+              str((courtRaw as Record<string, unknown>).name) !== "Not found"
+                ? str((courtRaw as Record<string, unknown>).name)
+                : "Not found",
             section: str((courtRaw as Record<string, unknown>).section),
-            registryAddress: str((courtRaw as Record<string, unknown>).registryAddress),
-            registryPhone: str((courtRaw as Record<string, unknown>).registryPhone),
-            registryHours: str((courtRaw as Record<string, unknown>).registryHours),
+            registryAddress: str(
+              (courtRaw as Record<string, unknown>).registryAddress,
+            ),
+            registryPhone: str(
+              (courtRaw as Record<string, unknown>).registryPhone,
+            ),
+            registryHours: str(
+              (courtRaw as Record<string, unknown>).registryHours,
+            ),
           }
         : defaultCourt;
 
@@ -267,12 +285,26 @@ function normalizeExtraction(
   const procedure =
     procedureRaw && typeof procedureRaw === "object"
       ? {
-          law: str((procedureRaw as Record<string, unknown>).law) !== "Not found" ? str((procedureRaw as Record<string, unknown>).law) : "Legea 85/2014",
-          procedureType: (procedureRaw as Record<string, unknown>).procedureType ?? (procedureRaw as Record<string, unknown>).type ?? defaultProcedure.procedureType,
-          stage: (procedureRaw as Record<string, unknown>).stage ?? defaultProcedure.stage,
-          administrationRightLifted: (procedureRaw as Record<string, unknown>).administrationRightLifted ?? defaultProcedure.administrationRightLifted,
-          legalBasisArticles: Array.isArray((procedureRaw as Record<string, unknown>).legalBasisArticles)
-            ? (procedureRaw as Record<string, unknown>).legalBasisArticles as string[]
+          law:
+            str((procedureRaw as Record<string, unknown>).law) !== "Not found"
+              ? str((procedureRaw as Record<string, unknown>).law)
+              : "Legea 85/2014",
+          procedureType:
+            (procedureRaw as Record<string, unknown>).procedureType ??
+            (procedureRaw as Record<string, unknown>).type ??
+            defaultProcedure.procedureType,
+          stage:
+            (procedureRaw as Record<string, unknown>).stage ??
+            defaultProcedure.stage,
+          administrationRightLifted:
+            (procedureRaw as Record<string, unknown>)
+              .administrationRightLifted ??
+            defaultProcedure.administrationRightLifted,
+          legalBasisArticles: Array.isArray(
+            (procedureRaw as Record<string, unknown>).legalBasisArticles,
+          )
+            ? ((procedureRaw as Record<string, unknown>)
+                .legalBasisArticles as string[])
             : defaultProcedure.legalBasisArticles,
         }
       : defaultProcedure;
@@ -281,14 +313,23 @@ function normalizeExtraction(
   const importantDates =
     importantDatesRaw && typeof importantDatesRaw === "object"
       ? {
-          requestFiledDate: dateObj((importantDatesRaw as Record<string, unknown>).requestFiledDate),
-          openingDate: dateObj((importantDatesRaw as Record<string, unknown>).openingDate),
-          nextHearingDateTime: dateObj((importantDatesRaw as Record<string, unknown>).nextHearingDateTime),
+          requestFiledDate: dateObj(
+            (importantDatesRaw as Record<string, unknown>).requestFiledDate,
+          ),
+          openingDate: dateObj(
+            (importantDatesRaw as Record<string, unknown>).openingDate,
+          ),
+          nextHearingDateTime: dateObj(
+            (importantDatesRaw as Record<string, unknown>).nextHearingDateTime,
+          ),
         }
       : defaultImportantDates;
 
   const caseResult = {
-    caseNumber: str(caseData.caseNumber) !== "Not found" ? str(caseData.caseNumber) : str(caseData.fileNumber),
+    caseNumber:
+      str(caseData.caseNumber) !== "Not found"
+        ? str(caseData.caseNumber)
+        : str(caseData.fileNumber),
     court,
     judgeSyndic: str(caseData.judgeSyndic),
     procedure,
@@ -297,12 +338,18 @@ function normalizeExtraction(
 
   // Parties – debtor: from parties.debtor (object) or case.debtor + parties.debtor (string); administrators → administrator
   const caseDebtor = caseData.debtor as Record<string, unknown> | undefined;
-  const caseDebtorId = caseDebtor?.identifier as Record<string, unknown> | undefined;
+  const caseDebtorId = caseDebtor?.identifier as
+    | Record<string, unknown>
+    | undefined;
   const partiesDebtorRaw = partiesData.debtor;
   const administratorsArr = partiesData.administrators;
 
   let debtor: Record<string, unknown>;
-  if (partiesDebtorRaw && typeof partiesDebtorRaw === "object" && !Array.isArray(partiesDebtorRaw)) {
+  if (
+    partiesDebtorRaw &&
+    typeof partiesDebtorRaw === "object" &&
+    !Array.isArray(partiesDebtorRaw)
+  ) {
     const d = partiesDebtorRaw as Record<string, unknown>;
     debtor = {
       name: str(d.name),
@@ -311,26 +358,39 @@ function normalizeExtraction(
       address: str(d.address),
       locality: str(d.locality),
       county: str(d.county),
-      administrator: str(d.administrator) !== "Not found" ? str(d.administrator) : Array.isArray(administratorsArr) && administratorsArr.length > 0
-        ? (administratorsArr as unknown[]).map(String).join(", ")
-        : "Not found",
+      administrator:
+        str(d.administrator) !== "Not found"
+          ? str(d.administrator)
+          : Array.isArray(administratorsArr) && administratorsArr.length > 0
+            ? (administratorsArr as unknown[]).map(String).join(", ")
+            : "Not found",
       associateOrShareholder: str(d.associateOrShareholder),
       caen: str(d.caen),
       incorporationYear: str(d.incorporationYear),
-      shareCapitalRon: typeof d.shareCapitalRon === "number" ? d.shareCapitalRon : null,
+      shareCapitalRon:
+        typeof d.shareCapitalRon === "number" ? d.shareCapitalRon : null,
     };
   } else {
-    const nameFromParties = typeof partiesDebtorRaw === "string" ? partiesDebtorRaw.trim() || "Not found" : "Not found";
+    const nameFromParties =
+      typeof partiesDebtorRaw === "string"
+        ? partiesDebtorRaw.trim() || "Not found"
+        : "Not found";
     debtor = {
-      name: nameFromParties !== "Not found" ? nameFromParties : str(caseDebtor?.name),
+      name:
+        nameFromParties !== "Not found"
+          ? nameFromParties
+          : str(caseDebtor?.name),
       cui: str(caseDebtorId?.cui ?? caseDebtor?.cui),
-      tradeRegisterNo: str(caseDebtorId?.registrationNumber ?? caseDebtor?.registrationNumber),
+      tradeRegisterNo: str(
+        caseDebtorId?.registrationNumber ?? caseDebtor?.registrationNumber,
+      ),
       address: str(caseDebtor?.address),
       locality: "Not found",
       county: "Not found",
-      administrator: Array.isArray(administratorsArr) && administratorsArr.length > 0
-        ? (administratorsArr as unknown[]).map(String).join(", ")
-        : "Not found",
+      administrator:
+        Array.isArray(administratorsArr) && administratorsArr.length > 0
+          ? (administratorsArr as unknown[]).map(String).join(", ")
+          : "Not found",
       associateOrShareholder: "Not found",
       caen: "Not found",
       incorporationYear: "Not found",
@@ -339,9 +399,15 @@ function normalizeExtraction(
   }
 
   // Parties – practitioner: from parties.practitioner or parties.appointedLiquidator
-  const practitionerRaw = partiesData.practitioner as Record<string, unknown> | undefined;
-  const appointedLiquidator = partiesData.appointedLiquidator as Record<string, unknown> | undefined;
-  const liquidatorId = appointedLiquidator?.identifier as Record<string, unknown> | undefined;
+  const practitionerRaw = partiesData.practitioner as
+    | Record<string, unknown>
+    | undefined;
+  const appointedLiquidator = partiesData.appointedLiquidator as
+    | Record<string, unknown>
+    | undefined;
+  const liquidatorId = appointedLiquidator?.identifier as
+    | Record<string, unknown>
+    | undefined;
 
   let practitioner: Record<string, unknown>;
   if (practitionerRaw && typeof practitionerRaw === "object") {
@@ -363,9 +429,14 @@ function normalizeExtraction(
       role: "lichidator_judiciar",
       name: str(appointedLiquidator.name),
       fiscalId: str(liquidatorId?.fiscalCode ?? appointedLiquidator.fiscalCode),
-      rfo: str(liquidatorId?.registrationNumber ?? appointedLiquidator.registrationNumber),
+      rfo: str(
+        liquidatorId?.registrationNumber ??
+          appointedLiquidator.registrationNumber,
+      ),
       representative: "Not found",
-      address: str(appointedLiquidator.headquarters ?? appointedLiquidator.address),
+      address: str(
+        appointedLiquidator.headquarters ?? appointedLiquidator.address,
+      ),
       email: "Not found",
       phone: "Not found",
       fax: "Not found",
@@ -379,7 +450,9 @@ function normalizeExtraction(
   const parties = {
     debtor,
     practitioner,
-    creditors: Array.isArray(partiesData.creditors) ? partiesData.creditors : [],
+    creditors: Array.isArray(partiesData.creditors)
+      ? partiesData.creditors
+      : [],
   };
 
   // Deadlines: pass through
@@ -390,12 +463,20 @@ function normalizeExtraction(
   const claims =
     claimsRaw && typeof claimsRaw === "object" && !Array.isArray(claimsRaw)
       ? {
-          tableType: (claimsRaw as Record<string, unknown>).tableType ?? defaultClaims.tableType,
+          tableType:
+            (claimsRaw as Record<string, unknown>).tableType ??
+            defaultClaims.tableType,
           tableDate: dateObj((claimsRaw as Record<string, unknown>).tableDate),
-          totalAdmittedRon: (claimsRaw as Record<string, unknown>).totalAdmittedRon ?? defaultClaims.totalAdmittedRon,
-          totalDeclaredRon: (claimsRaw as Record<string, unknown>).totalDeclaredRon ?? defaultClaims.totalDeclaredRon,
+          totalAdmittedRon:
+            (claimsRaw as Record<string, unknown>).totalAdmittedRon ??
+            defaultClaims.totalAdmittedRon,
+          totalDeclaredRon:
+            (claimsRaw as Record<string, unknown>).totalDeclaredRon ??
+            defaultClaims.totalDeclaredRon,
           currency: str((claimsRaw as Record<string, unknown>).currency),
-          entries: Array.isArray((claimsRaw as Record<string, unknown>).entries) ? (claimsRaw as Record<string, unknown>).entries : defaultClaims.entries,
+          entries: Array.isArray((claimsRaw as Record<string, unknown>).entries)
+            ? (claimsRaw as Record<string, unknown>).entries
+            : defaultClaims.entries,
         }
       : defaultClaims;
 
@@ -408,9 +489,15 @@ function normalizeExtraction(
           meetingDate: dateObj(cmRaw.date ?? cmRaw.meetingDate),
           meetingTime: str(cmRaw.meetingTime),
           location: str(cmRaw.location),
-          quorumPercent: typeof cmRaw.quorumPercent === "number" ? cmRaw.quorumPercent : null,
-          agenda: Array.isArray(cmRaw.agenda) ? cmRaw.agenda as string[] : [],
-          decisions: cmRaw.decisions && typeof cmRaw.decisions === "object" ? cmRaw.decisions : defaultCreditorsMeeting.decisions,
+          quorumPercent:
+            typeof cmRaw.quorumPercent === "number"
+              ? cmRaw.quorumPercent
+              : null,
+          agenda: Array.isArray(cmRaw.agenda) ? (cmRaw.agenda as string[]) : [],
+          decisions:
+            cmRaw.decisions && typeof cmRaw.decisions === "object"
+              ? cmRaw.decisions
+              : defaultCreditorsMeeting.decisions,
           votingSummary: str(cmRaw.votingSummary),
         }
       : defaultCreditorsMeeting;
@@ -420,22 +507,35 @@ function normalizeExtraction(
   const reports =
     reportsRaw && typeof reportsRaw === "object"
       ? {
-          art97: (reportsRaw as Record<string, unknown>).art97 && typeof (reportsRaw as Record<string, unknown>).art97 === "object"
-            ? (reportsRaw as Record<string, unknown>).art97
-            : defaultReports.art97,
-          finalArt167: (reportsRaw as Record<string, unknown>).finalArt167 && typeof (reportsRaw as Record<string, unknown>).finalArt167 === "object"
-            ? (reportsRaw as Record<string, unknown>).finalArt167
-            : defaultReports.finalArt167,
+          art97:
+            (reportsRaw as Record<string, unknown>).art97 &&
+            typeof (reportsRaw as Record<string, unknown>).art97 === "object"
+              ? (reportsRaw as Record<string, unknown>).art97
+              : defaultReports.art97,
+          finalArt167:
+            (reportsRaw as Record<string, unknown>).finalArt167 &&
+            typeof (reportsRaw as Record<string, unknown>).finalArt167 ===
+              "object"
+              ? (reportsRaw as Record<string, unknown>).finalArt167
+              : defaultReports.finalArt167,
         }
       : defaultReports;
 
-  const complianceRaw = parsed?.complianceFlags as Record<string, unknown> | undefined;
+  const complianceRaw = parsed?.complianceFlags as
+    | Record<string, unknown>
+    | undefined;
   const complianceFlags =
     complianceRaw && typeof complianceRaw === "object"
       ? {
-          administrationRightLifted: complianceRaw.administrationRightLifted ?? defaultComplianceFlags.administrationRightLifted,
-          individualActionsSuspended: complianceRaw.individualActionsSuspended ?? defaultComplianceFlags.individualActionsSuspended,
-          publicationInBPIReferenced: complianceRaw.publicationInBPIReferenced ?? defaultComplianceFlags.publicationInBPIReferenced,
+          administrationRightLifted:
+            complianceRaw.administrationRightLifted ??
+            defaultComplianceFlags.administrationRightLifted,
+          individualActionsSuspended:
+            complianceRaw.individualActionsSuspended ??
+            defaultComplianceFlags.individualActionsSuspended,
+          publicationInBPIReferenced:
+            complianceRaw.publicationInBPIReferenced ??
+            defaultComplianceFlags.publicationInBPIReferenced,
         }
       : defaultComplianceFlags;
 
@@ -459,17 +559,17 @@ interface RequestBody {
 
 export default async function handler(req: Request) {
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({error: "Method not allowed"}), {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
-      headers: {"Content-Type": "application/json"},
+      headers: { "Content-Type": "application/json" },
     });
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return new Response(
-      JSON.stringify({error: "OPENAI_API_KEY not configured on server"}),
-      {status: 500, headers: {"Content-Type": "application/json"}},
+      JSON.stringify({ error: "OPENAI_API_KEY not configured on server" }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -485,24 +585,24 @@ export default async function handler(req: Request) {
         JSON.stringify({
           error: "Request must include a non-empty 'images' array",
         }),
-        {status: 400, headers: {"Content-Type": "application/json"}},
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
-    const client = new OpenAI({apiKey});
+    const client = new OpenAI({ apiKey });
 
     const imageMessages: OpenAI.Chat.Completions.ChatCompletionContentPart[] =
       body.images.map((img: string) => ({
         type: "image_url" as const,
-        image_url: {url: img, detail: "high" as const},
+        image_url: { url: img, detail: "high" as const },
       }));
 
     const response = await client.chat.completions.create({
       model: "gpt-4o",
-      response_format: {type: "json_object"},
+      response_format: { type: "json_object" },
       max_tokens: 2200,
       messages: [
-        {role: "system", content: SYSTEM_PROMPT},
+        { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
           content: [
@@ -519,8 +619,8 @@ export default async function handler(req: Request) {
     const content = response.choices[0]?.message?.content;
     if (!content) {
       return new Response(
-        JSON.stringify({error: "No response received from OpenAI"}),
-        {status: 502, headers: {"Content-Type": "application/json"}},
+        JSON.stringify({ error: "No response received from OpenAI" }),
+        { status: 502, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -530,14 +630,14 @@ export default async function handler(req: Request) {
 
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: {"Content-Type": "application/json"},
+      headers: { "Content-Type": "application/json" },
     });
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : "Internal server error";
-    return new Response(JSON.stringify({error: message}), {
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: {"Content-Type": "application/json"},
+      headers: { "Content-Type": "application/json" },
     });
   }
 }

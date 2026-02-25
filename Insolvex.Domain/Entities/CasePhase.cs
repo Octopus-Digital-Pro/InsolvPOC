@@ -11,7 +11,7 @@ public class CasePhase : TenantScopedEntity
     public Guid CaseId { get; set; }
     public virtual InsolvencyCase? Case { get; set; }
 
- public PhaseType PhaseType { get; set; }
+    public PhaseType PhaseType { get; set; }
     public PhaseStatus Status { get; set; } = PhaseStatus.NotStarted;
 
     /// <summary>Order in the workflow (for display sorting)</summary>

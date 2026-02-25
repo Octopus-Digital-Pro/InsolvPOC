@@ -2,9 +2,19 @@ import client from "./client";
 
 export interface TemplateInfo {
   templateType: string;
-  fileName: string;
-  exists: boolean;
-  fileSizeBytes: number;
+  defaultFileName: string;
+  diskExists: boolean;
+  diskFileSizeBytes: number;
+  tenantOverrideId: string | null;
+  tenantOverrideFileName: string | null;
+  tenantOverrideFileSizeBytes: number;
+  tenantOverrideVersion: number;
+  globalOverrideId: string | null;
+  globalOverrideFileName: string | null;
+  globalOverrideFileSizeBytes: number;
+  globalOverrideVersion: number;
+  /** "tenant" | "global-db" | "disk" | "missing" */
+  effectiveSource: string;
 }
 
 export interface GeneratedDocResult {
@@ -22,11 +32,11 @@ export const workflowApi = {
 
   // Validation
   validate: (caseId: string) =>
- client.get(`/workflow/${caseId}/validate`),
+    client.get(`/workflow/${caseId}/validate`),
 
   // Advance stage
   advance: (caseId: string) =>
- client.post(`/workflow/${caseId}/advance`),
+    client.post(`/workflow/${caseId}/advance`),
 
   // Stage definitions
   getStageDefinitions: () =>
@@ -40,22 +50,22 @@ export const workflowApi = {
 
   // Creditor meeting
   createMeeting: (data: {
- caseId: string;
+    caseId: string;
     meetingDate: string;
     location?: string;
     agenda?: string;
     durationHours?: number;
   }) => client.post("/creditor-meeting", data),
   getCaseCalendar: (caseId: string) =>
- client.get(`/creditor-meeting/calendar/${caseId}`),
+    client.get(`/creditor-meeting/calendar/${caseId}`),
 
   // Case summary
   generateSummary: (caseId: string, trigger?: string) =>
- client.post(`/case-summary/${caseId}/generate`, null, { params: { trigger } }),
+    client.post(`/case-summary/${caseId}/generate`, null, { params: { trigger } }),
   getLatestSummary: (caseId: string) =>
     client.get(`/case-summary/${caseId}/latest`),
   getSummaryHistory: (caseId: string, take?: number) =>
- client.get(`/case-summary/${caseId}/history`, { params: { take } }),
+    client.get(`/case-summary/${caseId}/history`, { params: { take } }),
 
   // Mail merge / templates
   mailMerge: {
@@ -69,46 +79,4 @@ export const workflowApi = {
       }),
     downloadUrl: (key: string) => `/api/mailmerge/download?key=${encodeURIComponent(key)}`,
   },
-};
-
-  // Stage timeline
-  getTimeline: (caseId: string) =>
-    client.get(`/workflow/${caseId}/timeline`),
-
-  // Validation
-  validate: (caseId: string) =>
- client.get(`/workflow/${caseId}/validate`),
-
-  // Advance stage
-  advance: (caseId: string) =>
- client.post(`/workflow/${caseId}/advance`),
-
-  // Stage definitions
-  getStageDefinitions: () =>
-    client.get("/workflow/stages"),
-
-  // Deadline settings
-  getDeadlineSettings: (caseId?: string, tenantId?: string) =>
-    client.get("/deadline-settings", { params: { caseId, tenantId } }),
-  previewDeadlines: (noticeDate: string, tenantId?: string) =>
-    client.get("/deadline-settings/preview", { params: { noticeDate, tenantId } }),
-
-  // Creditor meeting
-  createMeeting: (data: {
- caseId: string;
-    meetingDate: string;
-    location?: string;
-    agenda?: string;
-    durationHours?: number;
-  }) => client.post("/creditor-meeting", data),
-  getCaseCalendar: (caseId: string) =>
- client.get(`/creditor-meeting/calendar/${caseId}`),
-
-  // Case summary
-  generateSummary: (caseId: string, trigger?: string) =>
- client.post(`/case-summary/${caseId}/generate`, null, { params: { trigger } }),
-  getLatestSummary: (caseId: string) =>
-    client.get(`/case-summary/${caseId}/latest`),
-  getSummaryHistory: (caseId: string, take?: number) =>
- client.get(`/case-summary/${caseId}/history`, { params: { take } }),
 };

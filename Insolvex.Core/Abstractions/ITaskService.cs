@@ -27,11 +27,11 @@ public class CreateTaskCommand
 {
     public Guid CompanyId { get; init; }
     public Guid? CaseId { get; init; }
- public string Title { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
     public string? Description { get; init; }
     public string? Labels { get; init; }
     public string? Category { get; init; }
-  public DateTime? Deadline { get; init; }
+    public DateTime? Deadline { get; init; }
     public string? DeadlineSource { get; init; }
     public bool IsCriticalDeadline { get; init; }
     public Guid? AssignedToUserId { get; init; }
@@ -57,7 +57,7 @@ public class CaseTaskSummaryResult
     public int Done { get; init; }
     public int Overdue { get; init; }
     public int Critical { get; init; }
-public List<CategoryCount> ByCategory { get; init; } = new();
+    public List<CategoryCount> ByCategory { get; init; } = new();
     public List<StageCount> ByStage { get; init; } = new();
 }
 

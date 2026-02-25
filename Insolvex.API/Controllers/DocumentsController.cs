@@ -14,12 +14,12 @@ public class DocumentsController : ControllerBase
 {
     private readonly IDocumentService _docs;
 
-  public DocumentsController(IDocumentService docs) => _docs = docs;
+    public DocumentsController(IDocumentService docs) => _docs = docs;
 
- [HttpGet("{id:guid}")]
+    [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-     var dto = await _docs.GetByIdAsync(id, ct);
+        var dto = await _docs.GetByIdAsync(id, ct);
         return dto is null ? NotFound() : Ok(dto);
     }
 
@@ -27,11 +27,14 @@ public class DocumentsController : ControllerBase
     [RequirePermission(Permission.DocumentUpload)]
     public async Task<IActionResult> Create([FromBody] CreateDocBody body, CancellationToken ct)
     {
-     var dto = await _docs.CreateAsync(new CreateDocumentCommand
-      {
-      CaseId = body.CaseId, SourceFileName = body.SourceFileName,
-         DocType = body.DocType, DocumentDate = body.DocumentDate,
-    RawExtraction = body.RawExtraction, Purpose = body.Purpose,
+        var dto = await _docs.CreateAsync(new CreateDocumentCommand
+        {
+            CaseId = body.CaseId,
+            SourceFileName = body.SourceFileName,
+            DocType = body.DocType,
+            DocumentDate = body.DocumentDate,
+            RawExtraction = body.RawExtraction,
+            Purpose = body.Purpose,
         }, ct);
         return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
     }
@@ -41,7 +44,9 @@ public class DocumentsController : ControllerBase
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateDocBody body, CancellationToken ct)
         => Ok(await _docs.UpdateAsync(id, new UpdateDocumentCommand
         {
-  DocType = body.DocType, DocumentDate = body.DocumentDate, RawExtraction = body.RawExtraction,
+            DocType = body.DocType,
+            DocumentDate = body.DocumentDate,
+            RawExtraction = body.RawExtraction,
         }, ct));
 
     [HttpDelete("{id:guid}")]
@@ -54,7 +59,7 @@ public class DocumentsController : ControllerBase
 
     [HttpGet("{id:guid}/submission-check")]
     public async Task<IActionResult> CheckSubmission(Guid id, CancellationToken ct)
-  {
+    {
         var result = await _docs.CheckSubmissionAsync(id, ct);
         return result.Ready ? Ok(result) : BadRequest(result);
     }

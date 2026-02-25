@@ -9,28 +9,28 @@ namespace Insolvex.Domain.Entities;
 /// </summary>
 public class CaseDeadlineOverride : TenantScopedEntity
 {
-    public Guid CaseId { get; set; }
-    public virtual InsolvencyCase? Case { get; set; }
+  public Guid CaseId { get; set; }
+  public virtual InsolvencyCase? Case { get; set; }
 
-    /// <summary>The deadline key being overridden (e.g. "ClaimDeadlineDaysFromNotice").</summary>
-    public string DeadlineKey { get; set; } = string.Empty;
+  /// <summary>The deadline key being overridden (e.g. "ClaimDeadlineDaysFromNotice").</summary>
+  public string DeadlineKey { get; set; } = string.Empty;
 
   /// <summary>Original computed value (days or explicit date, stored as string for flexibility).</summary>
-    public string? OriginalValue { get; set; }
+  public string? OriginalValue { get; set; }
 
-    /// <summary>Overridden value.</summary>
-    public string OverrideValue { get; set; } = string.Empty;
+  /// <summary>Overridden value.</summary>
+  public string OverrideValue { get; set; } = string.Empty;
 
-    /// <summary>Mandatory reason for the override (audit requirement).</summary>
-    public string Reason { get; set; } = string.Empty;
+  /// <summary>Mandatory reason for the override (audit requirement).</summary>
+  public string Reason { get; set; } = string.Empty;
 
-    /// <summary>User who applied the override.</summary>
-    public Guid? OverriddenByUserId { get; set; }
-    public virtual User? OverriddenBy { get; set; }
+  /// <summary>User who applied the override.</summary>
+  public Guid? OverriddenByUserId { get; set; }
+  public virtual User? OverriddenBy { get; set; }
 
-    /// <summary>When the override was applied.</summary>
-    public DateTime OverriddenAt { get; set; }
+  /// <summary>When the override was applied.</summary>
+  public DateTime OverriddenAt { get; set; }
 
-    /// <summary>Whether the override is currently active.</summary>
+  /// <summary>Whether the override is currently active.</summary>
   public bool IsActive { get; set; } = true;
 }

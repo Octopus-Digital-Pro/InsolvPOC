@@ -6,7 +6,7 @@ import type { GeneratedDocResult, TemplateInfo } from "@/services/api/workflow";
 import { caseEmailsApi } from "@/services/api/caseWorkspace";
 import { tasksApi } from "@/services/api/tasks";
 import { useTranslation } from "@/contexts/LanguageContext";
-import type { CaseDto, CasePartyDto, DocumentDto, TaskDto } from "@/services/api/types";
+import type { CaseDto, CasePartyDto, CasePhaseDto, DocumentDto, TaskDto } from "@/services/api/types";
 import type { CaseEmailDto } from "@/services/api/caseWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,13 @@ import CreditorMeetingModal from "@/components/CreditorMeetingModal";
 import DocumentSigningPanel from "@/components/DocumentSigningPanel";
 import CaseTasksTab from "@/components/CaseTasksTab";
 import CaseEmailsTab from "@/components/CaseEmailsTab";
+import CaseEventFeed from "@/components/CaseEventFeed";
 import { downloadAuthFile } from "@/utils/downloadAuthFile";
 import {
   Loader2, FileText, Upload, Users, GitBranch, ChevronRight,
   Check, Clock, Ban, SkipForward, Brain, CalendarDays, RefreshCw,
-  ListChecks, Mail, Download, FileOutput,
+  ListChecks, Mail, Download, FileOutput, ChevronDown, Pencil,
+  X, Save, Wand2, History, AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -48,10 +50,11 @@ export default function CaseDetailPage() {
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "docs" | "parties" | "emails" | "calendar" | "templates">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "docs" | "parties" | "emails" | "calendar" | "templates" | "activity">("overview");
   const [caseTasks, setCaseTasks] = useState<TaskDto[]>([]);
   const [caseEmails, setCaseEmails] = useState<CaseEmailDto[]>([]);
   const [docUploading, setDocUploading] = useState(false);
@@ -112,12 +115,15 @@ export default function CaseDetailPage() {
   const handleAdvance = async () => {
     if (!id) return;
     setAdvancing(true);
+    setAdvanceError(null);
     try {
       await casesApi.advancePhase(id);
       load();
-    } catch (err) { console.error(err); }
-    finally { setAdvancing(false); }
-  };
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setAdvanceError(msg ?? "Failed to advance phase.");
+    } finally { setAdvancing(false); }
+  };;
 
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -261,6 +267,7 @@ export default function CaseDetailPage() {
               { id: "emails" as const, label: `Emails (${caseEmails.length})`, icon: Mail },
               { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
               { id: "templates" as const, label: "Templates", icon: FileOutput },
+              { id: "activity" as const, label: "Activity", icon: History },
             ]).map(tb => (
               <button
                 key={tb.id}
@@ -308,12 +315,28 @@ export default function CaseDetailPage() {
                   <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     <GitBranch className="h-3.5 w-3.5" /> {t.phases.title} {hasPhases && `(${phases.filter(p => p.status === "Completed").length}/${phases.length})`}
                   </h2>
-                  {hasPhases && currentPhase && (
-                    <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5" onClick={handleAdvance} disabled={advancing}>
-                      {advancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                      Advance
-                    </Button>
-                  )}
+                  {hasPhases && currentPhase && (() => {
+                    const openCount = caseTasks.filter(t => t.status === "open" || t.status === "blocked").length;
+                    const isBlocked = openCount > 0;
+                    return (
+                      <div className="flex flex-col items-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={`text-xs gap-1 ${isBlocked ? "border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400" : "border-primary/30 text-primary hover:bg-primary/5"}`}
+                          onClick={handleAdvance}
+                          disabled={advancing || isBlocked}
+                          title={isBlocked ? `${openCount} open task${openCount !== 1 ? "s" : ""} must be completed first` : "Advance to next phase"}
+                        >
+                          {advancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isBlocked ? <AlertTriangle className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                          {isBlocked ? `${openCount} open task${openCount !== 1 ? "s" : ""}` : "Advance"}
+                        </Button>
+                        {advanceError && (
+                          <p className="text-[10px] text-destructive max-w-xs text-right">{advanceError}</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {!hasPhases && (
                     <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5" onClick={handleInitPhases}>
                       Initialize Workflow
@@ -323,25 +346,17 @@ export default function CaseDetailPage() {
                 {hasPhases ? (
                   <div className="rounded-xl border border-border bg-card divide-y divide-border">
                     {phases.map((phase) => (
-                      <div key={phase.id} className={`flex items-center gap-3 px-4 py-2.5 ${phase.status === "InProgress" ? "bg-primary/5" : ""}`}>
-                        <div className="flex items-center justify-center w-6">
-                          {phaseStatusIcon(phase.status)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-medium ${phase.status === "Completed" ? "text-muted-foreground line-through" : phase.status === "InProgress" ? "text-primary" : "text-foreground"}`}>
-                            {phaseLabel(phase.phaseType)}
-                          </p>
-                          {phase.courtDecisionRef && <p className="text-[10px] text-muted-foreground">{phase.courtDecisionRef}</p>}
-                        </div>
-                        <Badge variant={phaseStatusVariant(phase.status)} className="text-[10px] shrink-0">
-                          {phaseStatusLabel(phase.status)}
-                        </Badge>
-                        {phase.dueDate && (
-                          <span className="text-[10px] text-muted-foreground shrink-0">
-                            {format(new Date(phase.dueDate), "dd MMM")}
-                          </span>
-                        )}
-                      </div>
+                      <PhaseRow
+                        key={phase.id}
+                        caseId={id!}
+                        phase={phase}
+                        tasks={caseTasks}
+                        phaseLabel={phaseLabel}
+                        phaseStatusLabel={phaseStatusLabel}
+                        phaseStatusIcon={phaseStatusIcon}
+                        phaseStatusVariant={phaseStatusVariant}
+                        onUpdated={load}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -456,6 +471,11 @@ export default function CaseDetailPage() {
           {activeTab === "templates" && (
             <TemplatesTab caseId={id!} />
           )}
+
+          {/* Activity Timeline Tab */}
+          {activeTab === "activity" && (
+            <CaseEventFeed caseId={id!} />
+          )}
         </div>
       </div>
 
@@ -466,6 +486,243 @@ export default function CaseDetailPage() {
         onClose={() => setMeetingOpen(false)}
         onCreated={load}
       />
+    </div>
+  );
+}
+
+/* ── Phase Row Component ─────────────────────────── */
+interface PhaseRowProps {
+  caseId: string;
+  phase: CasePhaseDto;
+  tasks: TaskDto[];
+  phaseLabel: (type: string) => string;
+  phaseStatusLabel: (status: string) => string;
+  phaseStatusIcon: (status: string) => JSX.Element;
+  phaseStatusVariant: (status: string) => "success" | "default" | "destructive" | "secondary" | "warning";
+  onUpdated: () => void;
+}
+
+function PhaseRow({ caseId, phase, tasks, phaseLabel, phaseStatusLabel, phaseStatusIcon, phaseStatusVariant, onUpdated }: PhaseRowProps) {
+  const [expanded, setExpanded] = useState(phase.status === "InProgress");
+  const [editing, setEditing] = useState(false);
+  const [notes, setNotes] = useState(phase.notes ?? "");
+  const [courtRef, setCourtRef] = useState(phase.courtDecisionRef ?? "");
+  const [dueDate, setDueDate] = useState(phase.dueDate ? format(new Date(phase.dueDate), "yyyy-MM-dd") : "");
+  const [saving, setSaving] = useState(false);
+  const [genTasksLoading, setGenTasksLoading] = useState(false);
+  const [requirements, setRequirements] = useState<{ requiredTasks: string[]; requiredDocTypes: string[]; goal: string } | null>(null);
+
+  const phaseTasks = tasks.filter(t =>
+    (t as unknown as Record<string, unknown>).caseId === caseId
+  );
+
+  useEffect(() => {
+    if (expanded && !requirements) {
+      casesApi.getPhaseRequirements(caseId, phase.id)
+        .then(r => setRequirements(r.data))
+        .catch(console.error);
+    }
+  }, [expanded, caseId, phase.id, requirements]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await casesApi.updatePhase(caseId, phase.id, {
+        notes: notes || undefined,
+        courtDecisionRef: courtRef || undefined,
+        dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+      } as Parameters<typeof casesApi.updatePhase>[2]);
+      setEditing(false);
+      onUpdated();
+    } catch (err) { console.error(err); }
+    finally { setSaving(false); }
+  };
+
+  const handleGenerateTasks = async () => {
+    setGenTasksLoading(true);
+    try {
+      await casesApi.generatePhaseTasks(caseId, phase.id);
+      onUpdated();
+    } catch (err) { console.error(err); }
+    finally { setGenTasksLoading(false); }
+  };
+
+  const doneTasks = phaseTasks.filter(t => t.status === "done").length;
+  const totalTasks = phaseTasks.length;
+
+  return (
+    <div className={phase.status === "InProgress" ? "bg-primary/5" : ""}>
+      {/* Header row */}
+      <div
+        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors"
+        onClick={() => setExpanded(e => !e)}
+      >
+        <div className="flex items-center justify-center w-6 shrink-0">
+          {phaseStatusIcon(phase.status)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm font-medium ${phase.status === "Completed" ? "text-muted-foreground line-through" : phase.status === "InProgress" ? "text-primary" : "text-foreground"}`}>
+            {phaseLabel(phase.phaseType)}
+          </p>
+          {phase.courtDecisionRef && !expanded && (
+            <p className="text-[10px] text-muted-foreground truncate">{phase.courtDecisionRef}</p>
+          )}
+        </div>
+        {totalTasks > 0 && (
+          <span className="text-[10px] text-muted-foreground shrink-0">{doneTasks}/{totalTasks}</span>
+        )}
+        <Badge variant={phaseStatusVariant(phase.status)} className="text-[10px] shrink-0">
+          {phaseStatusLabel(phase.status)}
+        </Badge>
+        {phase.dueDate && !expanded && (
+          <span className="text-[10px] text-muted-foreground shrink-0">
+            {format(new Date(phase.dueDate), "dd MMM")}
+          </span>
+        )}
+        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </div>
+
+      {/* Expanded panel */}
+      {expanded && (
+        <div className="px-4 pb-4 pt-1 border-t border-border/60 space-y-3">
+          {/* Goal */}
+          {requirements?.goal && (
+            <p className="text-xs text-muted-foreground italic">{requirements.goal}</p>
+          )}
+
+          {/* Fields edit / display */}
+          {editing ? (
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Court Decision Ref</label>
+                  <input
+                    value={courtRef}
+                    onChange={e => setCourtRef(e.target.value)}
+                    placeholder="e.g. Dosar 1234/2024"
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Due Date</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={e => setDueDate(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Phase notes, observations..."
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="text-xs h-7 gap-1" onClick={handleSave} disabled={saving}>
+                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                  Save
+                </Button>
+                <Button size="sm" variant="ghost" className="text-xs h-7 gap-1" onClick={() => setEditing(false)}>
+                  <X className="h-3 w-3" /> Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-4">
+              {phase.courtDecisionRef && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Court Decision</p>
+                  <p className="text-sm">{phase.courtDecisionRef}</p>
+                </div>
+              )}
+              {phase.dueDate && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Due Date</p>
+                  <p className="text-sm">{format(new Date(phase.dueDate), "dd MMM yyyy")}</p>
+                </div>
+              )}
+              {phase.startedOn && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Started</p>
+                  <p className="text-sm">{format(new Date(phase.startedOn), "dd MMM yyyy")}</p>
+                </div>
+              )}
+              {phase.completedOn && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Completed</p>
+                  <p className="text-sm">{format(new Date(phase.completedOn), "dd MMM yyyy")}</p>
+                </div>
+              )}
+              {phase.notes && (
+                <div className="w-full">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+                  <p className="text-sm text-muted-foreground">{phase.notes}</p>
+                </div>
+              )}
+              {!phase.courtDecisionRef && !phase.dueDate && !phase.notes && (
+                <p className="text-xs text-muted-foreground/60 italic">No details added yet.</p>
+              )}
+              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] gap-1 ml-auto"
+                onClick={() => setEditing(true)}>
+                <Pencil className="h-3 w-3" /> Edit
+              </Button>
+            </div>
+          )}
+
+          {/* Required tasks checklist */}
+          {requirements && requirements.requiredTasks.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Required Tasks ({doneTasks}/{requirements.requiredTasks.length})
+                </p>
+                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] gap-1"
+                  onClick={handleGenerateTasks} disabled={genTasksLoading}>
+                  {genTasksLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                  Generate Tasks
+                </Button>
+              </div>
+              <div className="space-y-1">
+                {requirements.requiredTasks.map((taskTitle, i) => {
+                  const matchingTask = phaseTasks.find(t =>
+                    t.title.toLowerCase().includes(taskTitle.toLowerCase()) ||
+                    taskTitle.toLowerCase().includes(t.title.toLowerCase().split(" – ")[0])
+                  );
+                  const isDone = matchingTask?.status === "done";
+                  return (
+                    <div key={i} className="flex items-start gap-2">
+                      <div className={`mt-0.5 h-3.5 w-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${isDone ? "border-green-500 bg-green-500" : "border-border"}`}>
+                        {isDone && <Check className="h-2 w-2 text-white" />}
+                      </div>
+                      <span className={`text-xs ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        {taskTitle}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Required document types */}
+          {requirements && requirements.requiredDocTypes.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Required Documents</p>
+              <div className="flex flex-wrap gap-1.5">
+                {requirements.requiredDocTypes.map(dt => (
+                  <Badge key={dt} variant="outline" className="text-[10px]">{dt}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -539,8 +796,19 @@ function TemplatesTab({ caseId }: { caseId: string }) {
     finally { setGeneratingAll(false); }
   };
 
-  const friendlyName = (type: string) =>
-    type.replace(/([A-Z])/g, " $1").trim();
+  const friendlyName = (type: string) => {
+    const labels: Record<string, string> = {
+      CourtOpeningDecision: "Court Opening Decision",
+      CreditorNotificationBpi: "Notificare Creditori (BPI)",
+      CreditorNotificationHtml: "Notificare Deschidere Procedură (PDF)",
+      ReportArt97: "Raport Art. 97 (40 zile)",
+      PreliminaryClaimsTable: "Tabel Preliminar de Creanțe",
+      CreditorsMeetingMinutes: "Proces-Verbal AGC",
+      DefinitiveClaimsTable: "Tabel Definitiv de Creanțe",
+      FinalReportArt167: "Raport Final Art. 167",
+    };
+    return labels[type] ?? type.replace(/([A-Z])/g, " $1").trim();
+  };
 
   const getToken = () => localStorage.getItem("authToken");
   const getTenantId = () => localStorage.getItem("selectedTenantId");
@@ -589,12 +857,21 @@ function TemplatesTab({ caseId }: { caseId: string }) {
         {templates.map(tpl => {
           const result = generated.find(g => g.templateType === tpl.templateType);
           const isGenerating = generating === tpl.templateType;
+          const hasTemplate = tpl.effectiveSource !== "missing";
+          const displayFile = tpl.tenantOverrideFileName ?? tpl.globalOverrideFileName ?? tpl.defaultFileName;
           return (
             <div key={tpl.templateType} className="flex items-center gap-3 px-4 py-3">
-              <FileText className={`h-4 w-4 shrink-0 ${tpl.exists ? "text-primary" : "text-muted-foreground/40"}`} />
+              <FileText className={`h-4 w-4 shrink-0 ${hasTemplate ? "text-primary" : "text-muted-foreground/40"}`} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">{friendlyName(tpl.templateType)}</p>
-                <p className="text-[10px] text-muted-foreground">{tpl.fileName}{!tpl.exists && " — file not found"}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">{friendlyName(tpl.templateType)}</p>
+                  {tpl.templateType === "CreditorNotificationHtml" && (
+                    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                      HTML→PDF
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">{displayFile}{!hasTemplate && " — template not available"}</p>
               </div>
               {result && (
                 <Button variant="ghost" size="sm" className="text-xs gap-1 h-7 text-primary"
@@ -605,7 +882,7 @@ function TemplatesTab({ caseId }: { caseId: string }) {
               )}
               <Button variant="outline" size="sm" className="text-xs gap-1 h-7 shrink-0"
                 onClick={() => handleGenerate(tpl.templateType)}
-                disabled={!tpl.exists || isGenerating}>
+                disabled={!hasTemplate || isGenerating}>
                 {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileOutput className="h-3 w-3" />}
                 {result ? "Re-generate" : "Generate"}
               </Button>

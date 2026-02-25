@@ -16,7 +16,7 @@ public sealed class CaseEmailService : ICaseEmailService
     private readonly IAuditService _audit;
 
     public CaseEmailService(ApplicationDbContext db, ICurrentUserService currentUser, IAuditService audit)
- {
+    {
         _db = db;
         _currentUser = currentUser;
         _audit = audit;
@@ -25,8 +25,8 @@ public sealed class CaseEmailService : ICaseEmailService
     public async Task<List<EmailDto>> GetByCaseAsync(Guid caseId, string? status, bool? sentOnly, CancellationToken ct)
     {
         var tenantId = _currentUser.TenantId;
-   var query = _db.ScheduledEmails
-      .Where(e => e.CaseId == caseId && (tenantId == null || e.TenantId == tenantId));
+        var query = _db.ScheduledEmails
+           .Where(e => e.CaseId == caseId && (tenantId == null || e.TenantId == tenantId));
 
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(e => e.Status == status);
         if (sentOnly == true) query = query.Where(e => e.IsSent);
@@ -36,7 +36,7 @@ public sealed class CaseEmailService : ICaseEmailService
 
     public async Task<CaseEmailSummaryResult> GetSummaryAsync(Guid caseId, CancellationToken ct)
     {
-     var tenantId = _currentUser.TenantId;
+        var tenantId = _currentUser.TenantId;
         var emails = await _db.ScheduledEmails
        .Where(e => e.CaseId == caseId && (tenantId == null || e.TenantId == tenantId))
             .ToListAsync(ct);
@@ -45,9 +45,9 @@ public sealed class CaseEmailService : ICaseEmailService
         {
             Total = emails.Count,
             Sent = emails.Count(e => e.IsSent),
-         Pending = emails.Count(e => !e.IsSent && e.RetryCount < 3),
-  Failed = emails.Count(e => !e.IsSent && e.RetryCount >= 3),
- Scheduled = emails.Count(e => !e.IsSent && e.ScheduledFor > DateTime.UtcNow),
+            Pending = emails.Count(e => !e.IsSent && e.RetryCount < 3),
+            Failed = emails.Count(e => !e.IsSent && e.RetryCount >= 3),
+            Scheduled = emails.Count(e => !e.IsSent && e.ScheduledFor > DateTime.UtcNow),
         };
     }
 
@@ -56,8 +56,8 @@ public sealed class CaseEmailService : ICaseEmailService
         var tenantId = _currentUser.TenantId
  ?? throw new BusinessException("Tenant context is required.");
 
- if (!await _db.InsolvencyCases.AnyAsync(c => c.Id == caseId && c.TenantId == tenantId, ct))
-       throw new BusinessException("Case not found.");
+        if (!await _db.InsolvencyCases.AnyAsync(c => c.Id == caseId && c.TenantId == tenantId, ct))
+            throw new BusinessException("Case not found.");
 
         if (string.IsNullOrWhiteSpace(cmd.To))
             throw new BusinessException("Recipient (To) is required.");
@@ -65,20 +65,20 @@ public sealed class CaseEmailService : ICaseEmailService
         var email = new ScheduledEmail
         {
             Id = Guid.NewGuid(),
-    TenantId = tenantId,
-   CaseId = caseId,
-       To = cmd.To,
-      Cc = cmd.Cc,
-      Bcc = cmd.Bcc,
+            TenantId = tenantId,
+            CaseId = caseId,
+            To = cmd.To,
+            Cc = cmd.Cc,
+            Bcc = cmd.Bcc,
             Subject = cmd.Subject,
- Body = cmd.Body,
-ScheduledFor = cmd.ScheduledFor ?? DateTime.UtcNow,
+            Body = cmd.Body,
+            ScheduledFor = cmd.ScheduledFor ?? DateTime.UtcNow,
             Status = "Scheduled",
-   RelatedTaskId = cmd.RelatedTaskId,
+            RelatedTaskId = cmd.RelatedTaskId,
             RelatedPartyIdsJson = cmd.RelatedPartyIdsJson,
             RelatedDocumentIdsJson = cmd.RelatedDocumentIdsJson,
-     CreatedOn = DateTime.UtcNow,
-   CreatedBy = _currentUser.Email ?? "System",
+            CreatedOn = DateTime.UtcNow,
+            CreatedBy = _currentUser.Email ?? "System",
         };
 
         _db.ScheduledEmails.Add(email);
@@ -86,10 +86,13 @@ ScheduledFor = cmd.ScheduledFor ?? DateTime.UtcNow,
 
         await _audit.LogAsync(new AuditEntry
         {
-  Action = "Email.Scheduled",
-     Description = $"An email to '{cmd.To}' with subject '{cmd.Subject}' was scheduled for delivery.",
-          EntityType = "ScheduledEmail", EntityId = email.Id, EntityName = cmd.Subject,
-    Severity = "Info", Category = "EmailManagement",
+            Action = "Email Scheduled for Delivery",
+            Description = $"An email to '{cmd.To}' with subject '{cmd.Subject}' was scheduled for delivery.",
+            EntityType = "ScheduledEmail",
+            EntityId = email.Id,
+            EntityName = cmd.Subject,
+            Severity = "Info",
+            Category = "EmailManagement",
         });
 
         return email.ToDto();
@@ -111,12 +114,15 @@ ScheduledFor = cmd.ScheduledFor ?? DateTime.UtcNow,
         await _db.SaveChangesAsync(ct);
 
         await _audit.LogAsync(new AuditEntry
-   {
-            Action = "Email.Cancelled",
+        {
+            Action = "Scheduled Email Cancelled",
             Description = $"A scheduled email to '{email.To}' was cancelled.",
-            EntityType = "ScheduledEmail", EntityId = emailId, EntityName = email.Subject,
-        Severity = "Info", Category = "EmailManagement",
- });
+            EntityType = "ScheduledEmail",
+            EntityId = emailId,
+            EntityName = email.Subject,
+            Severity = "Info",
+            Category = "EmailManagement",
+        });
     }
 }
 
@@ -129,7 +135,7 @@ public sealed class BulkEmailService : IBulkEmailService
     public BulkEmailService(ApplicationDbContext db, ICurrentUserService currentUser, IAuditService audit)
     {
         _db = db;
-     _currentUser = currentUser;
+        _currentUser = currentUser;
         _audit = audit;
     }
 
@@ -144,7 +150,7 @@ public sealed class BulkEmailService : IBulkEmailService
       ?? throw new BusinessException("Case not found.");
 
         if (string.IsNullOrWhiteSpace(cmd.Subject) || string.IsNullOrWhiteSpace(cmd.Body))
-        throw new BusinessException("Subject and Body are required.");
+            throw new BusinessException("Subject and Body are required.");
 
         var creditorRoles = ResolveRoles(cmd.Roles);
         var recipients = caseEntity.Parties
@@ -152,63 +158,66 @@ public sealed class BulkEmailService : IBulkEmailService
             .Where(p => !string.IsNullOrWhiteSpace(p.Email ?? p.Company?.Email))
          .ToList();
 
-    if (recipients.Count == 0)
-   throw new BusinessException("No eligible recipients with email addresses found.");
+        if (recipients.Count == 0)
+            throw new BusinessException("No eligible recipients with email addresses found.");
 
-      var scheduledFor = cmd.ScheduledFor ?? DateTime.UtcNow;
-   var emails = recipients.Select(party => new ScheduledEmail
+        var scheduledFor = cmd.ScheduledFor ?? DateTime.UtcNow;
+        var emails = recipients.Select(party => new ScheduledEmail
         {
-      TenantId = tenantId,
-        CaseId = caseId,
+            TenantId = tenantId,
+            CaseId = caseId,
             To = party.Email ?? party.Company?.Email ?? "",
             Cc = cmd.Cc,
-        Bcc = cmd.Bcc,
+            Bcc = cmd.Bcc,
             Subject = ReplacePlaceholders(cmd.Subject, caseEntity, party),
             Body = ReplacePlaceholders(cmd.Body, caseEntity, party),
-    ScheduledFor = scheduledFor,
-  Status = "Scheduled",
-         IsHtml = cmd.IsHtml,
+            ScheduledFor = scheduledFor,
+            Status = "Scheduled",
+            IsHtml = cmd.IsHtml,
             AttachmentsJson = cmd.AttachmentsJson,
-      RelatedPartyIdsJson = System.Text.Json.JsonSerializer.Serialize(new[] { party.Id }),
+            RelatedPartyIdsJson = System.Text.Json.JsonSerializer.Serialize(new[] { party.Id }),
             RelatedTaskId = cmd.RelatedTaskId,
-      CreatedOn = DateTime.UtcNow,
-         CreatedBy = _currentUser.Email ?? "System",
-     }).ToList();
+            CreatedOn = DateTime.UtcNow,
+            CreatedBy = _currentUser.Email ?? "System",
+        }).ToList();
 
         _db.ScheduledEmails.AddRange(emails);
         await _db.SaveChangesAsync(ct);
 
         await _audit.LogAsync(new AuditEntry
-     {
-       Action = "BulkEmail.ScheduledToCreditorCohort",
+        {
+            Action = "Bulk Email Scheduled to Creditor Cohort",
             Description = $"Bulk email '{cmd.Subject}' scheduled to {emails.Count} creditors for case '{caseEntity.CaseNumber}'.",
-            EntityType = "InsolvencyCase", EntityId = caseId, EntityName = caseEntity.CaseNumber,
- CaseNumber = caseEntity.CaseNumber,
+            EntityType = "InsolvencyCase",
+            EntityId = caseId,
+            EntityName = caseEntity.CaseNumber,
+            CaseNumber = caseEntity.CaseNumber,
             NewValues = new { recipientCount = emails.Count, cmd.Subject, scheduledFor },
-            Severity = "Info", Category = "EmailManagement",
+            Severity = "Info",
+            Category = "EmailManagement",
         });
 
-      return new BulkEmailResult
+        return new BulkEmailResult
         {
             EmailsScheduled = emails.Count,
-   ScheduledFor = scheduledFor,
-   Recipients = recipients.Select(p => new RecipientInfo
-     {
- PartyId = p.Id,
-      Name = p.Name ?? p.Company?.Name,
-      Email = p.Email ?? p.Company?.Email,
-         Role = p.Role.ToString(),
-      }).ToList(),
+            ScheduledFor = scheduledFor,
+            Recipients = recipients.Select(p => new RecipientInfo
+            {
+                PartyId = p.Id,
+                Name = p.Name ?? p.Company?.Name,
+                Email = p.Email ?? p.Company?.Email,
+                Role = p.Role.ToString(),
+            }).ToList(),
         };
     }
 
     public async Task<CohortPreviewResult> PreviewCohortAsync(Guid caseId, string? roles, CancellationToken ct)
     {
         var tenantId = _currentUser.TenantId;
-      var caseEntity = await _db.InsolvencyCases
-       .Include(c => c.Parties).ThenInclude(p => p.Company)
-       .FirstOrDefaultAsync(c => c.Id == caseId && (tenantId == null || c.TenantId == tenantId), ct)
-            ?? throw new BusinessException("Case not found.");
+        var caseEntity = await _db.InsolvencyCases
+         .Include(c => c.Parties).ThenInclude(p => p.Company)
+         .FirstOrDefaultAsync(c => c.Id == caseId && (tenantId == null || c.TenantId == tenantId), ct)
+              ?? throw new BusinessException("Case not found.");
 
         var creditorRoles = ResolveRoles(
  string.IsNullOrWhiteSpace(roles) ? null : roles.Split(',').Select(r => r.Trim()).ToList());
@@ -216,47 +225,47 @@ public sealed class BulkEmailService : IBulkEmailService
         var recipients = caseEntity.Parties
             .Where(p => creditorRoles.Contains(p.Role))
 .Select(p => new CohortRecipient
-            {
-         PartyId = p.Id,
-       Name = p.Name ?? p.Company?.Name,
-     Email = p.Email ?? p.Company?.Email,
-                Role = p.Role.ToString(),
-            HasEmail = !string.IsNullOrWhiteSpace(p.Email ?? p.Company?.Email),
-            }).ToList();
+{
+    PartyId = p.Id,
+    Name = p.Name ?? p.Company?.Name,
+    Email = p.Email ?? p.Company?.Email,
+    Role = p.Role.ToString(),
+    HasEmail = !string.IsNullOrWhiteSpace(p.Email ?? p.Company?.Email),
+}).ToList();
 
         return new CohortPreviewResult
         {
- Total = recipients.Count,
+            Total = recipients.Count,
             WithEmail = recipients.Count(r => r.HasEmail),
-      WithoutEmail = recipients.Count(r => !r.HasEmail),
+            WithoutEmail = recipients.Count(r => !r.HasEmail),
             Recipients = recipients,
- };
+        };
     }
 
     private static HashSet<CasePartyRole> ResolveRoles(List<string>? roleStrings)
     {
-      if (roleStrings is { Count: > 0 })
+        if (roleStrings is { Count: > 0 })
         {
-   return roleStrings
-                .Select(r => Enum.TryParse<CasePartyRole>(r, true, out var role) ? role : (CasePartyRole?)null)
-   .Where(r => r.HasValue).Select(r => r!.Value)
-       .ToHashSet();
+            return roleStrings
+                         .Select(r => Enum.TryParse<CasePartyRole>(r, true, out var role) ? role : (CasePartyRole?)null)
+            .Where(r => r.HasValue).Select(r => r!.Value)
+                .ToHashSet();
         }
         return new HashSet<CasePartyRole>
         {
         CasePartyRole.SecuredCreditor, CasePartyRole.UnsecuredCreditor,
             CasePartyRole.BudgetaryCreditor, CasePartyRole.EmployeeCreditor,
         };
- }
+    }
 
     private static string ReplacePlaceholders(string template, InsolvencyCase cas, CaseParty party)
     {
-   return template
-            .Replace("{{CaseNumber}}", cas.CaseNumber)
-.Replace("{{DebtorName}}", cas.DebtorName)
-         .Replace("{{RecipientName}}", party.Name ?? party.Company?.Name ?? "")
-     .Replace("{{ClaimsDeadline}}", cas.ClaimsDeadline?.ToString("dd.MM.yyyy") ?? "N/A")
-         .Replace("{{CourtName}}", cas.CourtName ?? "")
-  .Replace("{{PractitionerName}}", cas.PractitionerName ?? "");
+        return template
+                 .Replace("{{CaseNumber}}", cas.CaseNumber)
+     .Replace("{{DebtorName}}", cas.DebtorName)
+              .Replace("{{RecipientName}}", party.Name ?? party.Company?.Name ?? "")
+          .Replace("{{ClaimsDeadline}}", cas.ClaimsDeadline?.ToString("dd.MM.yyyy") ?? "N/A")
+              .Replace("{{CourtName}}", cas.CourtName ?? "")
+       .Replace("{{PractitionerName}}", cas.PractitionerName ?? "");
     }
 }

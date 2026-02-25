@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notificare Deschidere Procedura Insolventei</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @page {
+      size: A4;
+      margin: 2.5cm 2cm 2.5cm 2.5cm;
+    }
+
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 11pt;
+      line-height: 1.5;
+      color: #000;
+      background: #fff;
+    }
+
+    .page-wrapper {
+      max-width: 170mm;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header-block {
+      text-align: center;
+      margin-bottom: 18pt;
+    }
+    .header-block .procedure-type {
+      font-size: 13pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4pt;
+    }
+    .header-block .notification-ref {
+      font-size: 10pt;
+      color: #444;
+    }
+
+    /* ── Section title ── */
+    h2.section-title {
+      font-size: 12pt;
+      font-weight: bold;
+      text-align: center;
+      text-transform: uppercase;
+      text-decoration: underline;
+      margin: 14pt 0 10pt;
+    }
+
+    /* ── Court block ── */
+    .court-block {
+      margin-bottom: 12pt;
+      border-left: 3px solid #2c5282;
+      padding-left: 10pt;
+    }
+    .court-block p { margin-bottom: 4pt; }
+
+    /* ── Body paragraphs ── */
+    p.body-text {
+      text-align: justify;
+      margin-bottom: 8pt;
+      text-indent: 20pt;
+    }
+    p.body-text.no-indent { text-indent: 0; }
+
+    /* ── Deadline table ── */
+    table.deadlines {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12pt 0;
+      font-size: 10.5pt;
+    }
+    table.deadlines th {
+      background-color: #2c5282;
+      color: #fff;
+      padding: 5pt 8pt;
+      text-align: left;
+      font-weight: bold;
+    }
+    table.deadlines td {
+      padding: 4pt 8pt;
+      border-bottom: 1px solid #ccc;
+      vertical-align: top;
+    }
+    table.deadlines tr:nth-child(even) td { background-color: #f5f5f5; }
+
+    /* ── Practitioner / signatory block ── */
+    .practitioner-block {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 10pt 14pt;
+      margin: 14pt 0;
+      background: #fafafa;
+      font-size: 10.5pt;
+    }
+    .practitioner-block .title {
+      font-weight: bold;
+      font-size: 11pt;
+      margin-bottom: 6pt;
+      text-transform: uppercase;
+    }
+    .practitioner-block p { margin-bottom: 3pt; }
+    .practitioner-block .label { font-weight: bold; }
+
+    /* ── Signature area ── */
+    .signature-area {
+      margin-top: 30pt;
+      display: flex;
+      justify-content: space-between;
+    }
+    .signature-col {
+      width: 45%;
+      text-align: center;
+    }
+    .signature-col .signature-line {
+      border-top: 1px solid #000;
+      margin-top: 40pt;
+      padding-top: 4pt;
+      font-size: 10pt;
+    }
+
+    /* ── Info box ── */
+    .info-box {
+      border: 1px solid #2c5282;
+      border-radius: 4px;
+      padding: 8pt 12pt;
+      margin: 10pt 0;
+      background: #ebf4ff;
+      font-size: 10pt;
+    }
+    .info-box .info-title {
+      font-weight: bold;
+      margin-bottom: 4pt;
+    }
+
+    /* ── Print utilities ── */
+    @media print {
+      .page-break { page-break-before: always; }
+    }
+  </style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- ══ HEADER ══════════════════════════════════════════════════════════════ -->
+  <div class="header-block">
+    <div class="procedure-type">PROCEDURA {{ProcedureNameUpper}}</div>
+    <div class="notification-ref">
+      Notificare nr. {{NotificationNumber}} / {{NotificationDate}}
+    </div>
+  </div>
+
+  <!-- ══ TITLE ═══════════════════════════════════════════════════════════════ -->
+  <h2 class="section-title">NOTIFICARE</h2>
+  <h2 class="section-title" style="text-decoration:none; font-size:11pt; font-weight:normal; margin-top:-8pt;">
+    privind deschiderea procedurii {{ProcedureNameUpper}} față de debitoarea
+    <strong>{{DebtorName}}</strong>
+  </h2>
+
+  <!-- ══ COURT REFERENCE ═════════════════════════════════════════════════════ -->
+  <div class="court-block">
+    <p><strong>Dosar nr.:</strong> {{CaseNumber}} / {{CaseYear}}</p>
+    <p><strong>Instanța:</strong> {{CourtName}}, {{CourtSection}}</p>
+    <p><strong>Judecător-sindic:</strong> {{JudgeName}}</p>
+    <p><strong>Registratură:</strong> {{CourtRegistryAddress}}</p>
+    <p><strong>Tel. registratură:</strong> {{CourtRegistryPhone}} &nbsp;|&nbsp; <strong>Program:</strong> {{CourtRegistryHours}}</p>
+  </div>
+
+  <!-- ══ BODY ════════════════════════════════════════════════════════════════ -->
+  <p class="body-text">
+    Subscrisa <strong>{{PractitionerEntityName}}</strong>, cu sediul în {{PractitionerAddress}},
+    CUI {{PractitionerCUI}}, înscrisă în Tabloul UNPIR la nr. {{PractitionerUNPIRNo}},
+    în calitate de <strong>administrator/lichidator judiciar provizoriu</strong> al debitoarei
+    <strong>{{DebtorName}}</strong>, CUI {{DebtorCUI}}, cu sediul social în {{DebtorAddress}},
+    înregistrată la Registrul Comerțului sub nr. {{DebtorTradeRegisterNo}},
+    desemnată prin sentința civilă nr. {{NotificationNumber}} din data de {{OpeningDecisionDate}},
+    pronunțată de {{CourtName}}, {{CourtSection}},
+  </p>
+
+  <p class="body-text">
+    în temeiul <strong>art. 99–100 din Legea nr. 85/2014</strong> privind procedurile de prevenire a insolvenței
+    și de insolvență, cu modificările și completările ulterioare,
+    <strong>notifică</strong> {{CreditorAudienceText}}
+  </p>
+
+  <p class="body-text">
+    că prin <strong>Sentința civilă nr. {{NotificationNumber}} / {{OpeningDecisionDate}}</strong>,
+    pronunțată de {{CourtName}} în dosarul nr. {{CaseNumber}} / {{CaseYear}},
+    s-a dispus <strong>deschiderea procedurii {{ProcedureNameUpper}}</strong>
+    față de debitoarea <strong>{{DebtorName}}</strong>
+    ({{DebtorAddressCityOptional}}),
+    cu CUI {{DebtorCUI}}, având administrator social / reprezentant pe dl./dna.
+    <strong>{{DebtorAdministratorName}}</strong>.
+  </p>
+
+  <!-- ══ DEADLINE TABLE ══════════════════════════════════════════════════════ -->
+  <h2 class="section-title" style="font-size:11pt;">TERMENE-CHEIE</h2>
+  <table class="deadlines">
+    <thead>
+      <tr>
+        <th style="width:65%">Termen / Eveniment</th>
+        <th style="width:35%">Dată</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Termen de depunere a declarațiilor de creanță</td>
+        <td><strong>{{ClaimFilingDeadline}}</strong></td>
+      </tr>
+      <tr>
+        <td>Afișarea tabelului preliminar de creanțe</td>
+        <td><strong>{{PreliminaryTableDeadline}}</strong></td>
+      </tr>
+      <tr>
+        <td>Afișarea tabelului definitiv de creanțe</td>
+        <td><strong>{{DefinitiveTableDeadline}}</strong></td>
+      </tr>
+      <tr>
+        <td>Prima ședință a adunării creditorilor</td>
+        <td><strong>{{CreditorsMeetingDate}}</strong>, ora <strong>{{CreditorsMeetingTime}}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══ MEETING INFO ════════════════════════════════════════════════════════ -->
+  <div class="info-box">
+    <div class="info-title">📍 Locul primei adunări a creditorilor</div>
+    <p>{{CreditorsMeetingAddress}}</p>
+  </div>
+
+  <!-- ══ CLAIMS INFO ═════════════════════════════════════════════════════════ -->
+  <p class="body-text">
+    Declarațiile de creanță vor fi înregistrate la:
+    <strong>{{PractitionerEntityName}}</strong>, {{PractitionerAddress}},
+    Tel. {{PractitionerPhone}}, Fax {{PractitionerFax}},
+    E-mail: {{PractitionerEmail}}.
+  </p>
+
+  <p class="body-text">
+    Contestațiile la tabelul preliminar de creanțe se depun la
+    <strong>{{CourtName}}</strong>, registratura de la {{CourtRegistryAddress}},
+    în termen de <strong>7 zile</strong> de la publicarea tabelului preliminar.
+  </p>
+
+  <!-- ══ ORC / TAX ═══════════════════════════════════════════════════════════ -->
+  <p class="body-text">
+    Creditorii bugetari sunt rugați să-și înscrie creanțele prin reprezentanții legali.
+    Prezenta notificare se publică în <strong>Buletinul Procedurilor de Insolvență</strong>
+    și se transmite la <strong>Oficiul Registrului Comerțului {{ORCOfficeName}}</strong>
+    pentru efectuarea mențiunilor legale.
+  </p>
+
+  <p class="body-text">
+    Notificarea este supusă taxei judiciare de timbru în valoare de
+    <strong>{{CourtTaxStampAmount}}</strong>, conform art. 9 din O.U.G. nr. 80/2013.
+  </p>
+
+  <!-- ══ PRACTITIONER DETAILS ════════════════════════════════════════════════ -->
+  <div class="practitioner-block">
+    <div class="title">Administrator / Lichidator Judiciar Provizoriu</div>
+    <p><span class="label">Denumire:</span> {{PractitionerEntityName}}</p>
+    <p><span class="label">CUI:</span> {{PractitionerCUI}} &nbsp;|&nbsp; <span class="label">Nr. UNPIR:</span> {{PractitionerUNPIRNo}}</p>
+    <p><span class="label">Sediu:</span> {{PractitionerAddress}}</p>
+    <p><span class="label">Tel.:</span> {{PractitionerPhone}} &nbsp;|&nbsp; <span class="label">Fax:</span> {{PractitionerFax}}</p>
+    <p><span class="label">E-mail:</span> {{PractitionerEmail}}</p>
+    <p><span class="label">Reprezentant:</span> <strong>{{PractitionerRepresentativeName}}</strong></p>
+  </div>
+
+  <!-- ══ SIGNATURE ═══════════════════════════════════════════════════════════ -->
+  <div class="signature-area">
+    <div class="signature-col">
+      <div class="signature-line">
+        Administrator / Lichidator judiciar<br/>
+        <strong>{{SignatoryOrganization}}</strong>
+      </div>
+    </div>
+    <div class="signature-col">
+      <div class="signature-line">
+        Reprezentant legal<br/>
+        <strong>{{PractitionerRepresentativeName}}</strong>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /page-wrapper -->
+</body>
+</html>

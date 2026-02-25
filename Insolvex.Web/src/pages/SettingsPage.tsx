@@ -9,7 +9,7 @@ import CsvUploadModal from "@/components/CsvUploadModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import client from "@/services/api/client";
-import { signingApi } from "@/services/api/signing";
+import { signingApi, type WindowsCertInfo } from "@/services/api/signing";
 import {
     Loader2, Mail, AlertCircle,
     Check, Trash2, RefreshCw, Shield, Globe, Landmark,
@@ -794,6 +794,23 @@ function SigningTab() {
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
 
+    // DigiSign / Windows cert store state
+    const [winCerts, setWinCerts] = useState<WindowsCertInfo[]>([]);
+    const [winCertsAvailable, setWinCertsAvailable] = useState<boolean | null>(null);
+    const [winCertsReason, setWinCertsReason] = useState<string>("");
+    const [loadingWinCerts, setLoadingWinCerts] = useState(false);
+
+    const loadWindowsCerts = async () => {
+      setLoadingWinCerts(true);
+      try {
+        const r = await signingApi.getWindowsCerts();
+        setWinCertsAvailable(r.data.available);
+        setWinCertsReason(r.data.reason ?? "");
+        setWinCerts(r.data.certificates ?? []);
+      } catch { setWinCertsAvailable(false); }
+      finally { setLoadingWinCerts(false); }
+    };
+
     const loadKeys = useCallback(async () => {
         setLoading(true);
         try {
@@ -916,6 +933,59 @@ setKeys(keysRes.data);
       </div>
  ))}
      </div>
+
+         {/* DigiSign / Hardware Token section */}
+        <div className="rounded-xl border border-border bg-card divide-y divide-border">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">DigiSign / Cheie USB Hardware</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Certificate din stocul Windows (CurrentUser + LocalMachine). Funcționează pe server Windows cu eToken / DigiSign conectat.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs shrink-0" onClick={loadWindowsCerts} disabled={loadingWinCerts}>
+              {loadingWinCerts ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Detectează
+            </Button>
+          </div>
+          {winCertsAvailable === null && (
+            <p className="px-4 py-4 text-sm text-muted-foreground text-center">
+              Apasă „Detectează" pentru a enumera certificatele din stocul Windows.
+            </p>
+          )}
+          {winCertsAvailable === false && (
+            <p className="px-4 py-4 text-sm text-amber-600 dark:text-amber-400 text-center">
+              {winCertsReason || "Stocul de certificate Windows nu este accesibil (serverul rulează pe Linux/Mac sau nu s-au găsit certificate)."}
+            </p>
+          )}
+          {winCertsAvailable === true && winCerts.length === 0 && (
+            <p className="px-4 py-4 text-sm text-muted-foreground text-center">
+              Nu s-au găsit certificate cu cheie privată și nevredate în stocul Windows.
+            </p>
+          )}
+          {winCerts.map(cert => (
+            <div key={cert.thumbprint} className="flex items-start gap-3 px-4 py-3">
+              <KeyRound className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {cert.friendlyName || cert.subject.split(",")[0]?.replace("CN=", "") || cert.subject}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {cert.subject}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  Emitent: {cert.issuer.split(",")[0]?.replace("CN=", "")}
+                  &nbsp;·&nbsp;Valabil: {cert.validFrom} → {cert.validTo}
+                  &nbsp;·&nbsp;{cert.storeLocation}
+                </p>
+                <p className="text-[10px] font-mono text-muted-foreground/70 truncate">
+                  Thumbprint: {cert.thumbprint}
+                </p>
+              </div>
+              <Badge variant="secondary" className="text-[10px] shrink-0">Hardware</Badge>
+            </div>
+          ))}
+        </div>
 
          {/* My Recent Signatures */}
             {signatures.length > 0 && (

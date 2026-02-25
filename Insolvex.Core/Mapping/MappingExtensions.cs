@@ -5,287 +5,349 @@ namespace Insolvex.Core.Mapping;
 
 public static class MappingExtensions
 {
-    public static UserDto ToDto(this User user) => new(
-      user.Id,
-        user.Email,
-   user.FirstName,
-        user.LastName,
-        user.FullName,
-  user.Role,
-        user.IsActive,
-        user.LastLoginDate,
-        user.AvatarUrl,
-     user.TenantId
-    );
+  public static UserDto ToDto(this User user) => new(
+    user.Id,
+      user.Email,
+ user.FirstName,
+      user.LastName,
+      user.FullName,
+user.Role,
+      user.IsActive,
+      user.LastLoginDate,
+      user.AvatarUrl,
+   user.TenantId
+  );
 
-    public static TenantDto ToDto(this Tenant tenant) => new(
-        tenant.Id,
-        tenant.Name,
-tenant.Domain,
-   tenant.IsActive,
-        tenant.SubscriptionExpiry,
- tenant.PlanName,
-tenant.Region.ToString()
-    );
+  public static TenantDto ToDto(this Tenant tenant) => new(
+      tenant.Id,
+      tenant.Name,
+      tenant.Domain,
+      tenant.IsActive,
+      tenant.SubscriptionExpiry,
+      tenant.PlanName,
+      tenant.Region.ToString(),
+      tenant.Language
+  );
 
-    public static CompanyDto ToDto(this Company company, int caseCount = 0) => new(
-        company.Id,
+  public static CompanyDto ToDto(this Company company, int caseCount = 0) => new(
+      company.Id,
 company.Name,
-        company.CompanyType.ToString(),
-        company.CuiRo,
-        company.TradeRegisterNo,
+      company.CompanyType.ToString(),
+      company.CuiRo,
+      company.TradeRegisterNo,
 company.VatNumber,
-        company.Address,
-        company.Locality,
-  company.County,
-     company.Country,
-        company.PostalCode,
-    company.Caen,
-        company.IncorporationYear,
-    company.ShareCapitalRon,
-        company.Phone,
-        company.Email,
-     company.ContactPerson,
-        company.Iban,
-        company.BankName,
-        company.AssignedToUserId,
-        company.AssignedTo?.FullName,
-        company.CreatedOn,
-        caseCount
-    );
+      company.Address,
+      company.Locality,
+company.County,
+   company.Country,
+      company.PostalCode,
+  company.Caen,
+      company.IncorporationYear,
+  company.ShareCapitalRon,
+      company.Phone,
+      company.Email,
+   company.ContactPerson,
+      company.Iban,
+      company.BankName,
+      company.AssignedToUserId,
+      company.AssignedTo?.FullName,
+      company.CreatedOn,
+      caseCount
+  );
 
-    public static CaseDto ToDto(this InsolvencyCase c, int docCount = 0, int partyCount = 0, List<CasePhaseDto>? phases = null) => new(
-        c.Id,
-        c.CaseNumber,
-      c.CourtName,
-     c.CourtSection,
- c.JudgeSyndic,
-    c.DebtorName,
-        c.DebtorCui,
+  public static CaseDto ToDto(this InsolvencyCase c, int docCount = 0, int partyCount = 0, List<CasePhaseDto>? phases = null) => new(
+      c.Id,
+      c.CaseNumber,
+    c.CourtName,
+   c.CourtSection,
+c.JudgeSyndic,
+  c.DebtorName,
+      c.DebtorCui,
 c.ProcedureType,
-  c.Stage,
-        c.LawReference,
-  c.PractitionerName,
-        c.PractitionerRole,
-     c.PractitionerFiscalId,
-   c.PractitionerDecisionNo,
-        c.NoticeDate,
-      c.OpeningDate,
-     c.NextHearingDate,
-      c.ClaimsDeadline,
-      c.ContestationsDeadline,
-        c.DefinitiveTableDate,
-     c.ReorganizationPlanDeadline,
-        c.ClosureDate,
- c.StageEnteredAt,
-        c.StageCompletedAt,
-    c.TotalClaimsRon,
-   c.SecuredClaimsRon,
-      c.UnsecuredClaimsRon,
-  c.BudgetaryClaimsRon,
-        c.EmployeeClaimsRon,
-      c.EstimatedAssetValueRon,
-    c.BpiPublicationNo,
-        c.BpiPublicationDate,
-        c.OpeningDecisionNo,
-     c.Notes,
-        c.CompanyId,
-        c.Company?.Name,
-    c.AssignedToUserId,
-        c.AssignedTo?.FullName,
-        c.CreatedOn,
-  docCount,
-      partyCount,
-    phases
-    );
+c.Stage,
+      c.LawReference,
+c.PractitionerName,
+      c.PractitionerRole,
+   c.PractitionerFiscalId,
+ c.PractitionerDecisionNo,
+      c.NoticeDate,
+    c.OpeningDate,
+   c.NextHearingDate,
+    c.ClaimsDeadline,
+    c.ContestationsDeadline,
+      c.DefinitiveTableDate,
+   c.ReorganizationPlanDeadline,
+      c.ClosureDate,
+c.StageEnteredAt,
+      c.StageCompletedAt,
+  c.TotalClaimsRon,
+ c.SecuredClaimsRon,
+    c.UnsecuredClaimsRon,
+c.BudgetaryClaimsRon,
+      c.EmployeeClaimsRon,
+    c.EstimatedAssetValueRon,
+  c.BpiPublicationNo,
+      c.BpiPublicationDate,
+      c.OpeningDecisionNo,
+   c.Notes,
+      c.CompanyId,
+      c.Company?.Name,
+  c.AssignedToUserId,
+      c.AssignedTo?.FullName,
+      c.CreatedOn,
+docCount,
+    partyCount,
+  phases
+  );
 
-    public static DocumentDto ToDto(this InsolvencyDocument d) => new(
-   d.Id,
-        d.CaseId,
-        d.SourceFileName,
-        d.DocType,
-        d.DocumentDate,
-        d.UploadedBy,
-   d.UploadedAt,
-        d.RawExtraction,
-    d.RequiresSignature,
-        d.IsSigned,
-        d.Purpose,
-        d.Summary,
-        d.ClassificationConfidence,
-        d.StorageKey,
-        d.FileHash
-    );
+  public static DocumentDto ToDto(this InsolvencyDocument d) => new(
+ d.Id,
+      d.CaseId,
+      d.SourceFileName,
+      d.DocType,
+      d.DocumentDate,
+      d.UploadedBy,
+ d.UploadedAt,
+      d.RawExtraction,
+  d.RequiresSignature,
+      d.IsSigned,
+      d.Purpose,
+      d.Summary,
+      d.ClassificationConfidence,
+      d.StorageKey,
+      d.FileHash
+  );
 
-    public static TaskDto ToDto(this CompanyTask t) => new(
-   t.Id,
-      t.CompanyId,
-        t.Company?.Name,
-        t.CaseId,
-        t.Case?.CaseNumber,
-        t.Title,
-        t.Description,
-        t.Labels,
-        t.Category,
-  t.Stage?.ToString(),
-   t.Deadline,
-  t.DeadlineSource,
-        t.IsCriticalDeadline,
-        t.Status,
-        t.AssignedToUserId,
-    t.AssignedTo?.FullName,
-     t.CreatedByUserId,
-        t.CompletedAt,
-   t.CreatedOn
-    );
+  public static TaskDto ToDto(this CompanyTask t) => new(
+ t.Id,
+    t.CompanyId,
+      t.Company?.Name,
+      t.CaseId,
+      t.Case?.CaseNumber,
+      t.Title,
+      t.Description,
+      t.Labels,
+      t.Category,
+t.Stage?.ToString(),
+ t.Deadline,
+t.DeadlineSource,
+      t.IsCriticalDeadline,
+      t.Status,
+      t.AssignedToUserId,
+  t.AssignedTo?.FullName,
+   t.CreatedByUserId,
+      t.CompletedAt,
+ t.CreatedOn
+  );
 
-    public static AuditLogDto ToDto(this AuditLog log) => new(
-    log.Id,
-        log.Action,
-        log.Description,
-  log.UserId,
-        log.UserEmail,
-     log.UserFullName,
-  log.TenantName,
-        log.EntityType,
-        log.EntityId,
-        log.EntityName,
-     log.CaseNumber,
-        log.Changes,
-      log.OldValues,
-      log.NewValues,
-     log.IpAddress,
-     log.UserAgent,
-        log.RequestMethod,
-log.RequestPath,
-        log.ResponseStatusCode,
-  log.DurationMs,
-        log.Severity,
-        log.Category,
-        log.CorrelationId,
-   log.Timestamp
-    );
-
-    public static ErrorLogDto ToDto(this ErrorLog log) => new(
+  public static AuditLogDto ToDto(this AuditLog log) => new(
   log.Id,
-     log.Message,
-        log.StackTrace,
-        log.Source,
-        log.RequestPath,
-        log.RequestMethod,
-        log.UserId,
-        log.UserEmail,
-        log.Timestamp,
-      log.IsResolved
-    );
+      log.Action,
+      log.Description,
+log.UserId,
+      log.UserEmail,
+   log.UserFullName,
+log.TenantName,
+      log.EntityType,
+      log.EntityId,
+      log.EntityName,
+   log.CaseNumber,
+      log.Changes,
+    log.OldValues,
+    log.NewValues,
+   log.IpAddress,
+   log.UserAgent,
+      log.RequestMethod,
+log.RequestPath,
+      log.ResponseStatusCode,
+log.DurationMs,
+      log.Severity,
+      log.Category,
+      log.CorrelationId,
+ log.Timestamp
+  );
 
-    public static CasePartyDto ToDto(this CaseParty p) => new(
-        p.Id,
-   p.CaseId,
-        p.CompanyId,
-      p.Company?.Name,
-    p.Role.ToString(),
-        p.RoleDescription,
-    p.ClaimAmountRon,
-      p.ClaimAccepted,
-        p.JoinedDate,
-        p.Notes
-    );
+  public static ErrorLogDto ToDto(this ErrorLog log) => new(
+log.Id,
+   log.Message,
+      log.StackTrace,
+      log.Source,
+      log.RequestPath,
+      log.RequestMethod,
+      log.UserId,
+      log.UserEmail,
+      log.Timestamp,
+    log.IsResolved
+  );
 
-    public static CasePhaseDto ToDto(this CasePhase p) => new(
-        p.Id,
-        p.CaseId,
-  p.PhaseType.ToString(),
-        p.Status.ToString(),
-        p.SortOrder,
-        p.StartedOn,
-        p.CompletedOn,
-    p.DueDate,
-        p.Notes,
-        p.CourtDecisionRef,
-        p.UpdatedByUserId
-    );
+  public static CasePartyDto ToDto(this CaseParty p) => new(
+      p.Id,
+ p.CaseId,
+      p.CompanyId,
+    p.Company?.Name,
+  p.Role.ToString(),
+      p.RoleDescription,
+  p.ClaimAmountRon,
+    p.ClaimAccepted,
+      p.JoinedDate,
+      p.Notes
+  );
 
-    public static InsolvencyFirmDto ToDto(this InsolvencyFirm f) => new(
+  public static CasePhaseDto ToDto(this CasePhase p) => new(
+      p.Id,
+      p.CaseId,
+p.PhaseType.ToString(),
+      p.Status.ToString(),
+      p.SortOrder,
+      p.StartedOn,
+      p.CompletedOn,
+  p.DueDate,
+      p.Notes,
+      p.CourtDecisionRef,
+      p.UpdatedByUserId
+  );
+
+  public static InsolvencyFirmDto ToDto(this InsolvencyFirm f) => new(
 f.Id,
 f.TenantId,
-        f.FirmName,
-        f.CuiRo,
-        f.TradeRegisterNo,
-  f.VatNumber,
-   f.UnpirRegistrationNo,
+      f.FirmName,
+      f.CuiRo,
+      f.TradeRegisterNo,
+f.VatNumber,
+ f.UnpirRegistrationNo,
 f.UnpirRfo,
-     f.Address,
-        f.Locality,
-        f.County,
-        f.Country,
-    f.PostalCode,
-        f.Phone,
-        f.Fax,
-      f.Email,
+   f.Address,
+      f.Locality,
+      f.County,
+      f.Country,
+  f.PostalCode,
+      f.Phone,
+      f.Fax,
+    f.Email,
 f.Website,
-        f.ContactPerson,
-        f.Iban,
-     f.BankName,
-        f.SecondaryIban,
-      f.SecondaryBankName,
-        f.LogoUrl
-    );
+      f.ContactPerson,
+      f.Iban,
+   f.BankName,
+      f.SecondaryIban,
+    f.SecondaryBankName,
+      f.LogoUrl
+  );
 
-    public static EmailDto ToDto(this ScheduledEmail e) => new(
-        e.Id,
-        e.CaseId,
-        e.To,
-  e.Cc,
-        e.Bcc,
-        e.Subject,
-        e.Body,
-        e.ScheduledFor,
-        e.SentAt,
-        e.IsSent,
-    e.Status,
-  e.RetryCount,
- e.ErrorMessage,
-        e.ProviderMessageId,
-     e.RelatedTaskId,
-     e.CreatedOn
-    );
+  public static EmailDto ToDto(this ScheduledEmail e) => new(
+      e.Id,
+      e.CaseId,
+      e.To,
+e.Cc,
+      e.Bcc,
+      e.Subject,
+      e.Body,
+      e.ScheduledFor,
+      e.SentAt,
+      e.IsSent,
+  e.Status,
+e.RetryCount,
+e.ErrorMessage,
+      e.ProviderMessageId,
+   e.RelatedTaskId,
+   e.CreatedOn
+  );
 
-    public static CalendarEventDto ToDto(this CalendarEvent c) => new(
-        c.Id,
-        c.CaseId,
-        c.Title,
-        c.Description,
-    c.Start,
-        c.End,
-   c.AllDay,
-        c.Location,
-        c.EventType,
-    c.ParticipantsJson,
-        c.IcsUrl,
+  public static CalendarEventDto ToDto(this CalendarEvent c) => new(
+      c.Id,
+      c.CaseId,
+      c.Title,
+      c.Description,
+  c.Start,
+      c.End,
+ c.AllDay,
+      c.Location,
+      c.EventType,
+  c.ParticipantsJson,
+      c.IcsUrl,
 c.SyncedExternal,
-        c.RelatedTaskId,
-      c.RelatedMeetingId,
-        c.IsCancelled,
-   c.CreatedOn
-    );
+      c.RelatedTaskId,
+    c.RelatedMeetingId,
+      c.IsCancelled,
+ c.CreatedOn
+  );
 
-    public static GeneratedLetterDto ToDto(this GeneratedLetter g) => new(
-    g.Id,
- g.CaseId,
-        g.TemplateId,
-     g.TemplateType.ToString(),
+  public static GeneratedLetterDto ToDto(this GeneratedLetter g) => new(
+  g.Id,
+g.CaseId,
+      g.TemplateId,
+   g.TemplateType.ToString(),
 g.Stage?.ToString(),
-        g.StorageKey,
-        g.FileName,
-        g.ContentType,
-        g.FileSizeBytes,
-        g.RenderedAt,
- g.SentAt,
-    g.DeliveryStatus,
-        g.ErrorMessage,
-        g.IsCritical,
-   g.SendDeadline,
-        g.CreatedOn
-    );
+      g.StorageKey,
+      g.FileName,
+      g.ContentType,
+      g.FileSizeBytes,
+      g.RenderedAt,
+g.SentAt,
+  g.DeliveryStatus,
+      g.ErrorMessage,
+      g.IsCritical,
+ g.SendDeadline,
+      g.CreatedOn
+  );
+
+  public static UserInvitationDto ToDto(this UserInvitation i) => new(
+      i.Id,
+      i.Email,
+      i.FirstName,
+      i.LastName,
+      i.Role.ToString(),
+      i.IsAccepted,
+      i.AcceptedAt,
+      i.ExpiresAt,
+      i.CreatedOn
+  );
+
+  public static CaseSummaryDto ToDto(this CaseSummary s) => new(
+      s.Id,
+      s.Text,
+      s.NextActionsJson,
+      s.RisksJson,
+      s.UpcomingDeadlinesJson,
+      s.GeneratedAt,
+      s.Trigger,
+      s.Model
+  );
+
+  public static CaseSummaryHistoryItem ToHistoryItem(this CaseSummary s) => new(
+      s.Id,
+      s.GeneratedAt,
+      s.Trigger,
+      s.Model
+  );
+
+  public static SigningKeyDto ToDto(this UserSigningKey k) => new(
+      k.Id,
+      k.Name,
+      k.SubjectName,
+      k.IssuerName,
+      k.Thumbprint,
+      k.SerialNumber,
+      k.ValidFrom,
+      k.ValidTo,
+      k.IsActive,
+      k.ValidTo.HasValue && k.ValidTo.Value < DateTime.UtcNow,
+      k.LastUsedAt,
+      k.CreatedOn
+  );
+
+  public static ScheduledEmailDto ToScheduledEmailDto(this ScheduledEmail e) => new(
+      e.Id,
+      e.To,
+      e.Cc,
+      e.Subject,
+      e.Body,
+      e.ScheduledFor,
+      e.SentAt,
+      e.IsSent,
+      e.Status,
+      e.ErrorMessage,
+      e.CreatedOn
+  );
+
+  public static SystemConfigDto ToDto(this SystemConfig c) => new(c.Key, c.Value, c.Description, c.Group);
 }

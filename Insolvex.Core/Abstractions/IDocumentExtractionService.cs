@@ -16,7 +16,7 @@ public class ExtractionResult
     public string? Summary { get; set; }
     public List<ExtractedParty> Parties { get; set; } = new();
     public List<ExtractedDate> Dates { get; set; } = new();
-public List<ExtractedAction> Actions { get; set; } = new();
+    public List<ExtractedAction> Actions { get; set; } = new();
     public Dictionary<string, string> Fields { get; set; } = new();
 }
 
@@ -29,7 +29,7 @@ public class ExtractedParty
 
 public class ExtractedDate
 {
-  public DateTime Date { get; set; }
+    public DateTime Date { get; set; }
     public string? Meaning { get; set; }
     public string? Source { get; set; }
 }

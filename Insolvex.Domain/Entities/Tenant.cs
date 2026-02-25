@@ -13,9 +13,10 @@ public class Tenant : BaseEntity
     /// <summary>System region determines which national firm registries are available.</summary>
     public SystemRegion Region { get; set; } = SystemRegion.Romania;
 
-    /// <summary>Marks tenant as a demo tenant — enables the Demo Reset feature.</summary>
+    /// <summary>Marks tenant as a demo tenant ï¿½ enables the Demo Reset feature.</summary>
     public bool IsDemo { get; set; } = false;
-
+    /// <summary>Preferred language for audit descriptions and notifications. Values: "en", "ro", "hu".</summary>
+    public string Language { get; set; } = "en";
     // Navigation
     public virtual InsolvencyFirm? InsolvencyFirm { get; set; }
     public ICollection<User> Users { get; set; } = new List<User>();

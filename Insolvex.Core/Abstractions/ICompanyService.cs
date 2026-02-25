@@ -13,6 +13,9 @@ public interface ICompanyService
     Task<CompanyDto> CreateAsync(CreateCompanyCommand command, CancellationToken ct = default);
     Task<CompanyDto> UpdateAsync(Guid id, UpdateCompanyCommand command, CancellationToken ct = default);
     Task DeleteAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Export all companies as CSV bytes.</summary>
+    Task<byte[]> ExportCsvAsync(CancellationToken ct = default);
 }
 
 public class CreateCompanyCommand
@@ -34,7 +37,7 @@ public class CreateCompanyCommand
     public string? Email { get; init; }
     public string? ContactPerson { get; init; }
     public string? Iban { get; init; }
-  public string? BankName { get; init; }
+    public string? BankName { get; init; }
 }
 
 public class UpdateCompanyCommand

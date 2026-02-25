@@ -20,6 +20,6 @@ public enum CompanyType
     /// <summary>Government agency (ANAF, ONRC, etc.)</summary>
     GovernmentAgency,
 
- /// <summary>Other third-party entity</summary>
+    /// <summary>Other third-party entity</summary>
     Other,
 }

@@ -6,54 +6,54 @@ namespace Insolvex.Domain.Enums;
 /// </summary>
 public enum PhaseType
 {
-    /// <summary>Cerere de deschidere a procedurii</summary>
-    OpeningRequest,
+  /// <summary>Cerere de deschidere a procedurii</summary>
+  OpeningRequest,
 
-    /// <summary>Deschiderea procedurii de insolventa (perioada de observatie)</summary>
-    ObservationPeriod,
+  /// <summary>Deschiderea procedurii de insolventa (perioada de observatie)</summary>
+  ObservationPeriod,
 
-    /// <summary>Notificarea creditorilor si publicarea in BPI</summary>
-    CreditorNotification,
+  /// <summary>Notificarea creditorilor si publicarea in BPI</summary>
+  CreditorNotification,
 
-    /// <summary>Depunerea declaratiilor de creanta</summary>
-    ClaimsFiling,
+  /// <summary>Depunerea declaratiilor de creanta</summary>
+  ClaimsFiling,
 
-    /// <summary>Verificarea si intocmirea tabelului preliminar de creante</summary>
+  /// <summary>Verificarea si intocmirea tabelului preliminar de creante</summary>
   PreliminaryClaimsTable,
 
-    /// <summary>Contestatii la tabelul preliminar</summary>
-    ClaimsContestations,
+  /// <summary>Contestatii la tabelul preliminar</summary>
+  ClaimsContestations,
 
-    /// <summary>Tabelul definitiv de creante</summary>
-    DefinitiveClaimsTable,
+  /// <summary>Tabelul definitiv de creante</summary>
+  DefinitiveClaimsTable,
 
-    /// <summary>Raportul asupra cauzelor si imprejurarilor insolventei (Art. 97)</summary>
-    CausesReport,
+  /// <summary>Raportul asupra cauzelor si imprejurarilor insolventei (Art. 97)</summary>
+  CausesReport,
 
-    /// <summary>Propunerea planului de reorganizare</summary>
-    ReorganizationPlanProposal,
+  /// <summary>Propunerea planului de reorganizare</summary>
+  ReorganizationPlanProposal,
 
-    /// <summary>Votarea planului de reorganizare</summary>
-    ReorganizationPlanVoting,
+  /// <summary>Votarea planului de reorganizare</summary>
+  ReorganizationPlanVoting,
 
-    /// <summary>Confirmarea planului de reorganizare</summary>
-    ReorganizationPlanConfirmation,
+  /// <summary>Confirmarea planului de reorganizare</summary>
+  ReorganizationPlanConfirmation,
 
-    /// <summary>Implementarea planului de reorganizare</summary>
-    ReorganizationExecution,
+  /// <summary>Implementarea planului de reorganizare</summary>
+  ReorganizationExecution,
 
-    /// <summary>Trecerea la faliment (conversie)</summary>
+  /// <summary>Trecerea la faliment (conversie)</summary>
   BankruptcyConversion,
 
-    /// <summary>Lichidarea activelor</summary>
-    AssetLiquidation,
+  /// <summary>Lichidarea activelor</summary>
+  AssetLiquidation,
 
- /// <summary>Distribuirea sumelor catre creditori</summary>
-    CreditorDistribution,
+  /// <summary>Distribuirea sumelor catre creditori</summary>
+  CreditorDistribution,
 
-    /// <summary>Raportul final</summary>
-    FinalReport,
+  /// <summary>Raportul final</summary>
+  FinalReport,
 
-    /// <summary>Inchiderea procedurii</summary>
-    ProcedureClosure,
+  /// <summary>Inchiderea procedurii</summary>
+  ProcedureClosure,
 }

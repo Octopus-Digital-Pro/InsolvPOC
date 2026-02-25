@@ -6,6 +6,7 @@ import type { CompanyDto, UserDto } from "@/services/api/types";
 import type { ONRCFirmResult } from "@/services/api/onrc";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
+import AddressSearch from "@/components/AddressSearch";
 import { Loader2, Building2, Phone, Landmark, Scale, DollarSign, Flag, MoreHorizontal, ArrowRight, Database } from "lucide-react";
 
 const COMPANY_TYPES = [
@@ -153,8 +154,8 @@ county: county || undefined,
    <p className="text-sm font-medium text-foreground truncate">{firm.name}</p>
            <p className="text-xs text-muted-foreground truncate">
       CUI: {firm.cui}
-         {firm.tradeRegisterNo && ` · ${firm.tradeRegisterNo}`}
-       {firm.county && ` · ${firm.county}`}
+         {firm.tradeRegisterNo && ` ï¿½ ${firm.tradeRegisterNo}`}
+       {firm.county && ` ï¿½ ${firm.county}`}
                   </p>
    </div>
          {firm.status && (
@@ -200,8 +201,20 @@ county: county || undefined,
       <input value={vatNumber} onChange={e => setVatNumber(e.target.value)} className={inputCls} />
           </div>
         <div className="sm:col-span-2">
-    <label className={labelCls}>{t.companies.address}</label>
-     <input value={address} onChange={e => setAddress(e.target.value)} className={inputCls} />
+            <AddressSearch
+              label={t.companies.address}
+              placeholder="CautÄƒ stradÄƒ, localitate..."
+              value={address}
+              onInputChange={setAddress}
+              onSelect={(sel) => {
+                setAddress(sel.address);
+                setLocality(sel.locality);
+                setCounty(sel.county);
+                setPostalCode(sel.postcode);
+                setCountry(sel.country);
+              }}
+              inputClassName={inputCls.replace('w-full ', '')}
+            />
           </div>
           <div>
             <label className={labelCls}>{t.companies.locality}</label>

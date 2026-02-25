@@ -41,13 +41,17 @@ export const onrcApi = {
   searchByName: (name: string, region = "Romania") =>
 client.get<ONRCFirmResult[]>("/onrc/search/name", { params: { name, region } }),
 
-  importCsv: (file: File, region = "Romania") => {
+  importCsv: (file: File, region = "Romania", onUploadProgress?: (pct: number) => void) => {
     const formData = new FormData();
     formData.append("file", file);
-    // Explicitly unset Content-Type so axios removes the default 'application/json'
-    // and lets the browser set 'multipart/form-data; boundary=...' automatically
     return client.post<ONRCImportResult>(`/onrc/import?region=${encodeURIComponent(region)}`, formData, {
       headers: { "Content-Type": undefined },
+      timeout: 0, // no Axios timeout — upload can take many minutes for large files
+      onUploadProgress: (event) => {
+        if (event.total && onUploadProgress) {
+          onUploadProgress(Math.round((event.loaded * 100) / event.total));
+        }
+      },
     });
   },
 

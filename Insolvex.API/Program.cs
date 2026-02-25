@@ -17,17 +17,34 @@ using Insolvex.Domain.Enums;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ----- Kestrel: allow large file uploads (e.g. ONRC CSV imports) -----
+// ----- Kestrel: allow large file uploads up to 700 MB (e.g. ONRC CSV) -----
 builder.WebHost.ConfigureKestrel(options =>
 {
-  options.Limits.MaxRequestBodySize = 150_000_000; // 150 MB
+    options.Limits.MaxRequestBodySize = 700_000_000; // 700 MB
+    options.Limits.KeepAliveTimeout = TimeSpan.FromMinutes(20);
+    options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(5);
+    // Prevent Kestrel from cutting slow connections mid-upload
+    options.Limits.MinRequestBodyDataRate = new Microsoft.AspNetCore.Server.Kestrel.Core.MinDataRate(
+        bytesPerSecond: 100, gracePeriod: TimeSpan.FromSeconds(60));
+});
+
+// ----- Global multipart limits — must be >= Kestrel limit -----
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 700_000_000; // 700 MB
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = 65_536;
 });
 
 // ----- Database -----
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        sql => sql.MigrationsAssembly("Insolvex.API")));
+        sql =>
+        {
+            sql.MigrationsAssembly("Insolvex.API");
+            sql.CommandTimeout(300); // 5 min — allows large import batches to complete
+        }));
 
 // ----- Authentication -----
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -80,6 +97,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<DocumentClassificationService>();
 builder.Services.Configure<MailMergeOptions>(builder.Configuration.GetSection(MailMergeOptions.SectionName));
+builder.Services.AddScoped<HtmlPdfService>();
 builder.Services.AddScoped<MailMergeService>();
 builder.Services.AddSingleton<IDocumentSigningService, DocumentSigningService>();
 builder.Services.AddScoped<WorkflowValidationService>();
@@ -102,9 +120,26 @@ builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<ICaseEmailService, CaseEmailService>();
 builder.Services.AddScoped<IBulkEmailService, BulkEmailService>();
+builder.Services.AddScoped<ITribunalService, TribunalService>();
+builder.Services.AddScoped<IFinanceAuthorityService, FinanceAuthorityService>();
+builder.Services.AddScoped<ILocalGovernmentService, LocalGovernmentService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IONRCFirmService, ONRCFirmService>();
 builder.Services.AddScoped<IFirmLookupService, FirmLookupService>();
+
+// New services (controller refactor — zero _db in controllers)
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITenantService, TenantService>();
+builder.Services.AddScoped<ICasePartyService, CasePartyService>();
+builder.Services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
+builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
+builder.Services.AddScoped<ICaseCalendarService, CaseCalendarService>();
+builder.Services.AddScoped<ICasePhasesService, CasePhasesService>();
+builder.Services.AddScoped<IDeadlineSettingsService, DeadlineSettingsService>();
+builder.Services.AddScoped<ISettingsService, SettingsService>();
+builder.Services.AddScoped<ISigningKeyService, SigningKeyService>();
+builder.Services.AddScoped<ICaseEventService, CaseEventService>();
+builder.Services.AddScoped<IAiConfigService, AiConfigService>();
 
 // Background services
 builder.Services.AddHostedService<Insolvex.API.BackgroundServices.DeadlineReminderService>();

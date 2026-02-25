@@ -8,7 +8,7 @@ public interface IDocumentSigningService
     /// <summary>
     /// Sign document content using a PFX certificate.
     /// Returns a detached CMS/PKCS#7 signature (Base64).
-  /// </summary>
+    /// </summary>
     Task<SigningResult> SignAsync(byte[] documentContent, byte[] pfxBytes, string pfxPassword, string? reason = null);
 
     /// <summary>
@@ -53,7 +53,7 @@ public class VerificationResult
 {
     public bool IsValid { get; set; }
     public string? CertificateSubject { get; set; }
-public string? CertificateThumbprint { get; set; }
+    public string? CertificateThumbprint { get; set; }
     public DateTime? SignedAt { get; set; }
     public string? Error { get; set; }
 }
@@ -61,8 +61,8 @@ public string? CertificateThumbprint { get; set; }
 public class CertificateInfo
 {
     public string SubjectName { get; set; } = string.Empty;
-  public string IssuerName { get; set; } = string.Empty;
-  public string SerialNumber { get; set; } = string.Empty;
+    public string IssuerName { get; set; } = string.Empty;
+    public string SerialNumber { get; set; } = string.Empty;
     public string Thumbprint { get; set; } = string.Empty;
     public DateTime ValidFrom { get; set; }
     public DateTime ValidTo { get; set; }

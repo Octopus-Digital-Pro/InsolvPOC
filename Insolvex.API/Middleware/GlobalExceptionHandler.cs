@@ -9,23 +9,25 @@ public class GlobalExceptionHandler : IExceptionHandler
     private readonly ILogger<GlobalExceptionHandler> _logger;
 
     public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
- {
-     _logger = logger;
+    {
+        _logger = logger;
     }
 
-  public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        _logger.LogError(exception, "An error occurred");
+        _logger.LogError(exception, "An error occurred: {ExceptionType} - {Message}", exception.GetType().Name, exception.Message);
 
-  var response = new ErrorResponse(
-            exception is BusinessException ? exception.Message : "An error occurred processing your request",
-        exception.GetType().Name
-        );
+        var (statusCode, message) = exception switch
+        {
+            NotFoundException nfe => (StatusCodes.Status404NotFound, nfe.Message),
+            ForbiddenException fe => (StatusCodes.Status403Forbidden, fe.Message),
+            BusinessException be => (StatusCodes.Status400BadRequest, be.Message),
+            _ => (StatusCodes.Status500InternalServerError, "An error occurred processing your request"),
+        };
 
-    httpContext.Response.StatusCode = exception is BusinessException
-      ? StatusCodes.Status400BadRequest
-     : StatusCodes.Status500InternalServerError;
+        var response = new ErrorResponse(message, exception.GetType().Name);
 
+        httpContext.Response.StatusCode = statusCode;
         httpContext.Response.ContentType = "application/json";
         await httpContext.Response.WriteAsJsonAsync(response, cancellationToken);
         return true;

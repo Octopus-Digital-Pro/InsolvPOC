@@ -93,7 +93,7 @@ _logger.LogInformation("DeadlineReminderService started");
    TenantId = task.TenantId,
     CaseId = task.CaseId,
    To = user.Email,
-       Subject = $"[Insolvex] {urgency}: {task.Title} — {caseName} [{reminderKey}]",
+       Subject = $"[Insolvex] {urgency}: {task.Title} ï¿½ {caseName} [{reminderKey}]",
      Body = $"Deadline reminder for task: {task.Title}\n" +
   $"Case: {caseName}\n" +
     $"Deadline: {task.Deadline:dd.MM.yyyy}\n" +

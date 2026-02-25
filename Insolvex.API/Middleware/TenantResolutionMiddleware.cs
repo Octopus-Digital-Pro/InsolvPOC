@@ -12,50 +12,50 @@ namespace Insolvex.API.Middleware;
 /// </summary>
 public class TenantResolutionMiddleware
 {
-    private readonly RequestDelegate _next;
+  private readonly RequestDelegate _next;
 
-    public TenantResolutionMiddleware(RequestDelegate next)
+  public TenantResolutionMiddleware(RequestDelegate next)
   {
-     _next = next;
+    _next = next;
   }
 
-    public async Task InvokeAsync(HttpContext context)
+  public async Task InvokeAsync(HttpContext context)
+  {
+    if (context.User?.Identity?.IsAuthenticated == true)
     {
-        if (context.User?.Identity?.IsAuthenticated == true)
-        {
-            var role = context.User.FindFirst(ClaimTypes.Role)?.Value;
+      var role = context.User.FindFirst(ClaimTypes.Role)?.Value;
 
-            if (role == "GlobalAdmin")
-          {
-         // GlobalAdmin: tenant from header is REQUIRED for data access
-           var tenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault()
- ?? context.Request.Query["tenantId"].FirstOrDefault();
+      if (role == "GlobalAdmin")
+      {
+        // GlobalAdmin: tenant from header is REQUIRED for data access
+        var tenantId = context.Request.Headers["X-Tenant-Id"].FirstOrDefault()
+?? context.Request.Query["tenantId"].FirstOrDefault();
 
         if (!string.IsNullOrEmpty(tenantId) && Guid.TryParse(tenantId, out var parsed))
-  {
-        context.Items["TenantId"] = parsed;
-                }
-          // If no tenant header: TenantId stays null.
-         // Query filters will return empty results (safe default).
-    // Only IgnoreQueryFilters() endpoints (Tenants, SystemConfig) work without it.
-   }
-        else
-      {
-         // Regular users: tenant from JWT claims (cannot be overridden)
-  var tenantIdClaim = context.User.FindFirst("TenantId")?.Value;
-       if (!string.IsNullOrEmpty(tenantIdClaim) && Guid.TryParse(tenantIdClaim, out var parsed))
         {
-    context.Items["TenantId"] = parsed;
-   }
-            }
-
-  // Store the resolved tenant ID for audit trail
-          if (context.Items.TryGetValue("TenantId", out var resolvedTenantId))
-      {
-                context.Items["ResolvedTenantId"] = resolvedTenantId;
-            }
+          context.Items["TenantId"] = parsed;
         }
+        // If no tenant header: TenantId stays null.
+        // Query filters will return empty results (safe default).
+        // Only IgnoreQueryFilters() endpoints (Tenants, SystemConfig) work without it.
+      }
+      else
+      {
+        // Regular users: tenant from JWT claims (cannot be overridden)
+        var tenantIdClaim = context.User.FindFirst("TenantId")?.Value;
+        if (!string.IsNullOrEmpty(tenantIdClaim) && Guid.TryParse(tenantIdClaim, out var parsed))
+        {
+          context.Items["TenantId"] = parsed;
+        }
+      }
 
-await _next(context);
+      // Store the resolved tenant ID for audit trail
+      if (context.Items.TryGetValue("TenantId", out var resolvedTenantId))
+      {
+        context.Items["ResolvedTenantId"] = resolvedTenantId;
+      }
     }
+
+    await _next(context);
+  }
 }

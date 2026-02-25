@@ -33,7 +33,7 @@ public class UserSigningKey : BaseEntity
 
     /// <summary>
     /// The PFX/PKCS#12 bytes encrypted with AES-256-GCM using the application's
- /// data-protection key. Never stored in plaintext.
+    /// data-protection key. Never stored in plaintext.
     /// </summary>
     public byte[] EncryptedPfxData { get; set; } = Array.Empty<byte>();
 

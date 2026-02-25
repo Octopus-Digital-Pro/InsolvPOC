@@ -1,5 +1,18 @@
 import client from "./client";
 
+export interface WindowsCertInfo {
+  thumbprint: string;
+  subject: string;
+  issuer: string;
+  validFrom: string;
+  validTo: string;
+  serialNumber: string;
+  friendlyName: string;
+  storeLocation: string;
+  keyAlgorithm: string;
+  subjectKeyId: string;
+}
+
 export const signingApi = {
   // Key management
   getKeyStatus: () => client.get("/signing/keys/status"),
@@ -34,4 +47,7 @@ export const signingApi = {
   checkSubmission: (documentId: string) =>
     client.get(`/signing/check-submission/${documentId}`),
   getMySignatures: () => client.get("/signing/my-signatures"),
+
+  // DigiSign / hardware token (Windows cert store)
+  getWindowsCerts: () => client.get<{ available: boolean; reason?: string; certificates: WindowsCertInfo[] }>("/signing/keys/windows-certs"),
 };

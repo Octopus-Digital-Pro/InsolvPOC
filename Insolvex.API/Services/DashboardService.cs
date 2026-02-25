@@ -22,24 +22,24 @@ public sealed class DashboardService : IDashboardService
     public async Task<DashboardDto> GetDashboardAsync(CancellationToken ct)
     {
         var tenantId = _currentUser.TenantId;
-   var userId = _currentUser.UserId;
+        var userId = _currentUser.UserId;
         var now = DateTime.UtcNow;
 
-   var casesQuery = _db.InsolvencyCases.Where(c => tenantId == null || c.TenantId == tenantId);
-   var tasksQuery = _db.CompanyTasks.Where(t => tenantId == null || t.TenantId == tenantId);
+        var casesQuery = _db.InsolvencyCases.Where(c => tenantId == null || c.TenantId == tenantId);
+        var tasksQuery = _db.CompanyTasks.Where(t => tenantId == null || t.TenantId == tenantId);
 
         var totalCases = await casesQuery.CountAsync(ct);
         var openCases = await casesQuery.CountAsync(c => c.Stage != CaseStage.Closure, ct);
-   var totalCompanies = await _db.Companies
-   .Where(c => tenantId == null || c.TenantId == tenantId).CountAsync(ct);
+        var totalCompanies = await _db.Companies
+        .Where(c => tenantId == null || c.TenantId == tenantId).CountAsync(ct);
 
         var userTasksQuery = tasksQuery;
         if (userId.HasValue)
             userTasksQuery = userTasksQuery.Where(t => t.AssignedToUserId == userId);
 
         var pendingTasks = await userTasksQuery.CountAsync(t => t.Status == TaskStatus.Open, ct);
-      var overdueTasks = await userTasksQuery.CountAsync(t =>
-            t.Status != TaskStatus.Done && t.Deadline.HasValue && t.Deadline.Value < now, ct);
+        var overdueTasks = await userTasksQuery.CountAsync(t =>
+              t.Status != TaskStatus.Done && t.Deadline.HasValue && t.Deadline.Value < now, ct);
 
         // Upcoming deadlines
         var hearingDeadlines = await casesQuery
@@ -56,8 +56,8 @@ public sealed class DashboardService : IDashboardService
              c.ClaimsDeadline!.Value, c.Company != null ? c.Company.Name : null))
             .ToListAsync(ct);
 
-  var allDeadlines = hearingDeadlines.Concat(claimsDeadlines)
-       .OrderBy(d => d.DeadlineDate).Take(15).ToList();
+        var allDeadlines = hearingDeadlines.Concat(claimsDeadlines)
+             .OrderBy(d => d.DeadlineDate).Take(15).ToList();
 
         // Calendar events
         var hearingEvents = await casesQuery
@@ -76,13 +76,13 @@ public sealed class DashboardService : IDashboardService
          t.Company != null ? t.Company.Name : null))
             .ToListAsync(ct);
 
-      var calendarEvents = hearingEvents.Concat(taskEvents).OrderBy(e => e.Start).ToList();
+        var calendarEvents = hearingEvents.Concat(taskEvents).OrderBy(e => e.Start).ToList();
 
         // Recent tasks
-  var recentTasks = await userTasksQuery
-            .Include(t => t.Company).Include(t => t.AssignedTo)
-     .OrderBy(t => t.Deadline).Take(20)
-  .ToListAsync(ct);
+        var recentTasks = await userTasksQuery
+                  .Include(t => t.Company).Include(t => t.AssignedTo)
+           .OrderBy(t => t.Deadline).Take(20)
+        .ToListAsync(ct);
 
         return new DashboardDto(totalCases, openCases, totalCompanies,
        pendingTasks, overdueTasks, allDeadlines, calendarEvents,

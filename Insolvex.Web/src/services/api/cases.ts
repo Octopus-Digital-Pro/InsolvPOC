@@ -46,6 +46,12 @@ export const casesApi = {
   advancePhase: (caseId: string) =>
     client.post<CasePhaseDto[]>(`/cases/${caseId}/phases/advance`),
 
+  getPhaseRequirements: (caseId: string, phaseId: string) =>
+    client.get(`/cases/${caseId}/phases/${phaseId}/requirements`),
+
+  generatePhaseTasks: (caseId: string, phaseId: string) =>
+    client.post<{ tasksGenerated: number; message: string }>(`/cases/${caseId}/phases/${phaseId}/generate-tasks`),
+
   // Export helpers (use raw fetch with auth for file downloads)
   exportCsvUrl: "/cases/export-csv",
   downloadZipUrl: (caseId: string) => `/cases/${caseId}/documents/download-zip`,

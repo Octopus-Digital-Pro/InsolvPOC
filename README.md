@@ -43,12 +43,14 @@ Insolvex.sln
 ## Key Features
 
 ### Multi-Tenancy
+
 - Row-level tenant isolation via EF Core global query filters
 - `TenantScopedEntity` base class auto-sets `TenantId` on save
 - Tenant resolution from JWT claims
 - GlobalAdmin can switch tenants via sidebar selector
 
 ### RBAC (Role-Based Access Control)
+
 - **4 roles**: GlobalAdmin → TenantAdmin → Practitioner → Secretary
 - **40 granular permissions** (e.g., `CaseView`, `DocumentSign`, `TemplateGenerate`)
 - `[RequirePermission(Permission.X)]` attribute on every endpoint
@@ -56,6 +58,7 @@ Insolvex.sln
 - Policies auto-registered in `Program.cs` via `Enum.GetValues<Permission>()`
 
 ### Audit Trail
+
 - **Every action logged** with user, timestamp, IP, entity type, severity, category
 - **Automatic old→new JSON diffing** on entity updates
 - **11 categories**: Auth, Case, Document, Task, Party, Workflow, Signing, Meeting, Settings, User, System
@@ -64,56 +67,59 @@ Insolvex.sln
 - Frontend: expandable detail rows, severity badges, category/severity filters, stats dashboard
 
 ### Document Workflow
+
 - AI-powered document classification and data extraction
 - 8-stage insolvency workflow: Intake → EligibilitySetup → FormalNotifications → CreditorClaims → AssetAssessment → CreditorMeeting → RealisationDistributions → ReportingCompliance → Closure
 - Digital document signing with PFX certificate upload
 - Mail-merge template engine for generating official documents
 
 ### User Management
+
 - JWT authentication with BCrypt password hashing
 - Token-based invitation system (7-day expiry)
 - Password reset flow (token generation + validation)
 - Role-based settings visibility (Practitioner/Secretary can view but not edit)
 
 ### Internationalization
+
 - 3 languages: English, Romanian, Hungarian
 - All UI labels, dropdowns, error messages, and form placeholders translated
 - Language switcher persisted in localStorage
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Backend | ASP.NET 8, EF Core 8, SQL Server |
+| Layer    | Technology                                          |
+| -------- | --------------------------------------------------- |
+| Backend  | ASP.NET 8, EF Core 8, SQL Server                    |
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui |
-| Auth | JWT Bearer, BCrypt.Net |
-| AI | OpenAI GPT-4o (document extraction) |
-| Signing | System.Security.Cryptography (PFX/X509) |
+| Auth     | JWT Bearer, BCrypt.Net                              |
+| AI       | OpenAI GPT-4o (document extraction)                 |
+| Signing  | System.Security.Cryptography (PFX/X509)             |
 
 ## API Endpoints (20 Controllers)
 
-| Controller | Endpoints | Auth |
-|---|---|---|
-| Auth | login, me, change-password, forgot-password, reset-password | AllowAnonymous / Authorize |
-| Cases | CRUD + search + export | CaseView/Create/Edit/Delete |
-| CaseParties | CRUD per case | PartyView/Create/Edit/Delete |
-| CasePhases | initialize, update, advance | PhaseView/Edit/Initialize/Advance |
-| StageTransition | current, advance | StageView/Advance |
-| Companies | CRUD + search | CompanyView/Create/Edit/Delete |
-| Documents | CRUD + submission-check + by-company | DocumentView/Upload/Edit/Delete |
-| DocumentUpload | upload + confirm | DocumentUpload/CaseCreate |
-| DocumentSigning | keys, sign, verify, download/upload-signed | SigningKeyManage/DocumentSign/SignatureVerify |
-| Tasks | CRUD + my-tasks | TaskView/Create/Edit/Delete |
-| CreditorMeeting | list + create | MeetingView/Create |
-| MailMerge | generate + generate-all | TemplateView/Generate |
-| CaseSummary | get + generate | SummaryView/Generate |
-| Settings | tenant, firm, emails, errors, users, config, templates, demo | SettingsView/Edit, SystemConfig, etc. |
-| Users | CRUD + invite + accept-invitation + roles + my-permissions | UserView/Edit/Invite/Deactivate |
-| Tenants | CRUD | SystemConfigView |
-| AuditLogs | list + count + categories + stats | AuditLogView |
-| ErrorLogs | list | ErrorLogView |
-| Dashboard | stats + calendar | DashboardView |
-| DeadlineSettings | get + update | SettingsView |
+| Controller       | Endpoints                                                    | Auth                                          |
+| ---------------- | ------------------------------------------------------------ | --------------------------------------------- |
+| Auth             | login, me, change-password, forgot-password, reset-password  | AllowAnonymous / Authorize                    |
+| Cases            | CRUD + search + export                                       | CaseView/Create/Edit/Delete                   |
+| CaseParties      | CRUD per case                                                | PartyView/Create/Edit/Delete                  |
+| CasePhases       | initialize, update, advance                                  | PhaseView/Edit/Initialize/Advance             |
+| StageTransition  | current, advance                                             | StageView/Advance                             |
+| Companies        | CRUD + search                                                | CompanyView/Create/Edit/Delete                |
+| Documents        | CRUD + submission-check + by-company                         | DocumentView/Upload/Edit/Delete               |
+| DocumentUpload   | upload + confirm                                             | DocumentUpload/CaseCreate                     |
+| DocumentSigning  | keys, sign, verify, download/upload-signed                   | SigningKeyManage/DocumentSign/SignatureVerify |
+| Tasks            | CRUD + my-tasks                                              | TaskView/Create/Edit/Delete                   |
+| CreditorMeeting  | list + create                                                | MeetingView/Create                            |
+| MailMerge        | generate + generate-all                                      | TemplateView/Generate                         |
+| CaseSummary      | get + generate                                               | SummaryView/Generate                          |
+| Settings         | tenant, firm, emails, errors, users, config, templates, demo | SettingsView/Edit, SystemConfig, etc.         |
+| Users            | CRUD + invite + accept-invitation + roles + my-permissions   | UserView/Edit/Invite/Deactivate               |
+| Tenants          | CRUD                                                         | SystemConfigView                              |
+| AuditLogs        | list + count + categories + stats                            | AuditLogView                                  |
+| ErrorLogs        | list                                                         | ErrorLogView                                  |
+| Dashboard        | stats + calendar                                             | DashboardView                                 |
+| DeadlineSettings | get + update                                                 | SettingsView                                  |
 
 ## Development
 
@@ -140,6 +146,7 @@ dotnet ef database update
 ## Environment
 
 Requires:
+
 - .NET 8 SDK
 - Node.js 18+
 - SQL Server (LocalDB or full instance)

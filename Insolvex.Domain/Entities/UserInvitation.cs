@@ -11,7 +11,7 @@ public class UserInvitation : TenantScopedEntity
     public string Token { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public bool IsAccepted { get; set; }
- public DateTime? AcceptedAt { get; set; }
+    public DateTime? AcceptedAt { get; set; }
     public Guid? InvitedByUserId { get; set; }
     public virtual User? InvitedBy { get; set; }
 }

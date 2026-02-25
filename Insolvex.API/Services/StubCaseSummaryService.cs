@@ -2,6 +2,9 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Insolvex.API.Data;
 using Insolvex.Core.Abstractions;
+using Insolvex.Core.DTOs;
+using Insolvex.Core.Mapping;
+using Insolvex.Domain.Entities;
 
 namespace Insolvex.API.Services;
 
@@ -12,8 +15,13 @@ namespace Insolvex.API.Services;
 public class StubCaseSummaryService : ICaseSummaryService
 {
     private readonly ApplicationDbContext _db;
+    private readonly ICaseEventService _caseEvents;
 
-    public StubCaseSummaryService(ApplicationDbContext db) => _db = db;
+    public StubCaseSummaryService(ApplicationDbContext db, ICaseEventService caseEvents)
+    {
+        _db = db;
+        _caseEvents = caseEvents;
+    }
 
     public async Task<CaseSummaryResult> GenerateAsync(Guid caseId)
     {
@@ -40,7 +48,19 @@ public class StubCaseSummaryService : ICaseSummaryService
 - **Open Tasks:** {openTasks} ({overdueTasks} overdue)
 - **Documents:** {docCount}
 - **Parties:** {partyCount}
-- **Claims Deadline:** {c.ClaimsDeadline?.ToString("dd.MM.yyyy") ?? "Not set"}";
+- **Claims Deadline:** {c.ClaimsDeadline?.ToString("dd.MM.yyyy") ?? "Not set"}
+";
+
+        // Append AI event timeline context (last 50 events)
+        var eventsContext = await _caseEvents.BuildAiContextAsync(c.Id, 50, CancellationToken.None);
+        if (!string.IsNullOrWhiteSpace(eventsContext))
+        {
+            text += $"""
+
+## Recent Activity Timeline
+{eventsContext}
+""";
+        }
 
         var nextActions = tasks
          .Where(t => t.Status != Domain.Enums.TaskStatus.Done)
@@ -68,6 +88,9 @@ public class StubCaseSummaryService : ICaseSummaryService
  })
    .ToList();
 
+        var missedDeadlines = await _db.CaseEvents
+            .CountAsync(e => e.CaseId == caseId && e.EventType == "Deadline.Missed");
+
         var snapshot = new
         {
             caseId,
@@ -76,6 +99,7 @@ public class StubCaseSummaryService : ICaseSummaryService
             overdueTasks,
             docCount,
             partyCount,
+            missedDeadlines,
             generatedAt = DateTime.UtcNow,
         };
 
@@ -87,5 +111,57 @@ public class StubCaseSummaryService : ICaseSummaryService
             UpcomingDeadlines = upcomingDeadlines,
             SnapshotJson = JsonSerializer.Serialize(snapshot),
         };
+    }
+
+    public async Task<CaseSummaryDto> GenerateAndSaveAsync(Guid caseId, string? trigger = null)
+    {
+        var result = await GenerateAsync(caseId);
+
+        var tenantId = await _db.InsolvencyCases
+            .Where(c => c.Id == caseId)
+            .Select(c => c.TenantId)
+            .FirstOrDefaultAsync();
+
+        var entity = new CaseSummary
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CaseId = caseId,
+            Text = result.Text,
+            NextActionsJson = JsonSerializer.Serialize(result.NextActions),
+            RisksJson = JsonSerializer.Serialize(result.Risks),
+            UpcomingDeadlinesJson = JsonSerializer.Serialize(result.UpcomingDeadlines),
+            Trigger = trigger ?? "Manual",
+            Model = "Stub",
+            GeneratedAt = DateTime.UtcNow,
+            CreatedOn = DateTime.UtcNow,
+        };
+
+        _db.CaseSummaries.Add(entity);
+        await _db.SaveChangesAsync();
+
+        return entity.ToDto();
+    }
+
+    public async Task<CaseSummaryDto?> GetLatestAsync(Guid caseId)
+    {
+        var entity = await _db.CaseSummaries
+            .AsNoTracking()
+            .Where(s => s.CaseId == caseId)
+            .OrderByDescending(s => s.GeneratedAt)
+            .FirstOrDefaultAsync();
+
+        return entity?.ToDto();
+    }
+
+    public async Task<List<CaseSummaryHistoryItem>> GetHistoryAsync(Guid caseId, int take = 10)
+    {
+        return await _db.CaseSummaries
+            .AsNoTracking()
+            .Where(s => s.CaseId == caseId)
+            .OrderByDescending(s => s.GeneratedAt)
+            .Take(take)
+            .Select(s => s.ToHistoryItem())
+            .ToListAsync();
     }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Insolvex – Full Stack Development Startup
+# Insolvex ï¿½ Full Stack Development Startup
 # Usage: ./start-dev.ps1
 
 $ErrorActionPreference = "Stop"
@@ -109,7 +109,7 @@ $apiJob = Start-Job -ScriptBlock {
 # Wait for API to bind
 Start-Sleep -Seconds 4
 
-# Start frontend (foreground – Ctrl+C stops everything)
+# Start frontend (foreground ï¿½ Ctrl+C stops everything)
 try {
     Push-Location $PSScriptRoot
     npm run dev

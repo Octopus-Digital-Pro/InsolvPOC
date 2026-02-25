@@ -81,7 +81,7 @@ if "!HEALTH!"=="healthy" (
     goto SQL_READY
 )
 
-:: Method 2: fallback – try a direct sqlcmd probe
+:: Method 2: fallback ï¿½ try a direct sqlcmd probe
 ::   (captures output to a temp file so ERRORLEVEL works in CMD)
 docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "InsolvexDev2025#Strong" -Q "SELECT 1" -C -b > "%TEMP%\insolvex_sqlcheck.tmp" 2>&1
 if !ERRORLEVEL! equ 0 (

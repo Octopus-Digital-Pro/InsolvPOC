@@ -9,32 +9,32 @@ namespace Insolvex.API.Services;
 public class StubDocumentExtractionService : IDocumentExtractionService
 {
   public Task<ExtractionResult> ExtractAsync(byte[] fileContent, string fileName, string? existingDocType = null)
-    {
+  {
     // Stub: returns minimal but structurally complete extraction
-        var result = new ExtractionResult
-     {
-   DocType = existingDocType ?? "other",
-   Confidence = existingDocType != null ? 85 : 50,
-            Summary = $"Document '{fileName}' uploaded. Automated extraction pending real ML/LLM integration.",
-     Parties = new List<ExtractedParty>
+    var result = new ExtractionResult
+    {
+      DocType = existingDocType ?? "other",
+      Confidence = existingDocType != null ? 85 : 50,
+      Summary = $"Document '{fileName}' uploaded. Automated extraction pending real ML/LLM integration.",
+      Parties = new List<ExtractedParty>
         {
         new() { Name = "Unknown Debtor", Role = "Debtor" },
   },
-     Dates = new List<ExtractedDate>
+      Dates = new List<ExtractedDate>
   {
     new() { Date = DateTime.UtcNow, Meaning = "Upload date", Source = "system" },
             },
-  Actions = new List<ExtractedAction>
+      Actions = new List<ExtractedAction>
    {
      new() { Action = "Review uploaded document", Deadline = DateTime.UtcNow.AddDays(3), Assignee = "uploader" },
      },
       Fields = new Dictionary<string, string>
-    {
-          ["fileName"] = fileName,
-         ["fileSize"] = fileContent.Length.ToString(),
-       },
-  };
+      {
+        ["fileName"] = fileName,
+        ["fileSize"] = fileContent.Length.ToString(),
+      },
+    };
 
-     return Task.FromResult(result);
-    }
+    return Task.FromResult(result);
+  }
 }

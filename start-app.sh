@@ -111,10 +111,18 @@ while true; do
   HEALTH=$(docker inspect --format "{{.State.Health.Status}}" insolvex-db 2>/dev/null || true)
     if [[ "$HEALTH" == "healthy" ]]; then
         success "SQL Server is ready!  [healthy]"
+     break
+    fi
+
+    # Method 2: fallback ï¿½ direct sqlcmd probe
+    if docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd \
+        -S localhost -U sa -P "InsolvexDev2025#Strong" \
+        -Q "SELECT 1" -C -b &>/dev/null; then
+        success "SQL Server is ready!  [sqlcmd]"
         break
     fi
 
-    # Method 2: fallback – direct sqlcmd probe
+    # Method 2: fallback ï¿½ direct sqlcmd probe
     if docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd \
         -S localhost -U sa -P "InsolvexDev2025#Strong" \
         -Q "SELECT 1" -C -b &>/dev/null 2>&1; then
@@ -187,5 +195,5 @@ osascript \
 
 echo ""
 success "Both servers are starting in separate Terminal windows."
-echo "  This launcher window can be closed — the servers will keep running."
+echo "  This launcher window can be closed ï¿½ the servers will keep running."
 echo ""

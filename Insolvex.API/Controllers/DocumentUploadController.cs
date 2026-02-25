@@ -33,17 +33,17 @@ public class DocumentUploadController : ControllerBase
     public async Task<IActionResult> Upload(IFormFile file, CancellationToken ct)
     {
         if (file is null || file.Length == 0)
-return BadRequest(new { message = "No file provided." });
+            return BadRequest(new { message = "No file provided." });
 
         await using var stream = file.OpenReadStream();
 
         var result = await _uploadService.ClassifyAndStoreUploadAsync(
    new DocumentUploadRequest
-  {
+   {
        FileName = file.FileName,
-         FileSize = file.Length,
-                ContentType = file.ContentType,
-   FileStream = stream,
+       FileSize = file.Length,
+       ContentType = file.ContentType,
+       FileStream = stream,
    }, ct);
 
         return Ok(result);
@@ -70,28 +70,28 @@ return BadRequest(new { message = "No file provided." });
  [FromBody] ConfirmUploadBody body,
         CancellationToken ct)
     {
-      var command = new ConfirmUploadCommand
+        var command = new ConfirmUploadCommand
         {
-         Action = body.Action,
-  CaseNumber = body.CaseNumber,
+            Action = body.Action,
+            CaseNumber = body.CaseNumber,
             CourtName = body.CourtName,
-   CourtSection = body.CourtSection,
+            CourtSection = body.CourtSection,
             DebtorName = body.DebtorName,
             JudgeSyndic = body.JudgeSyndic,
-      ProcedureType = body.ProcedureType,
-    OpeningDate = body.OpeningDate,
-      NextHearingDate = body.NextHearingDate,
-        ClaimsDeadline = body.ClaimsDeadline,
+            ProcedureType = body.ProcedureType,
+            OpeningDate = body.OpeningDate,
+            NextHearingDate = body.NextHearingDate,
+            ClaimsDeadline = body.ClaimsDeadline,
             ContestationsDeadline = body.ContestationsDeadline,
-     CompanyId = body.CompanyId,
-   CaseId = body.CaseId,
-          Parties = body.Parties?.Select(p => new ExtractedPartyResult
-     {
-Role = p.Role,
-       Name = p.Name,
+            CompanyId = body.CompanyId,
+            CaseId = body.CaseId,
+            Parties = body.Parties?.Select(p => new ExtractedPartyResult
+            {
+                Role = p.Role,
+                Name = p.Name,
                 FiscalId = p.FiscalId,
- ClaimAmount = p.ClaimAmount,
-   }).ToList(),
+                ClaimAmount = p.ClaimAmount,
+            }).ToList(),
         };
 
         var result = await _uploadService.ConfirmUploadAsync(id, command, ct);
@@ -99,7 +99,7 @@ Role = p.Role,
     }
 }
 
-// ?? Request body (API contract only — no business logic) ????
+// ?? Request body (API contract only ï¿½ no business logic) ????
 
 public record ConfirmUploadBody(
     string Action,

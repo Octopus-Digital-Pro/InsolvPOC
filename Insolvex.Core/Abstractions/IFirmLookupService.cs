@@ -13,7 +13,7 @@ public interface IFirmLookupService
 {
     /// <summary>
     /// Search for companies by CUI or name across all available sources
- /// (tenant companies + regional ONRC database).
+    /// (tenant companies + regional ONRC database).
     /// </summary>
     Task<FirmLookupResults> SearchAsync(string query, int maxResults = 10, CancellationToken ct = default);
 

@@ -4,7 +4,7 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import {
   ArrowLeft, Building2, Users, KeyRound,
   Mail, AlertCircle, ShieldCheck, Gavel, Receipt, MapPin,
-  RotateCcw, Database, Clock,
+  RotateCcw, Database, Clock, FileText, Brain,
 } from "lucide-react";
 
 interface SettingsNavItemProps {
@@ -52,7 +52,7 @@ const { isGlobalAdmin } = useAuth();
       <div className="mb-1 px-3 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
             {t.settings.general}
           </div>
-          {/* Organisation now includes firm details — no separate Firm Details tab */}
+          {/* Organisation now includes firm details ï¿½ no separate Firm Details tab */}
        <SettingsNavItem to="/settings" icon={Building2} label={t.settings.organization} />
    <SettingsNavItem to="/settings/users" icon={Users} label={t.settings.teamUsers} />
         <SettingsNavItem to="/settings/signing" icon={KeyRound} label={t.settings.eSigning} />
@@ -66,7 +66,7 @@ const { isGlobalAdmin } = useAuth();
 <SettingsNavItem to="/settings/finance" icon={Receipt} label={t.authorities?.finance ?? "ANAF"} />
     <SettingsNavItem to="/settings/localgov" icon={MapPin} label={t.authorities?.localGov ?? "Local Gov"} />
         <SettingsNavItem to="/settings/deadlines" icon={Clock} label={t.tasks?.deadline ?? "Deadlines"} />
-
+          <SettingsNavItem to="/settings/templates" icon={FileText} label="Document Templates" />
           {/* System */}
      <div className="mb-1 px-3 pt-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
     {t.nav.admin}
@@ -76,6 +76,9 @@ const { isGlobalAdmin } = useAuth();
       <SettingsNavItem to="/settings/permissions" icon={ShieldCheck} label={t.settings.permissions} />
           {isGlobalAdmin && (
             <SettingsNavItem to="/settings/demo" icon={RotateCcw} label={t.settings.demoReset} />
+          )}
+          {isGlobalAdmin && (
+            <SettingsNavItem to="/settings/ai-config" icon={Brain} label="AI Configuration" />
           )}
         </nav>
       </aside>

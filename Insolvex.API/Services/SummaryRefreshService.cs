@@ -11,65 +11,65 @@ namespace Insolvex.API.Services;
 /// </summary>
 public class SummaryRefreshService
 {
-    private readonly ICaseSummaryService _summaryService;
+  private readonly ICaseSummaryService _summaryService;
   private readonly ApplicationDbContext _db;
-    private readonly ILogger<SummaryRefreshService> _logger;
+  private readonly ILogger<SummaryRefreshService> _logger;
 
-    public SummaryRefreshService(
-        ICaseSummaryService summaryService,
-        ApplicationDbContext db,
-        ILogger<SummaryRefreshService> logger)
-    {
-        _summaryService = summaryService;
-        _db = db;
-      _logger = logger;
-    }
+  public SummaryRefreshService(
+      ICaseSummaryService summaryService,
+      ApplicationDbContext db,
+      ILogger<SummaryRefreshService> logger)
+  {
+    _summaryService = summaryService;
+    _db = db;
+    _logger = logger;
+  }
 
-    /// <summary>
-    /// Refresh the case summary if the last one is stale (older than threshold).
-  /// Fire-and-forget safe — catches all exceptions.
-    /// </summary>
-    public async Task RefreshIfStaleAsync(Guid caseId, Guid tenantId, string trigger, TimeSpan? staleness = null)
+  /// <summary>
+  /// Refresh the case summary if the last one is stale (older than threshold).
+  /// Fire-and-forget safe ï¿½ catches all exceptions.
+  /// </summary>
+  public async Task RefreshIfStaleAsync(Guid caseId, Guid tenantId, string trigger, TimeSpan? staleness = null)
+  {
+    try
     {
-        try
-      {
-  var threshold = staleness ?? TimeSpan.FromMinutes(5);
-       var lastSummary = _db.CaseSummaries
-     .Where(s => s.CaseId == caseId)
-     .OrderByDescending(s => s.GeneratedAt)
-     .FirstOrDefault();
+      var threshold = staleness ?? TimeSpan.FromMinutes(5);
+      var lastSummary = _db.CaseSummaries
+    .Where(s => s.CaseId == caseId)
+    .OrderByDescending(s => s.GeneratedAt)
+    .FirstOrDefault();
 
       // Skip if recently refreshed
       if (lastSummary != null && (DateTime.UtcNow - lastSummary.GeneratedAt) < threshold)
-           return;
+        return;
 
-         var result = await _summaryService.GenerateAsync(caseId);
-    if (result.Error != null)
-     {
-                _logger.LogWarning("Summary refresh failed for case {CaseId}: {Error}", caseId, result.Error);
+      var result = await _summaryService.GenerateAsync(caseId);
+      if (result.Error != null)
+      {
+        _logger.LogWarning("Summary refresh failed for case {CaseId}: {Error}", caseId, result.Error);
         return;
       }
 
-     _db.CaseSummaries.Add(new CaseSummary
+      _db.CaseSummaries.Add(new CaseSummary
       {
-       TenantId = tenantId,
-   CaseId = caseId,
-    Model = "stub-v1",
- SnapshotJson = result.SnapshotJson,
-     Text = result.Text,
-     NextActionsJson = System.Text.Json.JsonSerializer.Serialize(result.NextActions),
-       RisksJson = System.Text.Json.JsonSerializer.Serialize(result.Risks),
-       UpcomingDeadlinesJson = System.Text.Json.JsonSerializer.Serialize(result.UpcomingDeadlines),
-                Trigger = trigger,
-    GeneratedAt = DateTime.UtcNow,
-       });
-          await _db.SaveChangesAsync();
+        TenantId = tenantId,
+        CaseId = caseId,
+        Model = "stub-v1",
+        SnapshotJson = result.SnapshotJson,
+        Text = result.Text,
+        NextActionsJson = System.Text.Json.JsonSerializer.Serialize(result.NextActions),
+        RisksJson = System.Text.Json.JsonSerializer.Serialize(result.Risks),
+        UpcomingDeadlinesJson = System.Text.Json.JsonSerializer.Serialize(result.UpcomingDeadlines),
+        Trigger = trigger,
+        GeneratedAt = DateTime.UtcNow,
+      });
+      await _db.SaveChangesAsync();
 
- _logger.LogInformation("Auto-refreshed summary for case {CaseId} (trigger: {Trigger})", caseId, trigger);
-     }
-        catch (Exception ex)
-        {
-         _logger.LogError(ex, "Failed to auto-refresh summary for case {CaseId}", caseId);
-        }
+      _logger.LogInformation("Auto-refreshed summary for case {CaseId} (trigger: {Trigger})", caseId, trigger);
     }
+    catch (Exception ex)
+    {
+      _logger.LogError(ex, "Failed to auto-refresh summary for case {CaseId}", caseId);
+    }
+  }
 }

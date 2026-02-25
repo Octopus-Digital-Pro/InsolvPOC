@@ -17,7 +17,7 @@ public enum CaseStage
     FormalNotifications = 2,
 
     /// <summary>Stage 3: Collect claims, build creditor register, handle disputes</summary>
- CreditorClaims = 3,
+    CreditorClaims = 3,
 
     /// <summary>Stage 4: Collect financials, identify assets, create asset register</summary>
     AssetAssessment = 4,

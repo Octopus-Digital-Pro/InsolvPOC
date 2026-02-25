@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Insolvex.API.Authorization;
-using Insolvex.API.Data;
 using Insolvex.API.Services;
 using Insolvex.Core.Abstractions;
 using Insolvex.Domain.Enums;
@@ -16,19 +14,22 @@ namespace Insolvex.API.Controllers;
 public class CreditorMeetingController : ControllerBase
 {
     private readonly CreditorMeetingService _meetingService;
-    private readonly ApplicationDbContext _db;
+    private readonly ICaseCalendarService _calendar;
     private readonly ICurrentUserService _currentUser;
     private readonly IAuditService _audit;
 
-    public CreditorMeetingController(CreditorMeetingService meetingService, ApplicationDbContext db, ICurrentUserService currentUser, IAuditService audit)
+    public CreditorMeetingController(
+        CreditorMeetingService meetingService,
+        ICaseCalendarService calendar,
+        ICurrentUserService currentUser,
+        IAuditService audit)
     {
         _meetingService = meetingService;
-        _db = db;
+        _calendar = calendar;
         _currentUser = currentUser;
         _audit = audit;
     }
 
-    /// <summary>Call a creditor meeting (sidebar action).</summary>
     [HttpPost]
     [RequirePermission(Permission.MeetingCreate)]
     public async Task<IActionResult> CreateMeeting([FromBody] CreateMeetingRequest request)
@@ -63,20 +64,7 @@ public class CreditorMeetingController : ControllerBase
         });
     }
 
-    /// <summary>Get calendar events for a case.</summary>
     [HttpGet("calendar/{caseId:guid}")]
-    public async Task<IActionResult> GetCaseCalendar(Guid caseId)
-    {
-        var events = await _db.CalendarEvents
-            .Where(e => e.CaseId == caseId && !e.IsCancelled)
-            .OrderBy(e => e.Start)
-            .Select(e => new
-            {
-                e.Id, e.Title, e.Description, e.Start, e.End,
-                e.AllDay, e.Location, e.EventType, e.IcsUrl,
-            })
-            .ToListAsync();
-
-        return Ok(events);
-    }
+    public async Task<IActionResult> GetCaseCalendar(Guid caseId, CancellationToken ct)
+        => Ok(await _calendar.GetEventsAsync(caseId, null, null, null, ct));
 }

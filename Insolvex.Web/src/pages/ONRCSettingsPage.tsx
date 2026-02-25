@@ -132,14 +132,20 @@ export default function ONRCSettingsPage() {
    <Upload className="h-4 w-4 text-primary" />
      <h2 className="text-sm font-semibold text-foreground">{t.settings.onrcUpload}</h2>
      </div>
-          <Button size="sm" className="gap-1.5" onClick={() => setShowImportModal(true)}>
+          <Button size="sm" className="gap-1.5" onClick={() => setShowImportModal(true)} disabled={region !== "Romania"}>
             <Upload className="h-3.5 w-3.5" />
             Upload CSV
     </Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          Upload a CSV file exported from the ONRC registry. Click "Upload CSV" to see the required format and download a template.
-        </p>
+        {region === "Romania" ? (
+          <p className="text-xs text-muted-foreground mt-2">
+            Fișier CSV exportat din portalul ONRC open-data. Delimitator: <code className="font-mono bg-muted px-1 rounded">^</code> (caret). Fișiere până la 700 MB.
+          </p>
+        ) : (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+            Import not yet available for this region. Only the Romanian ONRC format is currently supported.
+          </p>
+        )}
       </div>
 
       {/* Search */}
@@ -189,12 +195,13 @@ export default function ONRCSettingsPage() {
       {/* CSV Import Modal */}
  {showImportModal && (
         <CsvUploadModal
-          title="Import ONRC Firms Database"
-          description="Upload a CSV exported from the Romanian ONRC registry. Large files (100k+ rows) may take a minute to process."
+          title="Import ONRC Firms Database (România)"
+          description="Fișier CSV oficial ONRC open-data. Delimitator: '^' (caret), encoding UTF-8. Fișiere până la 700 MB sunt suportate. Un import de ~600 MB (≈ 1–3 milioane rânduri) poate dura câteva minute."
+          delimiter="^"
         columns={ONRC_CSV_COLUMNS}
     templateFilename="onrc_firms"
-          onImport={async (file) => {
-         const r = await onrcApi.importCsv(file, region);
+          onImport={async (file, onProgress) => {
+         const r = await onrcApi.importCsv(file, region, onProgress);
             loadStats();
    const d = r.data as ONRCImportResult;
             return { imported: (d.imported ?? 0) + (d.updated ?? 0), errors: d.errors ?? [] };

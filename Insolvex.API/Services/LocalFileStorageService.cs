@@ -22,12 +22,12 @@ public class LocalFileStorageService : IFileStorageService
     private string FullPath(string key) => Path.Combine(_basePath, key.Replace('/', Path.DirectorySeparatorChar));
 
     public async Task<string> UploadAsync(string key, Stream content, string contentType, CancellationToken ct = default)
- {
+    {
         var path = FullPath(key);
         var dir = Path.GetDirectoryName(path)!;
-  Directory.CreateDirectory(dir);
+        Directory.CreateDirectory(dir);
 
- _logger.LogInformation("Saving file locally: {Path}", path);
+        _logger.LogInformation("Saving file locally: {Path}", path);
 
         await using var fs = new FileStream(path, FileMode.Create);
         await content.CopyToAsync(fs, ct);
@@ -35,34 +35,34 @@ public class LocalFileStorageService : IFileStorageService
     }
 
     public async Task<Stream> DownloadAsync(string key, CancellationToken ct = default)
-  {
-     var path = FullPath(key);
+    {
+        var path = FullPath(key);
         if (!File.Exists(path))
             throw new FileNotFoundException($"File not found: {key}", key);
 
         var ms = new MemoryStream();
-    await using var fs = File.OpenRead(path);
-      await fs.CopyToAsync(ms, ct);
-   ms.Position = 0;
+        await using var fs = File.OpenRead(path);
+        await fs.CopyToAsync(ms, ct);
+        ms.Position = 0;
         return ms;
     }
 
     public Task DeleteAsync(string key, CancellationToken ct = default)
     {
         var path = FullPath(key);
-   if (File.Exists(path))
-          File.Delete(path);
+        if (File.Exists(path))
+            File.Delete(path);
         return Task.CompletedTask;
     }
 
     public Task<bool> ExistsAsync(string key, CancellationToken ct = default)
     {
-     return Task.FromResult(File.Exists(FullPath(key)));
+        return Task.FromResult(File.Exists(FullPath(key)));
     }
 
     public string GetPresignedUrl(string key, TimeSpan expiry)
     {
-      // Local storage doesn't support presigned URLs — return relative path
-    return $"/api/documents/download/{key}";
+        // Local storage doesn't support presigned URLs ï¿½ return relative path
+        return $"/api/documents/download/{key}";
     }
 }

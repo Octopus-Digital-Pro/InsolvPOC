@@ -18,35 +18,37 @@ interface Props {
   columns: CsvColumn[];
   /** Filename used when downloading the template, without extension */
   templateFilename?: string;
-  /** Called with the chosen file when user clicks Import */
-  onImport: (file: File) => Promise<{ imported: number; errors: string[] }>;
+  /** Called with the chosen file when user clicks Import. onProgress reports 0-100 upload %. */
+  onImport: (file: File, onProgress?: (pct: number) => void) => Promise<{ imported: number; errors: string[] }>;
   onClose: () => void;
 }
 
 /**
  * Reusable CSV upload modal.
- * – Shows the expected CSV format (columns + examples)
- * – Lets user download an empty template CSV
- * – Handles file pick + upload + result display
+ * ï¿½ Shows the expected CSV format (columns + examples)
+ * ï¿½ Lets user download an empty template CSV
+ * ï¿½ Handles file pick + upload + result display
  */
 export default function CsvUploadModal({
   title,
   description,
   columns,
   templateFilename = "template",
+  delimiter = ",",
   onImport,
   onClose,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [result, setResult] = useState<{ imported: number; errors: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   /** Build and trigger download of a header-only CSV template */
   const downloadTemplate = () => {
- const header = columns.map(c => c.name).join(",");
-    const exampleRow = columns.map(c => c.example ?? "").join(",");
+    const header = columns.map(c => c.name).join(delimiter);
+    const exampleRow = columns.map(c => c.example ?? "").join(delimiter);
     const csv = `${header}\n${exampleRow}`;
     const blob = new Blob([csv], { type: "text/csv" });
  const url = URL.createObjectURL(blob);
@@ -60,15 +62,17 @@ a.click();
   const handleImport = async () => {
     if (!file) return;
     setImporting(true);
+    setUploadPct(0);
     setError(null);
     try {
-  const res = await onImport(file);
+      const res = await onImport(file, (pct) => setUploadPct(pct));
       setResult(res);
     } catch (err: unknown) {
       const axErr = err as { response?: { data?: { message?: string } } };
       setError(axErr?.response?.data?.message ?? "Import failed");
     } finally {
       setImporting(false);
+      setUploadPct(null);
     }
   };
 
@@ -138,9 +142,9 @@ className="w-full max-w-xl bg-card border border-border rounded-xl shadow-2xl fl
     <span className="ml-1 text-destructive text-[10px]">*</span>
              )}
             </td>
-    <td className="px-3 py-2 text-muted-foreground">{col.description ?? "—"}</td>
+    <td className="px-3 py-2 text-muted-foreground">{col.description ?? "ï¿½"}</td>
         <td className="px-3 py-2 text-muted-foreground font-mono truncate max-w-[120px]">
-     {col.example ?? "—"}
+     {col.example ?? "ï¿½"}
      </td>
          </tr>
       ))}
@@ -163,7 +167,7 @@ className="w-full max-w-xl bg-card border border-border rounded-xl shadow-2xl fl
  <div className="space-y-1">
       <p className="text-sm font-medium text-foreground">{file.name}</p>
   <p className="text-xs text-muted-foreground">
-  {(file.size / 1024).toFixed(1)} KB — Click to change
+  {(file.size / 1024).toFixed(1)} KB ï¿½ Click to change
    </p>
      </div>
          ) : (
@@ -182,6 +186,33 @@ ref={fileRef}
     </div>
           )}
 
+          {/* Upload progress */}
+          {importing && uploadPct !== null && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  {uploadPct < 100 ? `Uploadingâ€¦ ${uploadPct}%` : "Processing on serverâ€¦"}
+                </span>
+                <span className="text-muted-foreground font-mono">
+                  {uploadPct < 100 && file ? `${(file.size / 1_048_576).toFixed(0)} MB` : ""}
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    uploadPct < 100 ? "bg-primary" : "bg-amber-500 animate-pulse"
+                  }`}
+                  style={{ width: `${uploadPct < 100 ? uploadPct : 100}%` }}
+                />
+              </div>
+              {uploadPct >= 100 && (
+                <p className="text-[11px] text-muted-foreground">
+                  File received â€” please wait while the server processes the records.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Error banner */}
     {error && (
        <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
@@ -196,7 +227,7 @@ ref={fileRef}
    <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
     <Check className="h-4 w-4" />
            <span className="text-sm font-medium">
-     Import complete — {result.imported} records imported
+     Import complete ï¿½ {result.imported} records imported
    </span>
          </div>
         {result.errors.length > 0 && (

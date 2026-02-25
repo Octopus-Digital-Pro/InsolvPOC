@@ -71,17 +71,17 @@ public class TemplateEnforcementService : BackgroundService
 
      if (hoursUntilDeadline <= 0)
   {
-    // Deadline passed — create escalation
+    // Deadline passed ï¿½ create escalation
        await CreateEscalationAsync(db, letter, "OVERDUE: Critical template send deadline passed", ct);
       }
     else if (hoursUntilDeadline <= 24)
   {
-  // Within 24 hours — create warning
+  // Within 24 hours ï¿½ create warning
       await CreateWarningAsync(db, letter, hoursUntilDeadline, ct);
             }
    else if (hoursUntilDeadline <= 72)
    {
-          // Within 3 days — ensure a generation task exists
+          // Within 3 days ï¿½ ensure a generation task exists
        await EnsureGenerationTaskExistsAsync(db, letter, ct);
             }
      }
@@ -128,9 +128,9 @@ db.ScheduledEmails.Add(new ScheduledEmail
           TenantId = letter.TenantId,
  CaseId = letter.CaseId,
      To = adminEmail,
-    Subject = $"[Insolvex] CRITICAL TEMPLATE {message} — {caseName} [{escalationKey}]",
+    Subject = $"[Insolvex] CRITICAL TEMPLATE {message} ï¿½ {caseName} [{escalationKey}]",
      Body = $"<h3>Critical Template Deadline</h3>" +
-      $"<p><strong>Template:</strong> {letter.TemplateType} — {letter.FileName}</p>" +
+      $"<p><strong>Template:</strong> {letter.TemplateType} ï¿½ {letter.FileName}</p>" +
    $"<p><strong>Case:</strong> {caseName}</p>" +
            $"<p><strong>Send Deadline:</strong> {letter.SendDeadline:dd.MM.yyyy HH:mm}</p>" +
   $"<p><strong>Status:</strong> {letter.DeliveryStatus}</p>" +
@@ -166,9 +166,9 @@ db.ScheduledEmails.Add(new ScheduledEmail
    TenantId = letter.TenantId,
      CaseId = letter.CaseId,
         To = caseOwnerEmail,
-    Subject = $"[Insolvex] URGENT: Template send deadline in {hoursRemaining:F0}h — {caseName} [{warningKey}]",
+    Subject = $"[Insolvex] URGENT: Template send deadline in {hoursRemaining:F0}h ï¿½ {caseName} [{warningKey}]",
       Body = $"<h3>Template Send Deadline Approaching</h3>" +
-     $"<p><strong>Template:</strong> {letter.TemplateType} — {letter.FileName}</p>" +
+     $"<p><strong>Template:</strong> {letter.TemplateType} ï¿½ {letter.FileName}</p>" +
      $"<p><strong>Case:</strong> {caseName}</p>" +
   $"<p><strong>Hours remaining:</strong> {hoursRemaining:F1}</p>" +
         $"<p>Please ensure this document is generated, reviewed, and sent before the deadline.</p>",
@@ -189,7 +189,7 @@ db.ScheduledEmails.Add(new ScheduledEmail
          return; // Task exists and is still open
       }
 
-  // No task exists — find case to get company context
+  // No task exists ï¿½ find case to get company context
         var caseEntity = await db.InsolvencyCases.FindAsync(new object[] { letter.CaseId }, ct);
  if (caseEntity?.CompanyId == null) return;
 
@@ -199,7 +199,7 @@ db.ScheduledEmails.Add(new ScheduledEmail
        TenantId = letter.TenantId,
     CompanyId = caseEntity.CompanyId.Value,
        CaseId = letter.CaseId,
-   Title = $"Generate template: {letter.TemplateType} — {caseEntity.CaseNumber}",
+   Title = $"Generate template: {letter.TemplateType} ï¿½ {caseEntity.CaseNumber}",
       Description = $"Critical template {letter.FileName} must be generated and sent by {letter.SendDeadline:dd.MM.yyyy}.",
  Category = "Document",
             Stage = caseEntity.Stage,
@@ -235,7 +235,7 @@ db.ScheduledEmails.Add(new ScheduledEmail
  TenantId = letter.TenantId,
        CompanyId = caseEntity.CompanyId.Value,
     CaseId = letter.CaseId,
-            Title = $"Fix merge fields: {letter.TemplateType} — {caseEntity.CaseNumber}",
+            Title = $"Fix merge fields: {letter.TemplateType} ï¿½ {caseEntity.CaseNumber}",
       Description = $"Template generation failed: {letter.ErrorMessage}. Fix the missing/incorrect merge fields and retry.",
   Category = "Document",
      Stage = caseEntity.Stage,

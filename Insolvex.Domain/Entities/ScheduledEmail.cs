@@ -6,45 +6,45 @@ namespace Insolvex.Domain.Entities;
 /// </summary>
 public class ScheduledEmail : TenantScopedEntity
 {
-    /// <summary>Link to the insolvency case (nullable for system-level emails).</summary>
-    public Guid? CaseId { get; set; }
-    public virtual InsolvencyCase? Case { get; set; }
+  /// <summary>Link to the insolvency case (nullable for system-level emails).</summary>
+  public Guid? CaseId { get; set; }
+  public virtual InsolvencyCase? Case { get; set; }
 
-    public string To { get; set; } = string.Empty;
-    public string? Cc { get; set; }
-    public string? Bcc { get; set; }
-    public string Subject { get; set; } = string.Empty;
+  public string To { get; set; } = string.Empty;
+  public string? Cc { get; set; }
+  public string? Bcc { get; set; }
+  public string Subject { get; set; } = string.Empty;
   public string Body { get; set; } = string.Empty;
 
-    /// <summary>JSON array of attachment info [{fileName, storageKey, contentType}].</summary>
-    public string? AttachmentsJson { get; set; }
+  /// <summary>JSON array of attachment info [{fileName, storageKey, contentType}].</summary>
+  public string? AttachmentsJson { get; set; }
 
-    public DateTime ScheduledFor { get; set; }
-    public DateTime? SentAt { get; set; }
-    public bool IsSent { get; set; }
-    public int RetryCount { get; set; }
-    public string? ErrorMessage { get; set; }
+  public DateTime ScheduledFor { get; set; }
+  public DateTime? SentAt { get; set; }
+  public bool IsSent { get; set; }
+  public int RetryCount { get; set; }
+  public string? ErrorMessage { get; set; }
 
-    /// <summary>Provider-assigned message ID for tracking (e.g., SendGrid message ID).</summary>
-    public string? ProviderMessageId { get; set; }
+  /// <summary>Provider-assigned message ID for tracking (e.g., SendGrid message ID).</summary>
+  public string? ProviderMessageId { get; set; }
 
-    /// <summary>Delivery status: Draft, Scheduled, Sending, Sent, Failed, Cancelled.</summary>
-    public string Status { get; set; } = "Scheduled";
+  /// <summary>Delivery status: Draft, Scheduled, Sending, Sent, Failed, Cancelled.</summary>
+  public string Status { get; set; } = "Scheduled";
 
-    /// <summary>Whether this is an HTML email.</summary>
-    public bool IsHtml { get; set; } = true;
+  /// <summary>Whether this is an HTML email.</summary>
+  public bool IsHtml { get; set; } = true;
 
-    // ?? Linked entities ??
+  // ?? Linked entities ??
 
-    /// <summary>Related task ID (for email send tasks).</summary>
-    public Guid? RelatedTaskId { get; set; }
+  /// <summary>Related task ID (for email send tasks).</summary>
+  public Guid? RelatedTaskId { get; set; }
 
-    /// <summary>JSON array of related party IDs.</summary>
-    public string? RelatedPartyIdsJson { get; set; }
+  /// <summary>JSON array of related party IDs.</summary>
+  public string? RelatedPartyIdsJson { get; set; }
 
-    /// <summary>JSON array of related document IDs.</summary>
-    public string? RelatedDocumentIdsJson { get; set; }
+  /// <summary>JSON array of related document IDs.</summary>
+  public string? RelatedDocumentIdsJson { get; set; }
 
-    /// <summary>Related generated letter ID (if this email delivers a template output).</summary>
-    public Guid? RelatedGeneratedLetterId { get; set; }
+  /// <summary>Related generated letter ID (if this email delivers a template output).</summary>
+  public Guid? RelatedGeneratedLetterId { get; set; }
 }

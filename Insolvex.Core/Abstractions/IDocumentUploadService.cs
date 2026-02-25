@@ -23,7 +23,7 @@ public interface IDocumentUploadService
         DocumentUploadRequest request,
         CancellationToken ct = default);
 
-  /// <summary>
+    /// <summary>
     /// Retrieve a previously uploaded document's classification details.
     /// </summary>
     Task<DocumentUploadResult?> GetPendingUploadAsync(
@@ -75,7 +75,7 @@ public class DocumentUploadResult
     public Guid? MatchedCompanyId { get; init; }
     public double Confidence { get; init; }
     public string? ProcedureType { get; init; }
- public DateTime? OpeningDate { get; init; }
+    public DateTime? OpeningDate { get; init; }
     public DateTime? NextHearingDate { get; init; }
     public DateTime? ClaimsDeadline { get; init; }
     public DateTime? ContestationsDeadline { get; init; }
@@ -123,7 +123,7 @@ public class UploadConfirmationResult
     public Guid DocumentId { get; init; }
     public string? CaseNumber { get; init; }
     public int CompaniesCreated { get; init; }
-  public int PartiesCreated { get; init; }
+    public int PartiesCreated { get; init; }
     public int PhasesCreated { get; init; }
     public int TasksCreated { get; init; }
     public int EmailsScheduled { get; init; }

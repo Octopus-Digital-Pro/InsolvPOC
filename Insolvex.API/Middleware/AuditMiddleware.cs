@@ -1,74 +1,58 @@
-using System.Diagnostics;
 using Insolvex.Core.Abstractions;
 
 namespace Insolvex.API.Middleware;
 
+/// <summary>
+/// Lightweight safety-net middleware: logs only failed requests (4xx/5xx).
+/// All successful mutations are already logged with human-readable descriptions
+/// by the service layer, so we skip those here to avoid "POST /api/..." noise.
+/// </summary>
 public class AuditMiddleware
 {
     private readonly RequestDelegate _next;
 
-    public AuditMiddleware(RequestDelegate next)
-    {
-        _next = next;
-    }
+    public AuditMiddleware(RequestDelegate next) => _next = next;
 
     public async Task InvokeAsync(HttpContext context, IAuditService auditService)
     {
-        var method = context.Request.Method;
-        var path = context.Request.Path.Value;
-        var sw = Diagnostics.IsStateChanging(method) ? Stopwatch.StartNew() : null;
-
         await _next(context);
 
-        // Audit state-changing operations
-        if (sw != null)
-        {
-            sw.Stop();
-            var statusCode = context.Response.StatusCode;
+        var statusCode = context.Response.StatusCode;
 
-            // Always log, even failures — failures are warnings
-            var severity = statusCode >= 400 ? "Warning" : "Info";
+        // Only log HTTP failures -- successful mutations are covered by services
+        if (statusCode >= 400 && IsStateChanging(context.Request.Method))
+        {
+            var method = context.Request.Method;
+            var path = context.Request.Path.Value;
+            var severity = statusCode >= 500 ? "Critical" : "Warning";
 
             await auditService.LogAsync(new AuditEntry
             {
-                Action = $"{method} {path}",
+                Action = $"Request Failed: {method} {path}",
                 Category = InferCategory(path),
                 Severity = severity,
-                NewValues = new
-                {
-                    requestMethod = method,
-                    requestPath = path,
-                    responseStatusCode = statusCode,
-                    durationMs = sw.ElapsedMilliseconds,
-                },
+                NewValues = new { requestMethod = method, requestPath = path, responseStatusCode = statusCode },
             });
         }
     }
+
+    private static bool IsStateChanging(string method) =>
+        method == "POST" || method == "PUT" || method == "DELETE" || method == "PATCH";
 
     private static string InferCategory(string? path)
     {
         if (string.IsNullOrEmpty(path)) return "System";
         var lower = path.ToLowerInvariant();
-        return lower switch
-        {
-            _ when lower.Contains("/auth") => "Auth",
-            _ when lower.Contains("/cases") => "Case",
-            _ when lower.Contains("/documents") || lower.Contains("/upload") => "Document",
-            _ when lower.Contains("/tasks") => "Task",
-            _ when lower.Contains("/parties") => "Party",
-            _ when lower.Contains("/phases") || lower.Contains("/workflow") || lower.Contains("/stage") => "Workflow",
-            _ when lower.Contains("/signing") => "Signing",
-            _ when lower.Contains("/meeting") || lower.Contains("/calendar") => "Meeting",
-            _ when lower.Contains("/settings") || lower.Contains("/firm") || lower.Contains("/config") || lower.Contains("/tenant") => "Settings",
-            _ when lower.Contains("/users") => "User",
-            _ when lower.Contains("/mailmerge") || lower.Contains("/template") => "Document",
-            _ => "System",
-        };
-    }
-
-    private static class Diagnostics
-    {
-        public static bool IsStateChanging(string method) =>
-            method is "POST" or "PUT" or "DELETE" or "PATCH";
+        if (lower.Contains("/auth")) return "Auth";
+        if (lower.Contains("/cases")) return "Case";
+        if (lower.Contains("/documents") || lower.Contains("/upload")) return "Document";
+        if (lower.Contains("/tasks")) return "Task";
+        if (lower.Contains("/parties")) return "Party";
+        if (lower.Contains("/phases") || lower.Contains("/stage")) return "Workflow";
+        if (lower.Contains("/signing")) return "Signing";
+        if (lower.Contains("/meeting") || lower.Contains("/calendar")) return "Meeting";
+        if (lower.Contains("/settings") || lower.Contains("/firm") || lower.Contains("/tenant")) return "Settings";
+        if (lower.Contains("/users")) return "User";
+        return "System";
     }
 }

@@ -16,14 +16,16 @@ public sealed class TaskService : ITaskService
     private readonly ICurrentUserService _currentUser;
     private readonly IAuditService _audit;
     private readonly SummaryRefreshService _summaryRefresh;
+    private readonly ICaseEventService _caseEvents;
 
-public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
-        IAuditService audit, SummaryRefreshService summaryRefresh)
+    public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
+            IAuditService audit, SummaryRefreshService summaryRefresh, ICaseEventService caseEvents)
     {
         _db = db;
         _currentUser = currentUser;
         _audit = audit;
         _summaryRefresh = summaryRefresh;
+        _caseEvents = caseEvents;
     }
 
     public async Task<List<TaskDto>> GetAllAsync(Guid? companyId, bool? myTasks, CancellationToken ct)
@@ -33,15 +35,15 @@ public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
     .Include(t => t.Company).Include(t => t.AssignedTo).Include(t => t.Case)
      .Where(t => tenantId == null || t.TenantId == tenantId);
 
-     if (companyId.HasValue) query = query.Where(t => t.CompanyId == companyId);
-     if (myTasks == true && _currentUser.UserId.HasValue)
-   query = query.Where(t => t.AssignedToUserId == _currentUser.UserId);
+        if (companyId.HasValue) query = query.Where(t => t.CompanyId == companyId);
+        if (myTasks == true && _currentUser.UserId.HasValue)
+            query = query.Where(t => t.AssignedToUserId == _currentUser.UserId);
 
-   return await query.OrderBy(t => t.Deadline).Select(t => t.ToDto()).ToListAsync(ct);
-  }
+        return await query.OrderBy(t => t.Deadline).Select(t => t.ToDto()).ToListAsync(ct);
+    }
 
     public async Task<TaskDto?> GetByIdAsync(Guid id, CancellationToken ct)
- {
+    {
         var tenantId = _currentUser.TenantId;
         var task = await _db.CompanyTasks
  .Include(t => t.Company).Include(t => t.AssignedTo).Include(t => t.Case)
@@ -54,21 +56,23 @@ public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
         var tenantId = _currentUser.TenantId
             ?? throw new BusinessException("Tenant context is required to create a task.");
 
-      if (!await _db.Companies.AnyAsync(c => c.Id == cmd.CompanyId && c.TenantId == tenantId, ct))
-   throw new BusinessException("Company not found within this tenant.");
+        if (!await _db.Companies.AnyAsync(c => c.Id == cmd.CompanyId && c.TenantId == tenantId, ct))
+            throw new BusinessException("Company not found within this tenant.");
 
         var task = BuildTask(tenantId, cmd);
-   _db.CompanyTasks.Add(task);
+        _db.CompanyTasks.Add(task);
         await _db.SaveChangesAsync(ct);
 
-      await _audit.LogAsync(new AuditEntry
+        await _audit.LogAsync(new AuditEntry
         {
-          Action = "Task.Created",
-    Description = $"Task '{task.Title}' was created with deadline {task.Deadline:dd MMM yyyy}.",
-            EntityType = "CompanyTask", EntityId = task.Id, EntityName = task.Title,
-  Severity = task.IsCriticalDeadline ? "Warning" : "Info",
+            Action = "Task Created",
+            Description = $"Task '{task.Title}' was created with deadline {task.Deadline:dd MMM yyyy}.",
+            EntityType = "CompanyTask",
+            EntityId = task.Id,
+            EntityName = task.Title,
+            Severity = task.IsCriticalDeadline ? "Warning" : "Info",
             Category = "TaskManagement",
- });
+        });
 
         return task.ToDto();
     }
@@ -86,12 +90,12 @@ public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
         if (cmd.Description != null) task.Description = cmd.Description;
         if (cmd.Labels != null) task.Labels = cmd.Labels;
         if (cmd.Category != null) task.Category = cmd.Category;
-    if (cmd.Deadline.HasValue) task.Deadline = cmd.Deadline;
+        if (cmd.Deadline.HasValue) task.Deadline = cmd.Deadline;
         if (cmd.Status.HasValue)
-      {
+        {
             task.Status = cmd.Status.Value;
-   if (cmd.Status.Value == TaskStatus.Done && !task.CompletedAt.HasValue)
-       task.CompletedAt = DateTime.UtcNow;
+            if (cmd.Status.Value == TaskStatus.Done && !task.CompletedAt.HasValue)
+                task.CompletedAt = DateTime.UtcNow;
         }
         if (cmd.AssignedToUserId.HasValue) task.AssignedToUserId = cmd.AssignedToUserId;
 
@@ -106,15 +110,34 @@ public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
 
         await _audit.LogAsync(new AuditEntry
         {
-         Action = cmd.Status.HasValue ? "Task.StatusChanged" : "Task.Updated",
-        Description = description,
-            EntityType = "CompanyTask", EntityId = task.Id, EntityName = task.Title,
-          Severity = "Info", Category = "TaskManagement",
+            Action = cmd.Status.HasValue ? "Task Status Changed" : "Task Updated",
+            Description = description,
+            EntityType = "CompanyTask",
+            EntityId = task.Id,
+            EntityName = task.Title,
+            Severity = "Info",
+            Category = "TaskManagement",
         });
 
-   // Auto-refresh case summary on task status change
+        // Auto-refresh case summary on task status change
         if (cmd.Status.HasValue && task.CaseId.HasValue)
-      _ = _summaryRefresh.RefreshIfStaleAsync(task.CaseId.Value, task.TenantId, "task_status_change");
+        {
+            _ = _summaryRefresh.RefreshIfStaleAsync(task.CaseId.Value, task.TenantId, "task_status_change");
+
+            var evtType = cmd.Status.Value == TaskStatus.Done ? "Task.Completed"
+                        : cmd.Status.Value == TaskStatus.Blocked ? "Task.Blocked"
+                        : "Task.Updated";
+            _ = _caseEvents.RecordTaskEventAsync(
+                caseId: task.CaseId.Value,
+                taskId: task.Id,
+                eventType: evtType,
+                taskTitle: task.Title,
+                description: description,
+                involvedParties: null,
+                deadline: task.Deadline,
+                phaseType: null,
+                ct: default);
+        }
 
         return task.ToDto();
     }
@@ -122,20 +145,23 @@ public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
     public async Task DeleteAsync(Guid id, CancellationToken ct)
     {
         var tenantId = _currentUser.TenantId;
-      var task = await _db.CompanyTasks
-            .FirstOrDefaultAsync(t => t.Id == id && (tenantId == null || t.TenantId == tenantId), ct)
-            ?? throw new BusinessException($"Task {id} not found.");
+        var task = await _db.CompanyTasks
+              .FirstOrDefaultAsync(t => t.Id == id && (tenantId == null || t.TenantId == tenantId), ct)
+              ?? throw new BusinessException($"Task {id} not found.");
 
         _db.CompanyTasks.Remove(task);
-   await _db.SaveChangesAsync(ct);
+        await _db.SaveChangesAsync(ct);
 
         await _audit.LogAsync(new AuditEntry
         {
-            Action = "Task.Deleted",
-        Description = $"Task '{task.Title}' was permanently deleted.",
-            EntityType = "CompanyTask", EntityId = id, EntityName = task.Title,
-    Severity = "Warning", Category = "TaskManagement",
-    });
+            Action = "Task Deleted",
+            Description = $"Task '{task.Title}' was permanently deleted.",
+            EntityType = "CompanyTask",
+            EntityId = id,
+            EntityName = task.Title,
+            Severity = "Warning",
+            Category = "TaskManagement",
+        });
     }
 
     // ?? Case-scoped ?????????????????????????????????????????
@@ -150,7 +176,7 @@ public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
 
         if (stage.HasValue) query = query.Where(t => t.Stage == stage.Value);
         if (status.HasValue) query = query.Where(t => t.Status == status.Value);
-     if (!string.IsNullOrWhiteSpace(category)) query = query.Where(t => t.Category == category);
+        if (!string.IsNullOrWhiteSpace(category)) query = query.Where(t => t.Category == category);
 
         return await query.OrderBy(t => t.Deadline).Select(t => t.ToDto()).ToListAsync(ct);
     }
@@ -164,18 +190,18 @@ public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
         var now = DateTime.UtcNow;
 
         return new CaseTaskSummaryResult
-  {
-    Total = tasks.Count,
-        Open = tasks.Count(t => t.Status == TaskStatus.Open),
+        {
+            Total = tasks.Count,
+            Open = tasks.Count(t => t.Status == TaskStatus.Open),
             InProgress = tasks.Count(t => t.Status == TaskStatus.InProgress),
-         Blocked = tasks.Count(t => t.Status == TaskStatus.Blocked),
+            Blocked = tasks.Count(t => t.Status == TaskStatus.Blocked),
             Done = tasks.Count(t => t.Status == TaskStatus.Done),
-  Overdue = tasks.Count(t => t.Status == TaskStatus.Overdue
-    || (t.Deadline < now && t.Status != TaskStatus.Done && t.Status != TaskStatus.Cancelled)),
-     Critical = tasks.Count(t => t.IsCriticalDeadline && t.Status != TaskStatus.Done && t.Status != TaskStatus.Cancelled),
-          ByCategory = tasks.GroupBy(t => t.Category ?? "Other")
+            Overdue = tasks.Count(t => t.Status == TaskStatus.Overdue
+              || (t.Deadline < now && t.Status != TaskStatus.Done && t.Status != TaskStatus.Cancelled)),
+            Critical = tasks.Count(t => t.IsCriticalDeadline && t.Status != TaskStatus.Done && t.Status != TaskStatus.Cancelled),
+            ByCategory = tasks.GroupBy(t => t.Category ?? "Other")
     .Select(g => new CategoryCount(g.Key, g.Count())).ToList(),
-   ByStage = tasks.GroupBy(t => t.Stage?.ToString() ?? "Unset")
+            ByStage = tasks.GroupBy(t => t.Stage?.ToString() ?? "Unset")
     .Select(g => new StageCount(g.Key, g.Count())).ToList(),
         };
     }
@@ -185,42 +211,55 @@ public TaskService(ApplicationDbContext db, ICurrentUserService currentUser,
         var tenantId = _currentUser.TenantId
         ?? throw new BusinessException("Tenant context is required.");
 
-  var caseEntity = await _db.InsolvencyCases
-     .FirstOrDefaultAsync(c => c.Id == caseId && c.TenantId == tenantId, ct)
-    ?? throw new BusinessException("Case not found.");
+        var caseEntity = await _db.InsolvencyCases
+           .FirstOrDefaultAsync(c => c.Id == caseId && c.TenantId == tenantId, ct)
+          ?? throw new BusinessException("Case not found.");
 
         if (!cmd.Deadline.HasValue)
-   throw new BusinessException("Deadline is mandatory for all tasks per InsolvencyAppRules.");
+            throw new BusinessException("Deadline is mandatory for all tasks per InsolvencyAppRules.");
 
-  var companyId = cmd.CompanyId != Guid.Empty ? cmd.CompanyId
-            : caseEntity.CompanyId ?? throw new BusinessException("CompanyId is required (case has no linked company).");
+        var companyId = cmd.CompanyId != Guid.Empty ? cmd.CompanyId
+                  : caseEntity.CompanyId ?? throw new BusinessException("CompanyId is required (case has no linked company).");
 
         var task = BuildTask(tenantId, new CreateTaskCommand
         {
             CompanyId = companyId,
-CaseId = caseId,
-        Title = cmd.Title,
+            CaseId = caseId,
+            Title = cmd.Title,
             Description = cmd.Description,
             Labels = cmd.Labels,
             Category = cmd.Category,
-Deadline = cmd.Deadline,
-          DeadlineSource = cmd.DeadlineSource,
-  IsCriticalDeadline = cmd.IsCriticalDeadline,
-       AssignedToUserId = cmd.AssignedToUserId,
+            Deadline = cmd.Deadline,
+            DeadlineSource = cmd.DeadlineSource,
+            IsCriticalDeadline = cmd.IsCriticalDeadline,
+            AssignedToUserId = cmd.AssignedToUserId,
         });
         task.Stage = caseEntity.Stage;
-      _db.CompanyTasks.Add(task);
+        _db.CompanyTasks.Add(task);
         await _db.SaveChangesAsync(ct);
 
         await _audit.LogAsync(new AuditEntry
         {
-            Action = "Task.CreatedForCase",
-  Description = $"Task '{task.Title}' was created for case '{caseEntity.CaseNumber}' with deadline {task.Deadline:dd MMM yyyy}.",
-            EntityType = "CompanyTask", EntityId = task.Id, EntityName = task.Title,
- CaseNumber = caseEntity.CaseNumber,
+            Action = "Task Created for Case",
+            Description = $"Task '{task.Title}' was created for case '{caseEntity.CaseNumber}' with deadline {task.Deadline:dd MMM yyyy}.",
+            EntityType = "CompanyTask",
+            EntityId = task.Id,
+            EntityName = task.Title,
+            CaseNumber = caseEntity.CaseNumber,
             Severity = task.IsCriticalDeadline ? "Warning" : "Info",
-     Category = "TaskManagement",
+            Category = "TaskManagement",
         });
+
+        _ = _caseEvents.RecordTaskEventAsync(
+            caseId: caseId,
+            taskId: task.Id,
+            eventType: "Task.Created",
+            taskTitle: task.Title,
+            description: $"Task '{task.Title}' created with deadline {task.Deadline:dd MMM yyyy}.",
+            involvedParties: null,
+            deadline: task.Deadline,
+            phaseType: null,
+            ct: default);
 
         return task.ToDto();
     }
@@ -231,22 +270,22 @@ Deadline = cmd.Deadline,
     {
         return new CompanyTask
         {
-       Id = Guid.NewGuid(),
-   TenantId = tenantId,
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
             CompanyId = cmd.CompanyId,
- CaseId = cmd.CaseId,
-        Title = cmd.Title,
- Description = cmd.Description,
-        Labels = cmd.Labels,
+            CaseId = cmd.CaseId,
+            Title = cmd.Title,
+            Description = cmd.Description,
+            Labels = cmd.Labels,
             Category = cmd.Category,
-       Deadline = cmd.Deadline,
-     DeadlineSource = cmd.DeadlineSource ?? "Manual",
+            Deadline = cmd.Deadline,
+            DeadlineSource = cmd.DeadlineSource ?? "Manual",
             IsCriticalDeadline = cmd.IsCriticalDeadline,
-          Status = TaskStatus.Open,
-  AssignedToUserId = cmd.AssignedToUserId ?? _currentUser.UserId,
+            Status = TaskStatus.Open,
+            AssignedToUserId = cmd.AssignedToUserId ?? _currentUser.UserId,
             CreatedByUserId = _currentUser.UserId,
-      CreatedOn = DateTime.UtcNow,
-     CreatedBy = _currentUser.Email ?? "System",
+            CreatedOn = DateTime.UtcNow,
+            CreatedBy = _currentUser.Email ?? "System",
         };
     }
 }

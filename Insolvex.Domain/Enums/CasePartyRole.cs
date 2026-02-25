@@ -5,39 +5,39 @@ namespace Insolvex.Domain.Enums;
 /// </summary>
 public enum CasePartyRole
 {
-    /// <summary>Debtor / Insolvent company</summary>
-    Debtor,
+  /// <summary>Debtor / Insolvent company</summary>
+  Debtor,
 
   /// <summary>Insolvency practitioner (administrator judiciar / lichidator judiciar)</summary>
-    InsolvencyPractitioner,
+  InsolvencyPractitioner,
 
-    /// <summary>Creditor with secured claims (creditor garantat)</summary>
-    SecuredCreditor,
+  /// <summary>Creditor with secured claims (creditor garantat)</summary>
+  SecuredCreditor,
 
-    /// <summary>Creditor with unsecured claims (creditor chirografar)</summary>
-    UnsecuredCreditor,
+  /// <summary>Creditor with unsecured claims (creditor chirografar)</summary>
+  UnsecuredCreditor,
 
   /// <summary>Budgetary creditor (ANAF, local budget)</summary>
-    BudgetaryCreditor,
+  BudgetaryCreditor,
 
-    /// <summary>Employee creditor (salariati)</summary>
-    EmployeeCreditor,
+  /// <summary>Employee creditor (salariati)</summary>
+  EmployeeCreditor,
 
-    /// <summary>Judge syndic (judecator sindic)</summary>
-    JudgeSyndic,
+  /// <summary>Judge syndic (judecator sindic)</summary>
+  JudgeSyndic,
 
-    /// <summary>Court-appointed expert (expert judiciar)</summary>
-    CourtExpert,
+  /// <summary>Court-appointed expert (expert judiciar)</summary>
+  CourtExpert,
 
-    /// <summary>Creditors' committee member</summary>
-    CreditorsCommittee,
+  /// <summary>Creditors' committee member</summary>
+  CreditorsCommittee,
 
-    /// <summary>Special administrator (administrator special)</summary>
-    SpecialAdministrator,
+  /// <summary>Special administrator (administrator special)</summary>
+  SpecialAdministrator,
 
-    /// <summary>Guarantor / surety</summary>
-    Guarantor,
+  /// <summary>Guarantor / surety</summary>
+  Guarantor,
 
-    /// <summary>Third-party stakeholder</summary>
-    ThirdParty,
+  /// <summary>Third-party stakeholder</summary>
+  ThirdParty,
 }
