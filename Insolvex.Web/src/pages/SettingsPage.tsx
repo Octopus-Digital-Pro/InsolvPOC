@@ -5,6 +5,7 @@ import type { Locale } from "@/i18n/types";
 import type { InsolvencyFirmDto } from "@/services/api/types";
 import { tribunalsApi, financeApi, localGovApi } from "@/services/api/authorities";
 import type { AuthorityRecord } from "@/services/api/authorities";
+import CsvUploadModal from "@/components/CsvUploadModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import client from "@/services/api/client";
@@ -955,9 +956,7 @@ function AuthorityTab({ api, entityLabel, fields }: {
     const { isGlobalAdmin } = useAuth();
     const [items, setItems] = useState<AuthorityRecord[]>([]);
     const [loading, setLoading] = useState(true);
-    const [csvFile, setCsvFile] = useState<File | null>(null);
-    const [importing, setImporting] = useState(false);
-    const [importResult, setImportResult] = useState<{ imported: number; errors: string[] } | null>(null);
+    const [showImport, setShowImport] = useState(false);
     // Edit modal
  const [editing, setEditing] = useState<AuthorityRecord | null | undefined>(undefined); // undefined=closed, null=create
     const [form, setForm] = useState<Record<string, string>>({});
@@ -1002,19 +1001,7 @@ finally { setLoading(false); }
       catch (err) { console.error(err); }
     };
 
-    const handleImport = async () => {
-        if (!csvFile) return;
-   setImporting(true); setImportResult(null);
-        try {
-      const r = await api.importCsv(csvFile);
-   setImportResult(r.data);
-   setCsvFile(null);
-        load();
-        } catch (err) { console.error(err); }
-  finally { setImporting(false); }
-    };
-
-  const handleExport = () => {
+    const handleExport = () => {
         const token = localStorage.getItem("authToken");
         const tenantId = localStorage.getItem("selectedTenantId");
         const baseUrl = (import.meta.env.VITE_API_URL || "/api");
@@ -1039,38 +1026,42 @@ finally { setLoading(false); }
 
     return (
         <div className="space-y-4">
-   {/* CSV Import */}
-            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            {/* Header card with actions */}
+            <div className="rounded-xl border border-border bg-card p-4">
          <div className="flex items-center justify-between">
    <h2 className="text-sm font-semibold text-foreground">{entityLabel}</h2>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleExport}>
       <Download className="h-3.5 w-3.5" />{t.common.export ?? "Export CSV"}
   </Button>
+        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setShowImport(true)}>
+          <Upload className="h-3.5 w-3.5" />{t.common.import ?? "Import CSV"}
+        </Button>
        <Button size="sm" className="gap-1 text-xs" onClick={() => openEdit(null)}>
   <Pencil className="h-3.5 w-3.5" />{t.common.create}
   </Button>
        </div>
   </div>
-
-           <div className="flex items-center gap-2">
-  <input type="file" accept=".csv" onChange={e => setCsvFile(e.target.files?.[0] ?? null)}
-  className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-2 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-primary" />
-    <Button size="sm" className="gap-1" onClick={handleImport} disabled={importing || !csvFile}>
-   {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-    {t.common.import ?? "Import CSV"}
-   </Button>
-       </div>
-
-   {importResult && (
- <div className="rounded bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 p-2 text-xs">
-          <p className="text-emerald-700 dark:text-emerald-300">{t.common.imported ?? "Imported"}: {importResult.imported}</p>
-          {importResult.errors.length > 0 && (
-            <p className="text-destructive mt-1">{importResult.errors.length} {t.common.errorsOccurred ?? "errors"}</p>
-   )}
-  </div>
-  )}
          </div>
+
+      {showImport && (
+        <CsvUploadModal
+          title={`Import ${entityLabel}`}
+          description={`Upload a CSV file to bulk-import ${entityLabel.toLowerCase()}. Column names must match the header row exactly.`}
+          columns={fields.map(f => ({
+            name: f.key.trim().charAt(0).toUpperCase() + f.key.trim().slice(1),
+            description: f.label,
+            required: f.key.trim() === "name",
+          }))}
+          templateFilename={entityLabel.toLowerCase().replace(/\s+/g, "_")}
+          onImport={async (file) => {
+            const r = await api.importCsv(file);
+            load();
+            return r.data;
+          }}
+          onClose={() => setShowImport(false)}
+        />
+      )}
 
    {/* Records Table */}
             <div className="rounded-xl border border-border bg-card divide-y divide-border">

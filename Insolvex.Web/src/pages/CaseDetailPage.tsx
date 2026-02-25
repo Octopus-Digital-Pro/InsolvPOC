@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { casesApi } from "@/services/api";
 import { workflowApi } from "@/services/api/workflow";
+import type { GeneratedDocResult, TemplateInfo } from "@/services/api/workflow";
 import { caseEmailsApi } from "@/services/api/caseWorkspace";
 import { tasksApi } from "@/services/api/tasks";
 import { useTranslation } from "@/contexts/LanguageContext";
@@ -19,7 +20,7 @@ import { downloadAuthFile } from "@/utils/downloadAuthFile";
 import {
   Loader2, FileText, Upload, Users, GitBranch, ChevronRight,
   Check, Clock, Ban, SkipForward, Brain, CalendarDays, RefreshCw,
-  ListChecks, Mail, Download,
+  ListChecks, Mail, Download, FileOutput,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -50,9 +51,11 @@ export default function CaseDetailPage() {
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "docs" | "parties" | "emails" | "calendar">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "docs" | "parties" | "emails" | "calendar" | "templates">("overview");
   const [caseTasks, setCaseTasks] = useState<TaskDto[]>([]);
   const [caseEmails, setCaseEmails] = useState<CaseEmailDto[]>([]);
+  const [docUploading, setDocUploading] = useState(false);
+  const docUploadRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -114,6 +117,28 @@ export default function CaseDetailPage() {
       load();
     } catch (err) { console.error(err); }
     finally { setAdvancing(false); }
+  };
+
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    e.target.value = "";
+    setDocUploading(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/documents/upload", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        navigate(`/documents/${data.id}/review?caseId=${id}`);
+      }
+    } catch (err) { console.error(err); }
+    finally { setDocUploading(false); }
   };
 
   if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -235,6 +260,7 @@ export default function CaseDetailPage() {
               { id: "parties" as const, label: "Parties", icon: Users },
               { id: "emails" as const, label: `Emails (${caseEmails.length})`, icon: Mail },
               { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
+              { id: "templates" as const, label: "Templates", icon: FileOutput },
             ]).map(tb => (
               <button
                 key={tb.id}
@@ -346,9 +372,13 @@ export default function CaseDetailPage() {
                       <Download className="h-3.5 w-3.5" />ZIP
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5">
-                    <Upload className="h-3.5 w-3.5" />{t.cases.uploadDocument}
+                  <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
+                    onClick={() => docUploadRef.current?.click()}
+                    disabled={docUploading}>
+                    {docUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    {t.cases.uploadDocument}
                   </Button>
+                  <input ref={docUploadRef} type="file" accept=".pdf,.doc,.docx,image/*" className="hidden" onChange={handleDocUpload} />
                 </div>
               </div>
               <div className="rounded-xl border border-border bg-card divide-y divide-border">
@@ -421,6 +451,11 @@ export default function CaseDetailPage() {
           {activeTab === "calendar" && (
             <CalendarTab caseId={id!} />
           )}
+
+          {/* Templates Tab */}
+          {activeTab === "templates" && (
+            <TemplatesTab caseId={id!} />
+          )}
         </div>
       </div>
 
@@ -468,6 +503,116 @@ function CalendarTab({ caseId }: { caseId: string }) {
           </div>
         ))
       )}
+    </div>
+  );
+}
+/* ── Templates Tab Component ─────────────────────────── */
+function TemplatesTab({ caseId }: { caseId: string }) {
+  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
+  const [generated, setGenerated] = useState<GeneratedDocResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState<string | null>(null);
+  const [generatingAll, setGeneratingAll] = useState(false);
+
+  useEffect(() => {
+    workflowApi.mailMerge.getTemplates()
+      .then(r => setTemplates(r.data))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleGenerate = async (templateType: string) => {
+    setGenerating(templateType);
+    try {
+      const r = await workflowApi.mailMerge.generate(caseId, templateType);
+      setGenerated(prev => [r.data, ...prev.filter(g => g.templateType !== templateType)]);
+    } catch (err) { console.error(err); }
+    finally { setGenerating(null); }
+  };
+
+  const handleGenerateAll = async () => {
+    setGeneratingAll(true);
+    try {
+      const r = await workflowApi.mailMerge.generateAll(caseId);
+      setGenerated(r.data);
+    } catch (err) { console.error(err); }
+    finally { setGeneratingAll(false); }
+  };
+
+  const friendlyName = (type: string) =>
+    type.replace(/([A-Z])/g, " $1").trim();
+
+  const getToken = () => localStorage.getItem("authToken");
+  const getTenantId = () => localStorage.getItem("selectedTenantId");
+
+  const downloadDoc = (key: string, fileName: string) => {
+    const token = getToken();
+    const tenantId = getTenantId();
+    fetch(`/api/mailmerge/download?key=${encodeURIComponent(key)}`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenantId ? { "X-Tenant-Id": tenantId } : {}),
+      },
+    }).then(r => r.blob()).then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  };
+
+  if (loading) return <div className="p-6 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>;
+
+  return (
+    <div className="space-y-3">
+      {/* Header with Generate All */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Mail Merge Templates (Templates-Ro)</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">Generate case documents from predefined Romanian insolvency templates</p>
+          </div>
+          <Button size="sm" className="gap-1.5 text-xs" onClick={handleGenerateAll} disabled={generatingAll}>
+            {generatingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileOutput className="h-3.5 w-3.5" />}
+            Generate All
+          </Button>
+        </div>
+      </div>
+
+      {/* Template list */}
+      <div className="rounded-xl border border-border bg-card divide-y divide-border">
+        {templates.length === 0 && (
+          <p className="px-4 py-6 text-center text-sm text-muted-foreground">No templates available. Add .doc files to Templates-Ro folder.</p>
+        )}
+        {templates.map(tpl => {
+          const result = generated.find(g => g.templateType === tpl.templateType);
+          const isGenerating = generating === tpl.templateType;
+          return (
+            <div key={tpl.templateType} className="flex items-center gap-3 px-4 py-3">
+              <FileText className={`h-4 w-4 shrink-0 ${tpl.exists ? "text-primary" : "text-muted-foreground/40"}`} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground">{friendlyName(tpl.templateType)}</p>
+                <p className="text-[10px] text-muted-foreground">{tpl.fileName}{!tpl.exists && " — file not found"}</p>
+              </div>
+              {result && (
+                <Button variant="ghost" size="sm" className="text-xs gap-1 h-7 text-primary"
+                  onClick={() => downloadDoc(result.storageKey, result.fileName)}>
+                  <Download className="h-3 w-3" />
+                  {result.fileName}
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="text-xs gap-1 h-7 shrink-0"
+                onClick={() => handleGenerate(tpl.templateType)}
+                disabled={!tpl.exists || isGenerating}>
+                {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileOutput className="h-3 w-3" />}
+                {result ? "Re-generate" : "Generate"}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

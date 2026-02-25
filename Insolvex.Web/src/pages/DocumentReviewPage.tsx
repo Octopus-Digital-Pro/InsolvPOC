@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,8 @@ const PARTY_ROLES = [
 export default function DocumentReviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const prefillCaseId = searchParams.get("caseId");
   const { t } = useTranslation();
   const [upload, setUpload] = useState<UploadData | null>(null);
   const [cases, setCases] = useState<CaseDto[]>([]);
@@ -59,7 +61,13 @@ export default function DocumentReviewPage() {
       const u = uploadRes.data;
     setUpload(u);
    setCases(casesRes.data);
-      setAction(u.recommendedAction === "filing" ? "filing" : "newCase");
+      // If a caseId was passed via URL, pre-select "file to existing"
+      if (prefillCaseId) {
+        setAction("filing");
+        setSelectedCaseId(prefillCaseId);
+      } else {
+        setAction(u.recommendedAction === "filing" ? "filing" : "newCase");
+      }
       setCaseNumber(u.caseNumber ?? "");
       setDebtorName(u.debtorName ?? "");
       setCourtName(u.courtName ?? "");
@@ -172,7 +180,7 @@ export default function DocumentReviewPage() {
           <label className={labelCls}>{t.docReview.selectCase}</label>
           <select value={selectedCaseId} onChange={e => setSelectedCaseId(e.target.value)} className={inputCls}>
  <option value="">{t.docReview.chooseCase}</option>
-            {cases.map(c => <option key={c.id} value={c.id}>{c.caseNumber} — {c.debtorName}</option>)}
+            {cases.map(c => <option key={c.id} value={c.id}>{c.caseNumber} ï¿½ {c.debtorName}</option>)}
   </select>
         </div>
     )}

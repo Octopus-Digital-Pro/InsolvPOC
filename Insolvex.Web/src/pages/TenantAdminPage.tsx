@@ -124,8 +124,8 @@ setSaving(true);
               onChange={(e) => setRegion(e.target.value)}
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
           >
-         <option value="Romania">???? Romania</option>
-      <option value="Hungary">???? Hungary</option>
+         <option value="Romania">🇷🇴 România</option>
+      <option value="Hungary">🇭🇺 Hungary</option>
   </select>
   </div>
           {tenant && (
@@ -242,7 +242,7 @@ setTenants(r.data as unknown as TenantRow[]);
    </Badge>
             )}
     <Badge variant="outline" className="text-[10px]">
-{tenant.region === "Romania" ? "????" : "????"} {tenant.region}
+{tenant.region === "Romania" ? "🇷🇴" : "🇭🇺"} {tenant.region}
          </Badge>
        </div>
     <p className="text-xs text-muted-foreground">
