@@ -15,7 +15,8 @@ user.Role,
       user.IsActive,
       user.LastLoginDate,
       user.AvatarUrl,
-   user.TenantId
+   user.TenantId,
+   user.UseSavedSigningKey
   );
 
   public static TenantDto ToDto(this Tenant tenant) => new(
@@ -29,10 +30,9 @@ user.Role,
       tenant.Language
   );
 
-  public static CompanyDto ToDto(this Company company, int caseCount = 0) => new(
+  public static CompanyDto ToDto(this Company company, int caseCount = 0, List<string>? caseNumbers = null) => new(
       company.Id,
 company.Name,
-      company.CompanyType.ToString(),
       company.CuiRo,
       company.TradeRegisterNo,
 company.VatNumber,
@@ -52,10 +52,11 @@ company.County,
       company.AssignedToUserId,
       company.AssignedTo?.FullName,
       company.CreatedOn,
-      caseCount
+      caseCount,
+      caseNumbers
   );
 
-  public static CaseDto ToDto(this InsolvencyCase c, int docCount = 0, int partyCount = 0, List<CasePhaseDto>? phases = null) => new(
+  public static CaseDto ToDto(this InsolvencyCase c, int docCount = 0, int partyCount = 0) => new(
       c.Id,
       c.CaseNumber,
     c.CourtName,
@@ -64,7 +65,7 @@ c.JudgeSyndic,
   c.DebtorName,
       c.DebtorCui,
 c.ProcedureType,
-c.Stage,
+c.Status,
       c.LawReference,
 c.PractitionerName,
       c.PractitionerRole,
@@ -78,8 +79,7 @@ c.PractitionerName,
       c.DefinitiveTableDate,
    c.ReorganizationPlanDeadline,
       c.ClosureDate,
-c.StageEnteredAt,
-      c.StageCompletedAt,
+c.StatusChangedAt,
   c.TotalClaimsRon,
  c.SecuredClaimsRon,
     c.UnsecuredClaimsRon,
@@ -96,8 +96,7 @@ c.BudgetaryClaimsRon,
       c.AssignedTo?.FullName,
       c.CreatedOn,
 docCount,
-    partyCount,
-  phases
+    partyCount
   );
 
   public static DocumentDto ToDto(this InsolvencyDocument d) => new(
@@ -113,6 +112,7 @@ docCount,
       d.IsSigned,
       d.Purpose,
       d.Summary,
+      d.SummaryByLanguageJson,
       d.ClassificationConfidence,
       d.StorageKey,
       d.FileHash
@@ -128,7 +128,6 @@ docCount,
       t.Description,
       t.Labels,
       t.Category,
-t.Stage?.ToString(),
  t.Deadline,
 t.DeadlineSource,
       t.IsCriticalDeadline,
@@ -137,7 +136,9 @@ t.DeadlineSource,
   t.AssignedTo?.FullName,
    t.CreatedByUserId,
       t.CompletedAt,
- t.CreatedOn
+ t.CreatedOn,
+    t.Summary,
+    t.SummaryByLanguageJson
   );
 
   public static AuditLogDto ToDto(this AuditLog log) => new(
@@ -191,20 +192,6 @@ log.Id,
     p.ClaimAccepted,
       p.JoinedDate,
       p.Notes
-  );
-
-  public static CasePhaseDto ToDto(this CasePhase p) => new(
-      p.Id,
-      p.CaseId,
-p.PhaseType.ToString(),
-      p.Status.ToString(),
-      p.SortOrder,
-      p.StartedOn,
-      p.CompletedOn,
-  p.DueDate,
-      p.Notes,
-      p.CourtDecisionRef,
-      p.UpdatedByUserId
   );
 
   public static InsolvencyFirmDto ToDto(this InsolvencyFirm f) => new(
@@ -276,7 +263,6 @@ c.SyncedExternal,
 g.CaseId,
       g.TemplateId,
    g.TemplateType.ToString(),
-g.Stage?.ToString(),
       g.StorageKey,
       g.FileName,
       g.ContentType,
@@ -305,6 +291,7 @@ g.SentAt,
   public static CaseSummaryDto ToDto(this CaseSummary s) => new(
       s.Id,
       s.Text,
+      s.TextByLanguageJson,
       s.NextActionsJson,
       s.RisksJson,
       s.UpcomingDeadlinesJson,

@@ -77,3 +77,9 @@ public class AuthorityCsvRow
 
 /// <summary>Result returned after importing authority records from a CSV file.</summary>
 public record AuthorityImportResult(int Imported, int ErrorCount, List<string> Errors);
+
+/// <summary>Result returned after scraping ANAF offices from the public ANAF website.</summary>
+public record AnafScrapeResult(int Created, int Updated, int ErrorCount, List<string> Errors);
+
+/// <summary>Request body for the ANAF scrape endpoint.</summary>
+public record AnafScrapeRequest(string Url);

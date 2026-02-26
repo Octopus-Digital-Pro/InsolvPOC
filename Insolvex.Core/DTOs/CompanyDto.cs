@@ -3,7 +3,6 @@ namespace Insolvex.Core.DTOs;
 public record CompanyDto(
     Guid Id,
     string Name,
-    string CompanyType,
     string? CuiRo,
     string? TradeRegisterNo,
     string? VatNumber,
@@ -23,12 +22,12 @@ public record CompanyDto(
     Guid? AssignedToUserId,
     string? AssignedToName,
     DateTime CreatedOn,
-    int CaseCount
+    int CaseCount,
+    List<string>? CaseNumbers
 );
 
 public record CreateCompanyRequest(
     string Name,
-    string? CompanyType,
     string? CuiRo,
     string? TradeRegisterNo,
     string? VatNumber,
@@ -49,7 +48,6 @@ public record CreateCompanyRequest(
 
 public record UpdateCompanyRequest(
     string? Name,
-    string? CompanyType,
     string? CuiRo,
     string? TradeRegisterNo,
     string? VatNumber,

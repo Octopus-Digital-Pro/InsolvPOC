@@ -19,9 +19,6 @@ public class GeneratedLetter : TenantScopedEntity
   /// <summary>Template type that was rendered.</summary>
   public DocumentTemplateType TemplateType { get; set; }
 
-  /// <summary>The workflow stage this letter was generated for.</summary>
-  public CaseStage? Stage { get; set; }
-
   /// <summary>Storage key of the rendered output document.</summary>
   public string StorageKey { get; set; } = string.Empty;
 

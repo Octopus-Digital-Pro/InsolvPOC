@@ -12,7 +12,6 @@ export interface CaseEventDto {
   linkedEntityType: string | null;
   linkedEntityId: string | null;
   documentSummary: string | null;
-  phaseType: string | null;
   severity: string;
   metadataJson: string | null;
 }

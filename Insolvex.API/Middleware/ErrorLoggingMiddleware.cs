@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Insolvex.API.Data;
+using Insolvex.Data;
 using Insolvex.Domain.Entities;
 
 namespace Insolvex.API.Middleware;

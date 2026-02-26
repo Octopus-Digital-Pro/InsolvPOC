@@ -67,10 +67,6 @@ public class CaseEvent : TenantScopedEntity
     /// <summary>AI-extracted actions / obligations from the document.</summary>
     public string? ExtractedActionsJson { get; set; }
 
-    // ── Phase context ──────────────────────────────────────────────────────
-    /// <summary>The workflow phase active when this event occurred.</summary>
-    public string? PhaseType { get; set; }
-
     // ── Severity / importance ──────────────────────────────────────────────
     /// <summary>Info | Warning | Critical</summary>
     public string Severity { get; set; } = "Info";

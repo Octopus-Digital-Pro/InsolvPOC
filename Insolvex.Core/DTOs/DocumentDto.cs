@@ -13,6 +13,7 @@ public record DocumentDto(
     bool IsSigned = false,
     string? Purpose = null,
     string? Summary = null,
+    string? SummaryByLanguageJson = null,
     int? ClassificationConfidence = null,
     string? StorageKey = null,
     string? FileHash = null

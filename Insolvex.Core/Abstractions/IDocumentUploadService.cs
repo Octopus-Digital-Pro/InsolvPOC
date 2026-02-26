@@ -81,6 +81,10 @@ public class DocumentUploadResult
     public DateTime? ContestationsDeadline { get; init; }
     public List<ExtractedPartyResult> Parties { get; init; } = new();
     public string? ExtractedText { get; init; }
+    /// <summary>Romanian CUI of the debtor, e.g. "RO12345678" — from AI extraction.</summary>
+    public string? DebtorCui { get; init; }
+    /// <summary>True when classification came from an AI provider; false = regex heuristics only.</summary>
+    public bool IsAiExtracted { get; init; }
 }
 
 public class ExtractedPartyResult
@@ -111,6 +115,8 @@ public class ConfirmUploadCommand
     public Guid? CompanyId { get; init; }
     public Guid? CaseId { get; init; }
     public List<ExtractedPartyResult>? Parties { get; init; }
+    /// <summary>Romanian CUI of the debtor — used to look up or create the company record.</summary>
+    public string? DebtorCui { get; init; }
 }
 
 /// <summary>
@@ -124,7 +130,6 @@ public class UploadConfirmationResult
     public string? CaseNumber { get; init; }
     public int CompaniesCreated { get; init; }
     public int PartiesCreated { get; init; }
-    public int PhasesCreated { get; init; }
     public int TasksCreated { get; init; }
     public int EmailsScheduled { get; init; }
     public int DocumentsGenerated { get; init; }

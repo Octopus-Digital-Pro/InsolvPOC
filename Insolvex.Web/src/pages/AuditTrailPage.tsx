@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { auditLogsApi } from "@/services/api";
 import type { AuditLogDto, AuditLogStats } from "@/services/api/types";
-import { Loader2, Search, FileText, RefreshCw, Shield, ChevronDown, ChevronRight, AlertTriangle, Info, AlertCircle } from "lucide-react";
+import { Loader2, Search, FileText, RefreshCw, Shield, ChevronDown, ChevronRight, AlertTriangle, Info, AlertCircle, Download } from "lucide-react";
 import { format } from "date-fns";
 
 const SEVERITY_CONFIG: Record<string, { icon: typeof Info; color: string; bg: string }> = {
@@ -40,7 +40,7 @@ const ACTION_LABELS: Record<string, string> = {
   "Case.Created": "Case opened",
   "Case.Updated": "Case updated",
   "Case.Deleted": "Case deleted",
-  "Case.StageAdvanced": "Case stage advanced",
+  "Case.StageAdvanced": "Case status changed",
   "Case.Closed": "Case closed",
   // Documents
   "Document.Uploaded": "Document uploaded",
@@ -61,10 +61,6 @@ const ACTION_LABELS: Record<string, string> = {
   "User.Updated": "User profile updated",
   "User.Deactivated": "User deactivated",
   "User.PasswordAdminReset": "Admin reset user password",
-  // Workflow
-  "Workflow.PhaseStarted": "Workflow phase started",
-  "Workflow.PhaseCompleted": "Workflow phase completed",
-  "Workflow.PhaseSkipped": "Workflow phase skipped",
   // Signing
   "Signing.KeyUploaded": "Signing certificate uploaded",
   "Signing.KeyDeactivated": "Signing certificate deactivated",
@@ -135,7 +131,7 @@ function AuditRow({ log, t }: { log: AuditLogDto; t: any }) {
         )}
           {!log.description && log.entityType && (
   <p className="text-[10px] text-muted-foreground mt-0.5">
-{log.entityType}{log.entityId ? ` · ${log.entityId.slice(0, 8)}…` : ""}
+{log.entityType}{log.entityId ? ` ï¿½ ${log.entityId.slice(0, 8)}ï¿½` : ""}
       </p>
   )}
      </div>
@@ -179,11 +175,14 @@ const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(50);
+  const [total, setTotal] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string> = { pageSize: "100" };
+      const params: Record<string, string> = { pageSize: String(pageSize), page: String(page) };
       if (search) params.search = search;
       if (severity) params.severity = severity;
       if (category) params.category = category;
@@ -193,10 +192,15 @@ const [search, setSearch] = useState("");
         auditLogsApi.getAll(params),
         auditLogsApi.getStats({ from: fromDate || undefined, to: toDate || undefined }),
       ]);
-      setLogs(logsRes.data);
+      setLogs(logsRes.data.items);
+      setTotal(logsRes.data.total);
       setStats(statsRes.data);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
+  }, [search, severity, category, fromDate, toDate, page, pageSize]);
+
+  useEffect(() => {
+    setPage(0);
   }, [search, severity, category, fromDate, toDate]);
 
   useEffect(() => {
@@ -204,6 +208,32 @@ const [search, setSearch] = useState("");
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const handleDownload = async () => {
+    try {
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
+      if (severity) params.severity = severity;
+      if (category) params.category = category;
+      if (fromDate) params.fromDate = fromDate;
+      if (toDate) params.toDate = toDate;
+
+      const response = await auditLogsApi.export(params);
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `audit-logs-${format(new Date(), "yyyyMMdd-HHmmss")}.csv`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   if (!isGlobalAdmin && !isTenantAdmin) {
     return (
@@ -218,9 +248,15 @@ const [search, setSearch] = useState("");
     <div className="mx-auto max-w-6xl space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-foreground">{t.audit.title}</h1>
-   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={load}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={handleDownload}>
+            <Download className="h-3.5 w-3.5" />
+            {t.common.export}
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={load}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -296,16 +332,30 @@ const [search, setSearch] = useState("");
    {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
  ) : (
-     <div className="rounded-xl border border-border bg-card divide-y divide-border">
-     {logs.length === 0 ? (
+      <>
+        <div className="rounded-xl border border-border bg-card divide-y divide-border">
+          {logs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <FileText className="h-10 w-10 mb-2 opacity-30" />
    <p className="text-sm">{t.audit.noLogs}</p>
          </div>
-        ) : logs.map(log => (
+          ) : logs.map(log => (
             <AuditRow key={log.id} log={log} t={t} />
-      ))}
+          ))}
         </div>
+        <div className="flex items-center justify-between px-1">
+          <p className="text-xs text-muted-foreground">{total} {t.common.records}</p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="h-7 text-xs" disabled={page <= 0} onClick={() => setPage(p => Math.max(0, p - 1))}>
+              Prev
+            </Button>
+            <span className="text-xs text-muted-foreground">{page + 1} / {totalPages}</span>
+            <Button variant="outline" size="sm" className="h-7 text-xs" disabled={page + 1 >= totalPages} onClick={() => setPage(p => p + 1)}>
+              Next
+            </Button>
+          </div>
+        </div>
+      </>
       )}
     </div>
   );

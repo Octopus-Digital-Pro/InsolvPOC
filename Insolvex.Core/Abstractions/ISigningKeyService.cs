@@ -9,6 +9,10 @@ namespace Insolvex.Core.Abstractions;
 /// </summary>
 public interface ISigningKeyService
 {
+    // User-level signing preferences
+    Task<SigningPreferenceDto> GetMyPreferenceAsync(CancellationToken ct = default);
+    Task<SigningPreferenceDto> UpdateMyPreferenceAsync(bool useSavedSigningKey, CancellationToken ct = default);
+
     // Key management
     Task<SigningKeyDto> UploadKeyAsync(IFormFile file, string password, string? name, CancellationToken ct = default);
     Task<KeyStatusDto> GetKeyStatusAsync(CancellationToken ct = default);

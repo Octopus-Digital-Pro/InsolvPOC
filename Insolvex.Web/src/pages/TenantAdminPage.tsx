@@ -14,16 +14,23 @@ import { format } from "date-fns";
 interface TenantRow {
   id: string;
   name: string;
-domain: string | null;
+  domain: string | null;
   isActive: boolean;
   isDemo: boolean;
   planName: string | null;
   region: string;
   subscriptionExpiry: string | null;
-  createdOn: string;
+  createdOn: string | null;
   userCount: number;
   companyCount: number;
   caseCount: number;
+}
+
+function formatSafeDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return format(parsed, "dd MMM yyyy");
 }
 
 function EditTenantModal({
@@ -246,11 +253,10 @@ setTenants(r.data as unknown as TenantRow[]);
          </Badge>
        </div>
     <p className="text-xs text-muted-foreground">
-          {tenant.domain || "No domain"} \u00B7 Created{" "}
-  {format(new Date(tenant.createdOn), "dd MMM yyyy")}
-            {tenant.subscriptionExpiry &&
-            ` \u00B7 Expires ${format(new Date(tenant.subscriptionExpiry), "dd MMM yyyy")}`}
-         </p>
+      {tenant.domain || "No domain"}
+      {formatSafeDate(tenant.createdOn) ? ` · Created ${formatSafeDate(tenant.createdOn)}` : ""}
+      {formatSafeDate(tenant.subscriptionExpiry) ? ` · Expires ${formatSafeDate(tenant.subscriptionExpiry)}` : ""}
+    </p>
               </div>
 
          <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">

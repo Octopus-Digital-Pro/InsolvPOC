@@ -1,6 +1,7 @@
 import React from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { logFrontendError } from "@/services/errorLogger";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -14,6 +15,31 @@ interface ErrorBoundaryProps {
 }
 
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  private readonly handleWindowError = (event: ErrorEvent) => {
+    void logFrontendError({
+      message: event.message || "Unhandled window error",
+      stackTrace: event.error?.stack,
+      source: "window.onerror",
+      additionalContext: JSON.stringify({
+        fileName: event.filename,
+        lineNumber: event.lineno,
+        columnNumber: event.colno,
+      }),
+    });
+  };
+
+  private readonly handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    const reason = event.reason;
+    const message = reason instanceof Error ? reason.message : String(reason ?? "Unhandled promise rejection");
+    const stackTrace = reason instanceof Error ? reason.stack : undefined;
+
+    void logFrontendError({
+      message,
+      stackTrace,
+      source: "window.unhandledrejection",
+    });
+  };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, errorInfo: null };
@@ -25,8 +51,24 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     this.setState({ errorInfo });
-    // Log to console in development
     console.error("[ErrorBoundary]", error, errorInfo);
+
+    void logFrontendError({
+      message: error.message,
+      stackTrace: error.stack,
+      source: "React.ErrorBoundary",
+      additionalContext: errorInfo.componentStack ?? undefined,
+    });
+  }
+
+  componentDidMount() {
+    window.addEventListener("error", this.handleWindowError);
+    window.addEventListener("unhandledrejection", this.handleUnhandledRejection);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("error", this.handleWindowError);
+    window.removeEventListener("unhandledrejection", this.handleUnhandledRejection);
   }
 
   handleReset = () => {

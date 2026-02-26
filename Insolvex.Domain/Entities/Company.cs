@@ -1,11 +1,8 @@
-using Insolvex.Domain.Enums;
-
 namespace Insolvex.Domain.Entities;
 
 public class Company : TenantScopedEntity
 {
     public string Name { get; set; } = string.Empty;
-    public CompanyType CompanyType { get; set; } = CompanyType.Debtor;
     public string? CuiRo { get; set; }
     public string? TradeRegisterNo { get; set; }
     public string? VatNumber { get; set; }

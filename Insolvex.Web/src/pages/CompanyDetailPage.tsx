@@ -46,8 +46,8 @@ export default function CompanyDetailPage() {
     .finally(() => setLoading(false));
   }, [id]);
 
-  const stageLabel = (s: string): string =>
-    (t.stages as Record<string, string>)[s] ?? s.replace(/([A-Z])/g, " $1").trim();
+  const statusLabel = (s: string): string =>
+    (t.statuses as Record<string, string>)?.[s] ?? s;
 
   if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   if (!company) return <p className="p-8 text-muted-foreground">{t.companies.noCompanies}</p>;
@@ -66,7 +66,6 @@ export default function CompanyDetailPage() {
        <div>
     <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-card-foreground">{company.name}</h1>
-     <Badge variant="outline" className="text-[10px]">{company.companyType}</Badge>
               </div>
     {company.cuiRo && <p className="mt-1 text-sm text-muted-foreground">{t.companies.cuiRo}: {company.cuiRo}</p>}
   {company.address && <p className="text-sm text-muted-foreground">{company.address}{company.locality ? `, ${company.locality}` : ""}{company.county ? `, ${company.county}` : ""}</p>}
@@ -126,7 +125,7 @@ export default function CompanyDetailPage() {
              <p className="text-sm font-medium text-foreground truncate">{c.caseNumber}</p>
      <p className="text-xs text-muted-foreground">{c.debtorName}</p>
   </div>
-        <Badge variant="secondary" className="text-[10px]">{stageLabel(c.stage)}</Badge>
+        <Badge variant="secondary" className="text-[10px]">{statusLabel(c.status)}</Badge>
      {c.nextHearingDate && <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(c.nextHearingDate), "dd MMM")}</span>}
            </div>
  ))

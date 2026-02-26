@@ -28,8 +28,8 @@ public sealed class CaseEventsController : ControllerBase
     /// <param name="category">Optional filter: Document | Task | Phase | Deadline | Party | Calendar | Communication | Signing | AI | System</param>
     /// <param name="ct">Cancellation token.</param>
     [HttpGet]
-    [ProducesResponseType(typeof(List<CaseEventDto>), 200)]
-    public async Task<ActionResult<List<CaseEventDto>>> GetEvents(
+    [ProducesResponseType(typeof(CaseEventsPageDto), 200)]
+    public async Task<ActionResult<CaseEventsPageDto>> GetEvents(
         Guid caseId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
@@ -37,7 +37,7 @@ public sealed class CaseEventsController : ControllerBase
         CancellationToken ct = default)
     {
         pageSize = Math.Clamp(pageSize, 1, 200);
-        var events = await _caseEvents.GetByCaseAsync(caseId, page, pageSize, category, ct);
-        return Ok(events);
+        var result = await _caseEvents.GetByCaseAsync(caseId, page, pageSize, category, ct);
+        return Ok(result);
     }
 }

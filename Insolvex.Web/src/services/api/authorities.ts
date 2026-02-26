@@ -46,7 +46,14 @@ const buildCrud = (basePath: string) => ({
 });
 
 export const tribunalsApi = buildCrud("/tribunals");
-export const financeApi = buildCrud("/finance-authorities");
-export const localGovApi = buildCrud("/local-governments");
+export const financeApi   = {
+  ...buildCrud("/finance-authorities"),
+  scrapeAnaf: (url: string) =>
+    client.post<{ created: number; updated: number; errorCount: number; errors: string[] }>(
+      "/finance-authorities/scrape-anaf",
+      { url }
+    ),
+};
+export const localGovApi  = buildCrud("/local-governments");
 
 export type { AuthorityRecord };

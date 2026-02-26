@@ -36,6 +36,9 @@ public class InsolvencyDocument : TenantScopedEntity
     /// <summary>AI-generated document summary (editable by reviewer).</summary>
     public string? Summary { get; set; }
 
+    /// <summary>Language-keyed JSON map of summaries (e.g. en/ro/hu).</summary>
+    public string? SummaryByLanguageJson { get; set; }
+
     /// <summary>JSON array of extracted parties [{name, role, identifier}].</summary>
     public string? PartiesExtractedJson { get; set; }
 

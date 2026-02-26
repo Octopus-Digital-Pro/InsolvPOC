@@ -53,7 +53,7 @@ public class UpdateCaseCommand
   public string? CourtSection { get; init; }
   public string? JudgeSyndic { get; init; }
   public ProcedureType? ProcedureType { get; init; }
-  public CaseStage? Stage { get; init; }
+  public string? Status { get; init; }
   public string? LawReference { get; init; }
   public string? PractitionerName { get; init; }
   public string? PractitionerRole { get; init; }

@@ -3,6 +3,7 @@ namespace Insolvex.Core.DTOs;
 public record CaseSummaryDto(
     Guid Id,
     string Text,
+    string? TextByLanguageJson,
     string? NextActionsJson,
     string? RisksJson,
     string? UpcomingDeadlinesJson,

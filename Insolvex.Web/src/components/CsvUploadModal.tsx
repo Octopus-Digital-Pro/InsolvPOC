@@ -14,6 +14,8 @@ interface Props {
   title: string;
   /** Short description shown above the format guide */
   description?: string;
+  /** CSV column delimiter used in the template download. Default: "," */
+  delimiter?: string;
   /** Column definitions for the format guide + template download */
   columns: CsvColumn[];
   /** Filename used when downloading the template, without extension */
@@ -43,6 +45,7 @@ export default function CsvUploadModal({
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [result, setResult] = useState<{ imported: number; errors: string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   /** Build and trigger download of a header-only CSV template */
@@ -159,8 +162,18 @@ className="w-full max-w-xl bg-card border border-border rounded-xl shadow-2xl fl
      {/* File picker */}
       {!done && (
       <div
-     className="rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors cursor-pointer p-6 text-center"
+     className={`rounded-lg border-2 border-dashed transition-colors cursor-pointer p-6 text-center ${
+                dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+              }`}
     onClick={() => fileRef.current?.click()}
+    onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+    onDragLeave={() => setDragOver(false)}
+    onDrop={e => {
+      e.preventDefault();
+      setDragOver(false);
+      const dropped = e.dataTransfer.files[0];
+      if (dropped) setFile(dropped);
+    }}
      >
               <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
      {file ? (

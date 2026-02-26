@@ -18,6 +18,12 @@ public class CaseSummary : TenantScopedEntity
   /// <summary>The human-readable summary text (markdown).</summary>
   public string Text { get; set; } = string.Empty;
 
+  /// <summary>
+  /// JSON object with summaries by system language, e.g.
+  /// {"en":"...","ro":"...","hu":"..."}.
+  /// </summary>
+  public string? TextByLanguageJson { get; set; }
+
   /// <summary>Structured "what must happen next" (JSON array of top tasks).</summary>
   public string? NextActionsJson { get; set; }
 

@@ -69,5 +69,16 @@ public class FinanceAuthoritiesController : ControllerBase
         var bytes = await _service.ExportCsvAsync(ct);
         return File(bytes, "text/csv", $"finance_authorities_{DateTime.UtcNow:yyyyMMdd}.csv");
     }
+
+    [HttpPost("scrape-anaf")]
+    [RequirePermission(Permission.SettingsEdit)]
+    public async Task<IActionResult> ScrapeAnaf([FromBody] AnafScrapeRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request?.Url))
+            return BadRequest(new { message = "URL is required." });
+
+        var result = await _service.ScrapeAnafAsync(request.Url, ct);
+        return Ok(result);
+    }
 }
 

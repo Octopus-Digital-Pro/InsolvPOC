@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Insolvex.API.Data;
-using Insolvex.API.Services;
+using Insolvex.Data;
+using Insolvex.Data.Services;
 using Insolvex.Domain.Entities;
 
 namespace Insolvex.API.BackgroundServices;

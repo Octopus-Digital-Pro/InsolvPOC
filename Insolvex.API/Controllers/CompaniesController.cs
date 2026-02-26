@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Insolvex.API.Authorization;
 using Insolvex.Core.Abstractions;
 using Insolvex.Domain.Enums;
-
 namespace Insolvex.API.Controllers;
 
 [ApiController]
@@ -17,8 +16,22 @@ public class CompaniesController : ControllerBase
   public CompaniesController(ICompanyService companies) => _companies = companies;
 
   [HttpGet]
-  public async Task<IActionResult> GetAll([FromQuery] string? type, CancellationToken ct)
-      => Ok(await _companies.GetAllAsync(type, ct));
+  public async Task<IActionResult> GetAll(CancellationToken ct)
+      => Ok(await _companies.GetAllAsync(ct));
+
+  /// <summary>Search companies by name, CUI, or trade register number.</summary>
+  [HttpGet("search")]
+  public async Task<IActionResult> Search(
+      [FromQuery] string q,
+      [FromQuery] int maxResults = 10,
+      CancellationToken ct = default)
+  {
+    if (string.IsNullOrWhiteSpace(q))
+      return BadRequest(new { message = "Query parameter 'q' is required." });
+
+    var results = await _companies.SearchAsync(q.Trim(), Math.Min(maxResults, 50), ct);
+    return Ok(results);
+  }
 
   [HttpGet("{id:guid}")]
   public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
@@ -34,7 +47,6 @@ public class CompaniesController : ControllerBase
     var dto = await _companies.CreateAsync(new CreateCompanyCommand
     {
       Name = body.Name,
-      CompanyType = body.CompanyType,
       CuiRo = body.CuiRo,
       TradeRegisterNo = body.TradeRegisterNo,
       VatNumber = body.VatNumber,
@@ -62,7 +74,6 @@ public class CompaniesController : ControllerBase
     var dto = await _companies.UpdateAsync(id, new UpdateCompanyCommand
     {
       Name = body.Name,
-      CompanyType = body.CompanyType,
       CuiRo = body.CuiRo,
       TradeRegisterNo = body.TradeRegisterNo,
       VatNumber = body.VatNumber,
@@ -102,14 +113,14 @@ public class CompaniesController : ControllerBase
 }
 
 public record CreateCompanyBody(
-    string Name, string? CompanyType = null, string? CuiRo = null, string? TradeRegisterNo = null,
+    string Name, string? CuiRo = null, string? TradeRegisterNo = null,
     string? VatNumber = null, string? Address = null, string? Locality = null, string? County = null,
     string? Country = null, string? PostalCode = null, string? Caen = null, string? IncorporationYear = null,
     decimal? ShareCapitalRon = null, string? Phone = null, string? Email = null, string? ContactPerson = null,
   string? Iban = null, string? BankName = null);
 
 public record UpdateCompanyBody(
-    string? Name = null, string? CompanyType = null, string? CuiRo = null, string? TradeRegisterNo = null,
+    string? Name = null, string? CuiRo = null, string? TradeRegisterNo = null,
     string? VatNumber = null, string? Address = null, string? Locality = null, string? County = null,
  string? Country = null, string? PostalCode = null, string? Caen = null, string? IncorporationYear = null,
   decimal? ShareCapitalRon = null, string? Phone = null, string? Email = null, string? ContactPerson = null,

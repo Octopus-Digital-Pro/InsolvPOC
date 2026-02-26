@@ -11,7 +11,7 @@ public record CaseDto(
     string DebtorName,
     string? DebtorCui,
     ProcedureType ProcedureType,
-    CaseStage Stage,
+    string Status,
     string? LawReference,
     string? PractitionerName,
     string? PractitionerRole,
@@ -25,8 +25,7 @@ public record CaseDto(
     DateTime? DefinitiveTableDate,
     DateTime? ReorganizationPlanDeadline,
     DateTime? ClosureDate,
-    DateTime? StageEnteredAt,
-    DateTime? StageCompletedAt,
+    DateTime? StatusChangedAt,
     decimal? TotalClaimsRon,
     decimal? SecuredClaimsRon,
     decimal? UnsecuredClaimsRon,
@@ -43,8 +42,7 @@ public record CaseDto(
     string? AssignedToName,
     DateTime CreatedOn,
     int DocumentCount,
-    int PartyCount,
-    List<CasePhaseDto>? Phases
+    int PartyCount
 );
 
 public record CreateCaseRequest(
@@ -64,7 +62,7 @@ public record UpdateCaseRequest(
     string? CourtSection,
     string? JudgeSyndic,
     ProcedureType? ProcedureType,
-    CaseStage? Stage,
+    string? Status,
     string? LawReference,
     string? PractitionerName,
     string? PractitionerRole,

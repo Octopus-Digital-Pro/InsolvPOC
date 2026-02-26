@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Insolvex.API.Data;
+using Insolvex.Data;
 using Insolvex.Domain.Entities;
 using Insolvex.Domain.Enums;
 using TaskStatus = Insolvex.Domain.Enums.TaskStatus;
@@ -202,7 +202,6 @@ db.ScheduledEmails.Add(new ScheduledEmail
    Title = $"Generate template: {letter.TemplateType} � {caseEntity.CaseNumber}",
       Description = $"Critical template {letter.FileName} must be generated and sent by {letter.SendDeadline:dd.MM.yyyy}.",
  Category = "Document",
-            Stage = caseEntity.Stage,
             Deadline = letter.SendDeadline?.AddDays(-1) ?? DateTime.UtcNow.AddDays(1),
           DeadlineSource = "CompanyDefault",
       IsCriticalDeadline = true,
@@ -238,7 +237,6 @@ db.ScheduledEmails.Add(new ScheduledEmail
             Title = $"Fix merge fields: {letter.TemplateType} � {caseEntity.CaseNumber}",
       Description = $"Template generation failed: {letter.ErrorMessage}. Fix the missing/incorrect merge fields and retry.",
   Category = "Document",
-     Stage = caseEntity.Stage,
    Deadline = letter.SendDeadline ?? DateTime.UtcNow.AddDays(1),
   DeadlineSource = "CompanyDefault",
       IsCriticalDeadline = true,

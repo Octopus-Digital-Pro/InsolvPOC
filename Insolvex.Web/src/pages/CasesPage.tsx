@@ -9,14 +9,11 @@ import { Loader2, Search, Briefcase, Plus, Download } from "lucide-react";
 import { format } from "date-fns";
 import { downloadAuthFile } from "@/utils/downloadAuthFile";
 
-const STAGE_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
-  opened: "default",
-  claimsWindow: "warning",
-  preliminaryTable: "secondary",
-  definitiveTable: "secondary",
-  liquidation: "destructive",
-  closed: "success",
-  unknown: "outline",
+const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "warning" | "destructive" | "outline"> = {
+  Active: "default",
+  Suspended: "warning",
+  Closed: "success",
+  Cancelled: "destructive",
 };
 
 export default function CasesPage() {
@@ -33,8 +30,8 @@ export default function CasesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const stageLabel = (s: string): string => {
- return (t.stages as Record<string, string>)[s] ?? s.replace(/([A-Z])/g, " $1").trim();
+  const statusLabel = (s: string): string => {
+ return (t.statuses as Record<string, string>)?.[s] ?? s;
   };
 
   const filtered = cases.filter(c =>
@@ -90,8 +87,8 @@ return (
    <div className="min-w-0 flex-1">
      <div className="flex items-center gap-2">
          <p className="text-sm font-semibold text-foreground truncate">{c.caseNumber}</p>
-         <Badge variant={STAGE_VARIANT[c.stage] ?? "outline"} className="text-[10px] shrink-0">
-    {stageLabel(c.stage)}
+         <Badge variant={STATUS_VARIANT[c.status] ?? "outline"} className="text-[10px] shrink-0">
+    {statusLabel(c.status)}
       </Badge>
        </div>
     <p className="text-xs text-muted-foreground truncate">

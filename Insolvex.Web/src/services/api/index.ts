@@ -12,5 +12,7 @@ export { deadlineSettingsApi } from "./deadlineSettings";
 export { caseTasksApi, caseEmailsApi, caseCalendarApi } from "./caseWorkspace";
 export { onrcApi } from "./onrc";
 export { addressApi } from "./address";
+export { documentTemplatesApi } from "./documentTemplatesApi";
+export { caseWorkflowApi } from "./caseWorkflowApi";
 export type * from "./types";
 export type { AddressResult } from "./address";

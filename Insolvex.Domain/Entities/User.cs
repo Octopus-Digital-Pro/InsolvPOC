@@ -14,6 +14,7 @@ public class User : TenantScopedEntity
     public string? ResetToken { get; set; }
     public DateTime? ResetTokenExpiry { get; set; }
     public string? AvatarUrl { get; set; }
+    public bool UseSavedSigningKey { get; set; } = true;
 
     public string FullName => $"{FirstName} {LastName}".Trim();
 

@@ -4,41 +4,6 @@ import type {
   InsolvencyDate,
 } from "../services/openai";
 
-/** Procedure stage order for deriving "latest" stage across documents. */
-const STAGE_ORDER: Record<string, number> = {
-  request: 0,
-  opened: 1,
-  claims_window: 2,
-  preliminary_table: 3,
-  definitive_table: 4,
-  liquidation: 5,
-  final_report: 6,
-  closure_requested: 7,
-  closed: 8,
-  unknown: -1,
-};
-
-/**
- * Derive the current procedure stage for an insolvency case from its documents.
- * Uses the highest (most advanced) stage found in any document.
- */
-export function deriveCaseStage(
-  documents: InsolvencyDocument[],
-): string {
-  let maxOrder = -1;
-  let stage: string = "unknown";
-  for (const d of documents) {
-    const raw = d.rawExtraction as InsolvencyExtractionResult | undefined;
-    const s = raw?.case?.procedure?.stage ?? "unknown";
-    const order = STAGE_ORDER[s] ?? -1;
-    if (order > maxOrder) {
-      maxOrder = order;
-      stage = s;
-    }
-  }
-  return stage;
-}
-
 /** Single deadline entry for aggregation (normalized date for sorting). */
 export interface AggregatedDeadline {
   type: string;
@@ -80,15 +45,6 @@ export function aggregateDeadlines(
     return isoA.localeCompare(isoB);
   });
   return result;
-}
-
-/** Format stage for display. */
-export function formatStage(stage: string): string {
-  if (stage === "unknown") return "Unknown";
-  return stage
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
 }
 
 /** Get ISO string from InsolvencyDate for display/sorting. */

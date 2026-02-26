@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Insolvex.API.Services;
+using Insolvex.Data.Services;
 using Insolvex.Domain.Entities;
 using Insolvex.Domain.Enums;
 using Insolvex.Tests.Helpers;
@@ -13,7 +13,7 @@ public class TaskEscalationServiceTests
 {
   private static readonly Guid TenantId = Guid.NewGuid();
 
-  private static (TaskEscalationService svc, Insolvex.API.Data.ApplicationDbContext db) CreateService()
+  private static (TaskEscalationService svc, Insolvex.Data.ApplicationDbContext db) CreateService()
   {
     var db = TestDbFactory.Create();
     var deadlineEngine = new DeadlineEngine(db);
@@ -21,7 +21,7 @@ public class TaskEscalationServiceTests
     return (svc, db);
   }
 
-  private static void SeedUsers(Insolvex.API.Data.ApplicationDbContext db, out Guid practitionerId, out Guid adminId, out Guid partnerId)
+  private static void SeedUsers(Insolvex.Data.ApplicationDbContext db, out Guid practitionerId, out Guid adminId, out Guid partnerId)
   {
     practitionerId = Guid.NewGuid();
     adminId = Guid.NewGuid();

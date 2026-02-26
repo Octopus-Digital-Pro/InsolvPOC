@@ -15,7 +15,7 @@ import {
     Check, Trash2, RefreshCw, Shield, Globe, Landmark,
     KeyRound, Upload, ShieldCheck,
   ChevronDown, ChevronRight, UserPlus, Copy,
-    Pencil, X, Download, AlertTriangle, RotateCcw,
+    Pencil, X, Download, AlertTriangle, RotateCcw, Link2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -786,6 +786,8 @@ function SigningTab() {
   const { t } = useTranslation();
   const [keys, setKeys] = useState<Array<Record<string, unknown>>>([]);
     const [signatures, setSignatures] = useState<Array<Record<string, unknown>>>([]);
+    const [useSavedSigningKey, setUseSavedSigningKey] = useState(true);
+    const [savingPreference, setSavingPreference] = useState(false);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [password, setPassword] = useState("");
@@ -814,12 +816,14 @@ function SigningTab() {
     const loadKeys = useCallback(async () => {
         setLoading(true);
         try {
-  const [keysRes, sigsRes] = await Promise.all([
+    const [keysRes, sigsRes, prefRes] = await Promise.all([
       signingApi.getMyKeys(),
               signingApi.getMySignatures(),
+          signingApi.getPreferences(),
     ]);
 setKeys(keysRes.data);
             setSignatures(sigsRes.data);
+        setUseSavedSigningKey(prefRes.data.useSavedSigningKey !== false);
         } catch (err) { console.error(err); }
         finally { setLoading(false); }
     }, []);
@@ -847,8 +851,46 @@ setKeys(keysRes.data);
   } catch (err) { console.error(err); }
     };
 
+    const handleSavePreference = async () => {
+      setSavingPreference(true);
+      setError("");
+      setSuccess("");
+      try {
+        const r = await signingApi.updatePreferences(useSavedSigningKey);
+        setUseSavedSigningKey(r.data.useSavedSigningKey);
+        setSuccess("Signing preference updated");
+      } catch (err: unknown) {
+        const axErr = err as { response?: { data?: { message?: string } } };
+        setError(axErr?.response?.data?.message || "Failed to update signing preference");
+      } finally {
+        setSavingPreference(false);
+      }
+    };
+
     return (
         <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-foreground">Signing Preferences</h2>
+          <label className="flex items-start gap-2 rounded-md border border-border bg-background px-3 py-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={useSavedSigningKey}
+              onChange={e => setUseSavedSigningKey(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span className="text-sm text-foreground">
+              Use saved key for document signing
+              <span className="block text-xs text-muted-foreground">
+                This is a user-level setting and applies to your signing actions across all cases.
+              </span>
+            </span>
+          </label>
+          <Button size="sm" variant="outline" onClick={handleSavePreference} disabled={savingPreference}>
+            {savingPreference ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Save preference
+          </Button>
+        </div>
+
         {/* Upload form */}
         <div className="rounded-xl border border-border bg-card p-4 space-y-3">
        <h2 className="text-sm font-semibold text-foreground">{t.settings.uploadKey}</h2>
@@ -1017,16 +1059,23 @@ setKeys(keysRes.data);
 }
 
 /* ── Authority Management Tab (reusable) ──────────────── */
-function AuthorityTab({ api, entityLabel, fields }: {
+function AuthorityTab({ api, entityLabel, fields, scrapeAnaf, defaultScrapeUrl }: {
     api: typeof tribunalsApi;
     entityLabel: string;
     fields: { key: string; label: string; wide?: boolean }[];
+    scrapeAnaf?: (url: string) => Promise<{ data: { created: number; updated: number; errorCount: number; errors: string[] } }>;
+    defaultScrapeUrl?: string;
 }) {
     const { t } = useTranslation();
     const { isGlobalAdmin } = useAuth();
     const [items, setItems] = useState<AuthorityRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [showImport, setShowImport] = useState(false);
+    // ANAF scrape panel
+    const [showScrape, setShowScrape] = useState(false);
+    const [scrapeUrl, setScrapeUrl] = useState(defaultScrapeUrl ?? "");
+    const [scraping, setScraping] = useState(false);
+    const [scrapeResult, setScrapeResult] = useState<{ created: number; updated: number; errorCount: number; errors: string[] } | null>(null);
     // Edit modal
  const [editing, setEditing] = useState<AuthorityRecord | null | undefined>(undefined); // undefined=closed, null=create
     const [form, setForm] = useState<Record<string, string>>({});
@@ -1094,6 +1143,22 @@ finally { setLoading(false); }
  });
     };
 
+    const handleScrape = async () => {
+        if (!scrapeAnaf || !scrapeUrl.trim()) return;
+        setScraping(true);
+        setScrapeResult(null);
+        try {
+            const r = await scrapeAnaf(scrapeUrl.trim());
+            setScrapeResult(r.data);
+            load();
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Scrape failed";
+            setScrapeResult({ created: 0, updated: 0, errorCount: 1, errors: [msg] });
+        } finally {
+            setScraping(false);
+        }
+    };
+
     return (
         <div className="space-y-4">
             {/* Header card with actions */}
@@ -1101,6 +1166,11 @@ finally { setLoading(false); }
          <div className="flex items-center justify-between">
    <h2 className="text-sm font-semibold text-foreground">{entityLabel}</h2>
       <div className="flex gap-2">
+        {scrapeAnaf && (
+          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => { setShowScrape(s => !s); setScrapeResult(null); }}>
+            <Globe className="h-3.5 w-3.5" />Import from Web
+          </Button>
+        )}
         <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleExport}>
       <Download className="h-3.5 w-3.5" />{t.common.export ?? "Export CSV"}
   </Button>
@@ -1113,6 +1183,44 @@ finally { setLoading(false); }
        </div>
   </div>
          </div>
+
+      {/* ANAF Scrape Panel */}
+      {scrapeAnaf && showScrape && (
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Globe className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Import from ANAF Website</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Paste the URL of the ANAF regional offices page. Offices will be created or updated automatically (global records only).
+          </p>
+          <div className="flex gap-2">
+            <div className="flex-1 flex items-center gap-1.5 rounded-md border border-input bg-background px-3">
+              <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <input
+                type="url"
+                value={scrapeUrl}
+                onChange={e => setScrapeUrl(e.target.value)}
+                placeholder="https://static.anaf.ro/..."
+                className="flex-1 bg-transparent py-2 text-xs outline-none"
+              />
+            </div>
+            <Button size="sm" onClick={handleScrape} disabled={scraping || !scrapeUrl.trim()} className="gap-1 text-xs">
+              {scraping ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+              {scraping ? "Scraping…" : "Scrape"}
+            </Button>
+          </div>
+          {scrapeResult && (
+            <div className={`rounded-lg p-3 text-xs space-y-1 ${scrapeResult.errorCount > 0 ? "bg-destructive/10 text-destructive" : "bg-green-500/10 text-green-700 dark:text-green-400"}`}>
+              <p className="font-semibold">
+                {scrapeResult.errorCount === 0 ? "✓" : "⚠"} Created: {scrapeResult.created} · Updated: {scrapeResult.updated}
+                {scrapeResult.errorCount > 0 && ` · Errors: ${scrapeResult.errorCount}`}
+              </p>
+              {scrapeResult.errors.map((e, i) => <p key={i} className="text-[11px] opacity-80">{e}</p>)}
+            </div>
+          )}
+        </div>
+      )}
 
       {showImport && (
         <CsvUploadModal
@@ -1231,7 +1339,7 @@ function DemoTab() {
            <h2 className="text-sm font-semibold text-destructive">{t.settings?.demoReset ?? "Reset Demo Data"}</h2>
         </div>
   <p className="text-xs text-muted-foreground">
-           {t.settings?.demoResetDesc ?? "This will permanently delete ALL cases, companies, documents, tasks, parties, and phases for the current tenant. Users and tenant settings will be preserved. This action cannot be undone."}
+           {t.settings?.demoResetDesc ?? "This will permanently delete ALL cases, companies, documents, tasks, and parties for the current tenant. Users and tenant settings will be preserved. This action cannot be undone."}
      </p>
       <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                 <input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />
@@ -1358,7 +1466,7 @@ export default function SettingsPage({ tab }: { tab?: Tab }) {
 ]} />
      )}
        {activeTab === "finance" && (
-   <AuthorityTab api={financeApi} entityLabel={t.authorities?.finance ?? "ANAF"} fields={[
+   <AuthorityTab api={financeApi} entityLabel={t.authorities?.finance ?? "ANAF"} scrapeAnaf={financeApi.scrapeAnaf} defaultScrapeUrl="http://static.anaf.ro/static/10/Anaf/AsistentaContribuabili_r/telefoane_judete/Regiuni.htm" fields={[
    { key: "name", label: t.common.name ?? "Name", wide: true },
      { key: "county", label: t.companies?.county ?? "County" },
    { key: "locality", label: t.companies?.locality ?? "Locality" },

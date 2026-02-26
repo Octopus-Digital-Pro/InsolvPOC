@@ -7,9 +7,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Insolvex.API.Data;
+using Insolvex.Data;
 using Insolvex.API.Middleware;
-using Insolvex.API.Services;
+using Insolvex.Data.Services;
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.Configuration;
 using Insolvex.API.Authorization;
@@ -42,7 +42,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"),
         sql =>
         {
-            sql.MigrationsAssembly("Insolvex.API");
+            sql.MigrationsAssembly("Insolvex.Data");
             sql.CommandTimeout(300); // 5 min — allows large import batches to complete
         }));
 
@@ -95,12 +95,13 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<AuthenticationService>();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<AiDocumentAnalysisService>();
 builder.Services.AddScoped<DocumentClassificationService>();
 builder.Services.Configure<MailMergeOptions>(builder.Configuration.GetSection(MailMergeOptions.SectionName));
 builder.Services.AddScoped<HtmlPdfService>();
 builder.Services.AddScoped<MailMergeService>();
 builder.Services.AddSingleton<IDocumentSigningService, DocumentSigningService>();
-builder.Services.AddScoped<WorkflowValidationService>();
 builder.Services.AddScoped<DeadlineEngine>();
 builder.Services.AddScoped<CreditorMeetingService>();
 builder.Services.AddScoped<IDocumentExtractionService, StubDocumentExtractionService>();
@@ -108,6 +109,7 @@ builder.Services.AddScoped<ICaseSummaryService, StubCaseSummaryService>();
 
 // New services per InsolvencyAppRules
 builder.Services.AddScoped<CaseCreationService>();
+builder.Services.AddScoped<MergeEngine>();
 builder.Services.AddScoped<TemplateGenerationService>();
 builder.Services.AddScoped<TaskEscalationService>();
 builder.Services.AddScoped<SummaryRefreshService>();
@@ -134,20 +136,20 @@ builder.Services.AddScoped<ICasePartyService, CasePartyService>();
 builder.Services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
 builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
 builder.Services.AddScoped<ICaseCalendarService, CaseCalendarService>();
-builder.Services.AddScoped<ICasePhasesService, CasePhasesService>();
 builder.Services.AddScoped<IDeadlineSettingsService, DeadlineSettingsService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<ISigningKeyService, SigningKeyService>();
 builder.Services.AddScoped<ICaseEventService, CaseEventService>();
 builder.Services.AddScoped<IAiConfigService, AiConfigService>();
+builder.Services.AddScoped<ICaseWorkflowService, CaseWorkflowService>();
 
 // Background services
 builder.Services.AddHostedService<Insolvex.API.BackgroundServices.DeadlineReminderService>();
 builder.Services.AddHostedService<Insolvex.API.BackgroundServices.TemplateEnforcementService>();
 
 // Email service
-builder.Services.Configure<Insolvex.API.Services.SmtpSettings>(builder.Configuration.GetSection("Smtp"));
-builder.Services.AddScoped<IEmailService, Insolvex.API.Services.SmtpEmailService>();
+builder.Services.Configure<Insolvex.Data.Services.SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+builder.Services.AddScoped<IEmailService, Insolvex.Data.Services.SmtpEmailService>();
 builder.Services.AddHostedService<Insolvex.API.BackgroundServices.EmailBackgroundService>();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -278,6 +280,8 @@ if (app.Environment.IsDevelopment())
   var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
     await DbSeeder.SeedAsync(db);
+    await DbSeeder.SeedSystemTemplatesAsync(db);
+    await DbSeeder.SeedWorkflowStagesAsync(db);
 }
 
 app.Run();

@@ -26,6 +26,7 @@ interface SignatureInfo {
 export default function DocumentSigningPanel({ documentId, fileName, requiresSignature, isSigned }: Props) {
     const [hasKey, setHasKey] = useState(false);
 const [canSign, setCanSign] = useState(false);
+  const [useSavedSigningKey, setUseSavedSigningKey] = useState(true);
     const [signatures, setSignatures] = useState<SignatureInfo[]>([]);
     const [loading, setLoading] = useState(true);
   const [signing, setSigning] = useState(false);
@@ -38,12 +39,14 @@ const [canSign, setCanSign] = useState(false);
     const load = async () => {
         setLoading(true);
         try {
-            const [keyRes, verifyRes] = await Promise.all([
+            const [keyRes, verifyRes, prefRes] = await Promise.all([
       signingApi.getKeyStatus(),
    signingApi.verifyDocument(documentId),
+        signingApi.getPreferences(),
       ]);
     setHasKey(keyRes.data.hasKey);
             setCanSign(keyRes.data.canSign);
+       setUseSavedSigningKey(prefRes.data.useSavedSigningKey !== false);
     setSignatures(verifyRes.data.signatures ?? []);
  } catch (e) {
     console.error(e);
@@ -154,7 +157,7 @@ const [canSign, setCanSign] = useState(false);
         <div key={s.id} className="text-[10px] text-muted-foreground flex items-center gap-1">
         <CheckCircle2 className="h-2.5 w-2.5 text-green-500 shrink-0" />
              <span className="truncate">{s.certificateSubject}</span>
-             <span className="shrink-0">· {format(new Date(s.signedAt), "dd MMM yyyy HH:mm")}</span>
+             <span className="shrink-0">ï¿½ {format(new Date(s.signedAt), "dd MMM yyyy HH:mm")}</span>
               </div>
       ))}
       </div>
@@ -187,17 +190,23 @@ const [canSign, setCanSign] = useState(false);
     </label>
 
         {/* Sign with key */}
-         {canSign && (
+         {canSign && useSavedSigningKey && (
        <Button
       variant="outline"
   size="sm"
         className="text-[10px] h-6 px-2 gap-1 border-primary/30 text-primary"
 onClick={() => setShowSignForm(!showSignForm)}
     >
-         <PenTool className="h-2.5 w-2.5" />Sign with Key
+         <PenTool className="h-2.5 w-2.5" />Sign with Saved Key
            </Button>
       )}
             </div>
+
+            {!useSavedSigningKey && !signed && (
+              <p className="text-[10px] text-muted-foreground">
+                Saved-key signing is disabled in your user settings.
+              </p>
+            )}
 
             {/* Sign form */}
 {showSignForm && (

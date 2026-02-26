@@ -19,11 +19,10 @@ public class CaseTasksController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetCaseTasks(
         Guid caseId,
-        [FromQuery] CaseStage? stage = null,
         [FromQuery] Domain.Enums.TaskStatus? status = null,
         [FromQuery] string? category = null,
         CancellationToken ct = default)
-        => Ok(await _tasks.GetByCaseAsync(caseId, stage, status, category, ct));
+        => Ok(await _tasks.GetByCaseAsync(caseId, status, category, ct));
 
     [HttpGet("summary")]
     public async Task<IActionResult> GetTaskSummary(Guid caseId, CancellationToken ct)

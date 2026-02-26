@@ -2,8 +2,6 @@ import {useState} from "react";
 import type {Company, InsolvencyDocument} from "../types";
 import type {CaseWithDocuments} from "../hooks/useCases";
 import {
-  deriveCaseStage,
-  formatStage,
   getNextUpcomingHearingIso,
 } from "../domain/insolvencyCase";
 import BackButton from "@/components/ui/BackButton";
@@ -63,7 +61,6 @@ export default function CaseDetail({
   );
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
-  const stage = deriveCaseStage(documents);
   const selectedDoc = selectedDocId
     ? documents.find((d) => d.id === selectedDocId)
     : null;
@@ -81,7 +78,7 @@ export default function CaseDetail({
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>Court: {insolvencyCase.courtName || "—"}</span>
           <span className="text-border">|</span>
-          <span>Stage: {formatStage(stage)}</span>
+          <span>Status: {insolvencyCase.status || "Active"}</span>
           {nextHearingIso && (
             <>
               <span className="text-border">|</span>

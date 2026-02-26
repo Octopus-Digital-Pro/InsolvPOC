@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+﻿import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { onrcApi } from "@/services/api/onrc";
 import type { ONRCFirmResult, ONRCDatabaseStats, ONRCImportResult } from "@/services/api/onrc";
@@ -17,17 +17,17 @@ const REGIONS = [
 ] as const;
 
 const ONRC_CSV_COLUMNS = [
-  { name: "CUI", required: true, description: "Codul unic de �nregistrare", example: "RO12345678" },
+  { name: "CUI", required: true, description: "Codul unic de inregistrare", example: "RO12345678" },
   { name: "Denumire", required: true, description: "Numele firmei", example: "SC ACME SRL" },
-  { name: "Nr. Reg. Com.", description: "Num?rul de �nregistrare la Registrul Comer?ului", example: "J40/1234/2005" },
+  { name: "Nr. Reg. Com.", description: "Numarul de inregistrare la Registrul Comertului", example: "J40/1234/2005" },
   { name: "CAEN", description: "Codul CAEN", example: "6201" },
-  { name: "Adresa", description: "Adresa firmului", example: "Str. Unirii 1" },
-  { name: "Localitate", description: "Localitatea", example: "Bucure?ti" },
-  { name: "Judet", description: "Jude?ul", example: "Ilfov" },
-  { name: "Cod Postal", description: "Codul po?tal", example: "040042" },
-  { name: "Telefon", description: "Num?rul de telefon", example: "+40 21 300 0000" },
+  { name: "Adresa", description: "Adresa firmei", example: "Str. Unirii 1" },
+  { name: "Localitate", description: "Localitatea", example: "Bucuresti" },
+  { name: "Judet", description: "Judetul", example: "Ilfov" },
+  { name: "Cod Postal", description: "Codul postal", example: "040042" },
+  { name: "Telefon", description: "Numarul de telefon", example: "+40 21 300 0000" },
   { name: "Stare", description: "Starea (ACTIV/INACTIV)", example: "ACTIV" },
-  { name: "An Infiintare", description: "Anul �nfiin??rii", example: "2005" },
+  { name: "An Infiintare", description: "Anul infiintarii", example: "2005" },
   { name: "Capital Social", description: "Capitalul social (RON)", example: "200.00" },
 ];
 

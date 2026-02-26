@@ -1,4 +1,4 @@
-using Insolvex.API.Data;
+using Insolvex.Data;
 using Insolvex.Core.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;

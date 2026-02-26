@@ -31,9 +31,6 @@ public class CaseParty : TenantScopedEntity
   /// <summary>Preferred delivery method: email, print, both.</summary>
   public string? PreferredDelivery { get; set; }
 
-  // ?? Phase bindings (JSON array of PhaseType values this party is relevant to) ??
-  public string? PhaseBindingsJson { get; set; }
-
   // ?? Claim info ??
   public decimal? ClaimAmountRon { get; set; }
   public bool? ClaimAccepted { get; set; }

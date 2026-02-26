@@ -11,6 +11,7 @@ export interface UserDto {
   lastLoginDate: string | null;
   avatarUrl: string | null;
   tenantId: string;
+  useSavedSigningKey: boolean;
 }
 
 export interface TenantDto {
@@ -48,6 +49,7 @@ export interface CompanyDto {
   assignedToName: string | null;
   createdOn: string;
   caseCount: number;
+  caseNumbers: string[] | null;
 }
 
 export interface CaseDto {
@@ -59,7 +61,7 @@ export interface CaseDto {
   debtorName: string;
   debtorCui: string | null;
   procedureType: string;
-  stage: string;
+  status: string;
   lawReference: string | null;
   practitionerName: string | null;
   practitionerRole: string | null;
@@ -89,7 +91,6 @@ export interface CaseDto {
   createdOn: string;
   documentCount: number;
   partyCount: number;
-  phases: CasePhaseDto[] | null;
 }
 
 export interface CasePartyDto {
@@ -103,20 +104,6 @@ export interface CasePartyDto {
   claimAccepted: boolean | null;
   joinedDate: string | null;
   notes: string | null;
-}
-
-export interface CasePhaseDto {
-  id: string;
-  caseId: string;
-  phaseType: string;
-  status: string;
-  sortOrder: number;
-  startedOn: string | null;
-  completedOn: string | null;
-  dueDate: string | null;
-  notes: string | null;
-  courtDecisionRef: string | null;
-  updatedByUserId: string | null;
 }
 
 export interface InsolvencyFirmDto {
@@ -209,6 +196,7 @@ export interface AuditLogDto {
   userEmail: string | null;
   entityType: string | null;
   entityId: string | null;
+  caseNumber: string | null;
   changes: string | null;
   oldValues: string | null;
   newValues: string | null;
@@ -222,6 +210,13 @@ export interface AuditLogDto {
   category: string;
   correlationId: string | null;
   timestamp: string;
+}
+
+export interface AuditLogListResponse {
+  items: AuditLogDto[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface AuditLogStats {
@@ -248,6 +243,7 @@ export interface UploadData {
   docType: string | null;
   caseNumber: string | null;
   debtorName: string | null;
+  debtorCui: string | null;
   courtName: string | null;
   courtSection: string | null;
   judgeSyndic: string | null;
@@ -261,6 +257,7 @@ export interface UploadData {
   contestationsDeadline: string | null;
   parties: ExtractedParty[];
   extractedText: string | null;
+  isAiExtracted: boolean;
 }
 
 export interface ExtractedParty {

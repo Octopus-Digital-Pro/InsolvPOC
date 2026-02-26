@@ -10,7 +10,20 @@ export interface TemplateUploadResult {
   message: string;
 }
 
+export interface ClientErrorLogRequest {
+  message: string;
+  stackTrace?: string;
+  source?: string;
+  requestPath?: string;
+  userAgent?: string;
+  additionalContext?: string;
+}
+
 export const settingsApi = {
+  errors: {
+    logClient: (data: ClientErrorLogRequest) =>
+      client.post("/settings/errors/client", data),
+  },
   templates: {
     getAll: () =>
       client.get<TemplateInfo[]>("/settings/templates"),

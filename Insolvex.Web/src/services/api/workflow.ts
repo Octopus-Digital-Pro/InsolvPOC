@@ -26,22 +26,6 @@ export interface GeneratedDocResult {
 }
 
 export const workflowApi = {
-  // Stage timeline
-  getTimeline: (caseId: string) =>
-    client.get(`/workflow/${caseId}/timeline`),
-
-  // Validation
-  validate: (caseId: string) =>
-    client.get(`/workflow/${caseId}/validate`),
-
-  // Advance stage
-  advance: (caseId: string) =>
-    client.post(`/workflow/${caseId}/advance`),
-
-  // Stage definitions
-  getStageDefinitions: () =>
-    client.get("/workflow/stages"),
-
   // Deadline settings
   getDeadlineSettings: (caseId?: string, tenantId?: string) =>
     client.get("/deadline-settings", { params: { caseId, tenantId } }),

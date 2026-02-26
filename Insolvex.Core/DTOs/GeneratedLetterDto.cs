@@ -7,7 +7,6 @@ public record GeneratedLetterDto(
     Guid CaseId,
     Guid? TemplateId,
     string TemplateType,
-    string? Stage,
     string StorageKey,
     string FileName,
     string ContentType,

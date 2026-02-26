@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Insolvex.API.Authorization;
-using Insolvex.API.Services;
+using Insolvex.Data.Services;
 using Insolvex.Core.Abstractions;
 using Insolvex.Domain.Enums;
 

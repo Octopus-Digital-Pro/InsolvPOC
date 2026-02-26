@@ -12,4 +12,5 @@ public interface IFinanceAuthorityService
     Task DeleteAsync(Guid id, CancellationToken ct = default);
     Task<AuthorityImportResult> ImportCsvAsync(Stream csvStream, CancellationToken ct = default);
     Task<byte[]> ExportCsvAsync(CancellationToken ct = default);
+    Task<AnafScrapeResult> ScrapeAnafAsync(string url, CancellationToken ct = default);
 }

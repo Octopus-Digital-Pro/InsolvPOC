@@ -1,0 +1,189 @@
+import client from "./client";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export type DocumentTemplateType =
+  | "CreditorNotificationBpi"
+  | "ReportArt97"
+  | "PreliminaryClaimsTable"
+  | "CreditorsMeetingMinutes"
+  | "DefinitiveClaimsTable"
+  | "FinalReportArt167"
+  | "CreditorNotificationHtml"
+  | "Custom";
+
+/** Incoming (received) document types — not generated, but recognized by AI. */
+export type IncomingDocumentType = "CourtOpeningDecision";
+
+export interface IncomingDocumentReferenceStatus {
+  type: IncomingDocumentType;
+  exists: boolean;
+  uploadedOn?: string;
+  fileName?: string;
+}
+
+export interface DocumentTemplateDto {
+  id: string;
+  name: string;
+  description: string | null;
+  templateType: DocumentTemplateType;
+  isSystem: boolean;
+  isActive: boolean;
+  stage: string | null;
+  category: string | null;
+  hasContent: boolean;
+  createdOn: string;
+  lastModifiedOn: string | null;
+}
+
+export interface DocumentTemplateDetailDto extends DocumentTemplateDto {
+  bodyHtml: string | null;
+}
+
+export interface CreateDocumentTemplateRequest {
+  name: string;
+  description?: string;
+  category?: string;
+  bodyHtml?: string;
+}
+
+export interface UpdateDocumentTemplateRequest {
+  name: string;
+  description?: string;
+  category?: string;
+  bodyHtml?: string;
+  isActive: boolean;
+}
+
+export interface RenderTemplateRequest {
+  caseId: string;
+  recipientPartyId?: string;
+}
+
+export interface RenderTemplateResult {
+  renderedHtml: string;
+  mergeData: Record<string, string>;
+}
+
+export interface PlaceholderField {
+  key: string;
+  label: string;
+}
+
+export interface PlaceholderGroup {
+  group: string;
+  fields: PlaceholderField[];
+}
+
+// ── Friendly display names for system template types ─────────────────────────
+
+export const SYSTEM_TEMPLATE_LABELS: Record<string, string> = {
+  CreditorNotificationBpi: "Notificare creditori + publicare BPI",
+  ReportArt97: "Raport 40 zile (Art. 97)",
+  PreliminaryClaimsTable: "Tabel preliminar de creanțe",
+  CreditorsMeetingMinutes: "Proces-verbal AGC confirmare lichidator",
+  DefinitiveClaimsTable: "Tabel definitiv de creanțe",
+  FinalReportArt167: "Raport final (Art. 167)",
+  CreditorNotificationHtml: "Notificare deschidere procedură (HTML)",
+};
+
+/** Incoming document friendly names (received from court / external parties). */
+export const INCOMING_DOCUMENT_LABELS: Record<IncomingDocumentType, string> = {
+  CourtOpeningDecision: "Sentință / Hotărâre deschidere procedură",
+};
+
+export const INCOMING_DOCUMENT_DESC: Record<IncomingDocumentType, string> = {
+  CourtOpeningDecision:
+    "Document emis de instanță care deschide procedura de insolvență. " +
+    "Încarcă un exemplu PDF — sistemul îl va analiza și va recunoaște automat documentele similare " +
+    "încărcate de practicieni ca notificare de deschidere a procedurii.",
+};
+
+export const SYSTEM_TEMPLATE_STAGE: Record<string, string> = {
+  CreditorNotificationBpi: "Deschidere procedură",
+  ReportArt97: "Observație",
+  PreliminaryClaimsTable: "Verificare creanțe",
+  CreditorsMeetingMinutes: "Adunarea creditorilor",
+  DefinitiveClaimsTable: "Lichidare",
+  FinalReportArt167: "Închidere",
+  CreditorNotificationHtml: "Deschidere procedură",
+};
+
+// ── API ───────────────────────────────────────────────────────────────────────
+
+export const documentTemplatesApi = {
+  /** List all templates (system + tenant custom). */
+  getAll: () =>
+    client.get<DocumentTemplateDto[]>("/document-templates"),
+
+  /** Get single template with BodyHtml. */
+  getById: (id: string) =>
+    client.get<DocumentTemplateDetailDto>(`/document-templates/${id}`),
+
+  /** Get grouped placeholder list for the editor sidebar. */
+  getPlaceholders: () =>
+    client.get<PlaceholderGroup[]>("/document-templates/placeholders"),
+
+  /** Create a new custom template. */
+  create: (req: CreateDocumentTemplateRequest) =>
+    client.post<DocumentTemplateDto>("/document-templates", req),
+
+  /** Update an existing template (custom: all fields; system: only bodyHtml + isActive). */
+  update: (id: string, req: UpdateDocumentTemplateRequest) =>
+    client.put<DocumentTemplateDetailDto>(`/document-templates/${id}`, req),
+
+  /** Delete a custom template. */
+  delete: (id: string) =>
+    client.delete(`/document-templates/${id}`),
+
+  /** Render template HTML against a real case. */
+  render: (id: string, req: RenderTemplateRequest) =>
+    client.post<RenderTemplateResult>(`/document-templates/${id}/render`, req),
+
+  /**
+   * Render a template to PDF and return it as a Blob for direct download.
+   * Uses PuppeteerSharp on the server — no file is stored.
+   */
+  renderPdfBlob: async (
+    id: string,
+    req: RenderTemplateRequest,
+  ): Promise<{ blob: Blob; fileName: string }> => {
+    const token = localStorage.getItem("authToken");
+    const tenantId = localStorage.getItem("selectedTenantId");
+    const res = await fetch(`/api/document-templates/${id}/render-pdf`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenantId ? { "X-Tenant-Id": tenantId } : {}),
+      },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") ?? "";
+    const match = cd.match(/filename\*?=(?:UTF-8'')?([^";]+)/);
+    const fileName = match ? decodeURIComponent(match[1].trim()) : `template_${id}.pdf`;
+    return { blob, fileName };
+  },
+
+  /** Upload a sample/reference PDF for an incoming document type (AI recognition). */
+  uploadIncomingReference: (type: IncomingDocumentType, file: File, onProgress?: (pct: number) => void) => {
+    const form = new FormData();
+    form.append("file", file);
+    return client.post<{ type: string; fileName: string; fileSize: number; uploadedOn: string; message: string }>(
+      `/document-templates/incoming-reference/${type}`,
+      form,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: onProgress
+          ? (e) => { if (e.total) onProgress(Math.round((e.loaded / e.total) * 100)); }
+          : undefined,
+      },
+    );
+  },
+
+  /** Check whether a reference PDF has been uploaded for an incoming document type. */
+  getIncomingReference: (type: IncomingDocumentType) =>
+    client.get<IncomingDocumentReferenceStatus>(`/document-templates/incoming-reference/${type}`),
+};

@@ -12,5 +12,6 @@ public record UserDto(
     bool IsActive,
     DateTime? LastLoginDate,
     string? AvatarUrl,
-    Guid TenantId
+    Guid TenantId,
+    bool UseSavedSigningKey
 );

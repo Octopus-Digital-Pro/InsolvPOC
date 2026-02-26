@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Insolvex.Core\Insolvex.Core.csproj" />
+    <ProjectReference Include="..\Insolvex.Data\Insolvex.Data.csproj" />
     <ProjectReference Include="..\Insolvex.Domain\Insolvex.Domain.csproj" />
     <ProjectReference Include="..\Insolvex.API\Insolvex.API.csproj" />
   </ItemGroup>

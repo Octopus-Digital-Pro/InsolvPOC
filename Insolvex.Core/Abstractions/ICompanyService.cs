@@ -8,7 +8,9 @@ namespace Insolvex.Core.Abstractions;
 /// </summary>
 public interface ICompanyService
 {
-    Task<List<CompanyDto>> GetAllAsync(string? type = null, CancellationToken ct = default);
+    Task<List<CompanyDto>> GetAllAsync(CancellationToken ct = default);
+    /// <summary>Search companies by name, CUI, or trade register number. Returns up to maxResults matches.</summary>
+    Task<List<CompanyDto>> SearchAsync(string query, int maxResults = 10, CancellationToken ct = default);
     Task<CompanyDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<CompanyDto> CreateAsync(CreateCompanyCommand command, CancellationToken ct = default);
     Task<CompanyDto> UpdateAsync(Guid id, UpdateCompanyCommand command, CancellationToken ct = default);
@@ -21,7 +23,6 @@ public interface ICompanyService
 public class CreateCompanyCommand
 {
     public string Name { get; init; } = string.Empty;
-    public string? CompanyType { get; init; }
     public string? CuiRo { get; init; }
     public string? TradeRegisterNo { get; init; }
     public string? VatNumber { get; init; }
@@ -43,7 +44,6 @@ public class CreateCompanyCommand
 public class UpdateCompanyCommand
 {
     public string? Name { get; init; }
-    public string? CompanyType { get; init; }
     public string? CuiRo { get; init; }
     public string? TradeRegisterNo { get; init; }
     public string? VatNumber { get; init; }

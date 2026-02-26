@@ -5,6 +5,9 @@ export const companiesApi = {
   getAll: (type?: string) =>
     client.get<CompanyDto[]>("/companies", { params: type ? { type } : undefined }),
 
+  search: (q: string, maxResults = 10) =>
+    client.get<CompanyDto[]>("/companies/search", { params: { q, maxResults } }),
+
   getById: (id: string) =>
     client.get<CompanyDto>(`/companies/${id}`),
 

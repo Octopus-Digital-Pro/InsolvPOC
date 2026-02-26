@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Insolvex.API.Services;
+using Insolvex.Data.Services;
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.DTOs.Auth;
 

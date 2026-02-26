@@ -4,7 +4,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useTranslation } from "@/contexts/LanguageContext";
 import {
   LayoutDashboard, Building2, Briefcase, ListChecks,
-  FileText, Settings, LogOut, Upload, ChevronDown,
+  FileText, Settings, LogOut, Upload, ChevronDown, BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
@@ -104,6 +104,7 @@ export default function SidebarNav({ onUploadClick }: SidebarNavProps) {
             <div className="mt-4 mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
    {t.nav.admin}
   </div>
+          <NavItem to="/reports" icon={BarChart3} label={t.nav.reports} />
           <NavItem to="/audit-trail" icon={FileText} label={t.nav.auditTrail} />
          <NavItem to="/settings" icon={Settings} label={t.nav.settings} />
           {isGlobalAdmin && (

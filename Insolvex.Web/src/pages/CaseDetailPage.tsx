@@ -1,28 +1,29 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { casesApi } from "@/services/api";
+import { auditLogsApi, casesApi, companiesApi } from "@/services/api";
+import { onrcApi } from "@/services/api/onrc";
+import type { ONRCFirmResult } from "@/services/api/onrc";
 import { workflowApi } from "@/services/api/workflow";
-import type { GeneratedDocResult, TemplateInfo } from "@/services/api/workflow";
+import { documentTemplatesApi } from "@/services/api/documentTemplatesApi";
 import { caseEmailsApi } from "@/services/api/caseWorkspace";
 import { tasksApi } from "@/services/api/tasks";
 import { useTranslation } from "@/contexts/LanguageContext";
-import type { CaseDto, CasePartyDto, CasePhaseDto, DocumentDto, TaskDto } from "@/services/api/types";
+import type { CaseDto, CasePartyDto, DocumentDto, TaskDto, CompanyDto } from "@/services/api/types";
 import type { CaseEmailDto } from "@/services/api/caseWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
-import StageTimeline from "@/components/StageTimeline";
 import CreditorMeetingModal from "@/components/CreditorMeetingModal";
 import DocumentSigningPanel from "@/components/DocumentSigningPanel";
 import CaseTasksTab from "@/components/CaseTasksTab";
 import CaseEmailsTab from "@/components/CaseEmailsTab";
-import CaseEventFeed from "@/components/CaseEventFeed";
+import CaseWorkflowPanel from "@/components/CaseWorkflowPanel";
 import { downloadAuthFile } from "@/utils/downloadAuthFile";
 import {
-  Loader2, FileText, Upload, Users, GitBranch, ChevronRight,
-  Check, Clock, Ban, SkipForward, Brain, CalendarDays, RefreshCw,
-  ListChecks, Mail, Download, FileOutput, ChevronDown, Pencil,
-  X, Save, Wand2, History, AlertTriangle,
+  Loader2, FileText, Upload, Users,
+  Brain, CalendarDays, RefreshCw, Layers,
+  ListChecks, Mail, Download, FileOutput,
+  History, Plus, Search, X, Building2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -44,21 +45,20 @@ function formatMoney(val: number | null | undefined): string | null {
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const [caseData, setCaseData] = useState<CaseDto | null>(null);
   const [parties, setParties] = useState<CasePartyDto[]>([]);
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [advancing, setAdvancing] = useState(false);
-  const [advanceError, setAdvanceError] = useState<string | null>(null);
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "docs" | "parties" | "emails" | "calendar" | "templates" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "workflow" | "tasks" | "docs" | "parties" | "emails" | "calendar" | "templates" | "activity">("overview");
   const [caseTasks, setCaseTasks] = useState<TaskDto[]>([]);
   const [caseEmails, setCaseEmails] = useState<CaseEmailDto[]>([]);
   const [docUploading, setDocUploading] = useState(false);
   const docUploadRef = useRef<HTMLInputElement>(null);
+  const [addPartyOpen, setAddPartyOpen] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -104,27 +104,6 @@ export default function CaseDetailPage() {
 
   useEffect(() => { loadSummary(); }, [id]);
 
-  const handleInitPhases = async () => {
-    if (!id) return;
-    try {
-      await casesApi.initializePhases(id);
-      load();
-    } catch (err) { console.error(err); }
-  };
-
-  const handleAdvance = async () => {
-    if (!id) return;
-    setAdvancing(true);
-    setAdvanceError(null);
-    try {
-      await casesApi.advancePhase(id);
-      load();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setAdvanceError(msg ?? "Failed to advance phase.");
-    } finally { setAdvancing(false); }
-  };;
-
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !id) return;
@@ -150,47 +129,13 @@ export default function CaseDetailPage() {
   if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   if (!caseData) return <p className="p-8 text-muted-foreground">{t.cases.noCases}</p>;
 
-  const stageLabel = (s: string): string =>
-    (t.stages as Record<string, string>)[s] ?? s.replace(/([A-Z])/g, " $1").trim();
-
-  const phaseLabel = (phaseType: string): string => {
-    const key = phaseType.charAt(0).toLowerCase() + phaseType.slice(1);
-    return (t.phases as Record<string, string>)[key] ?? phaseType.replace(/([A-Z])/g, " $1").trim();
-  };
-
-  const phaseStatusLabel = (status: string): string => {
-    const key = status.charAt(0).toLowerCase() + status.slice(1);
-    return (t.phaseStatus as Record<string, string>)[key] ?? status;
-  };
+  const statusLabel = (s: string): string =>
+    (t.statuses as Record<string, string>)?.[s] ?? s;
 
   const partyRoleLabel = (role: string): string => {
     const key = role.charAt(0).toLowerCase() + role.slice(1);
     return (t.partyRoles as Record<string, string>)[key] ?? role.replace(/([A-Z])/g, " $1").trim();
   };
-
-  const phaseStatusIcon = (status: string) => {
-    switch (status) {
-      case "Completed": return <Check className="h-3.5 w-3.5 text-green-500" />;
-      case "InProgress": return <Clock className="h-3.5 w-3.5 text-blue-500 animate-pulse" />;
-      case "Blocked": return <Ban className="h-3.5 w-3.5 text-red-500" />;
-      case "Skipped": return <SkipForward className="h-3.5 w-3.5 text-muted-foreground" />;
-      default: return <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />;
-    }
-  };
-
-  const phaseStatusVariant = (status: string): "success" | "default" | "destructive" | "secondary" | "warning" => {
-    switch (status) {
-      case "Completed": return "success";
-      case "InProgress": return "default";
-      case "Blocked": return "destructive";
-      case "Skipped": return "secondary";
-      default: return "secondary";
-    }
-  };
-
-  const phases = caseData.phases ?? [];
-  const hasPhases = phases.length > 0;
-  const currentPhase = phases.find(p => p.status === "InProgress");
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
@@ -203,7 +148,7 @@ export default function CaseDetailPage() {
             <h1 className="text-xl font-bold text-card-foreground">{t.cases.caseNumber} {caseData.caseNumber}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{caseData.debtorName}</p>
           </div>
-          <Badge variant="secondary">{stageLabel(caseData.stage)}</Badge>
+          <Badge variant="secondary">{statusLabel(caseData.status)}</Badge>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
@@ -237,17 +182,14 @@ export default function CaseDetailPage() {
         )}
       </div>
 
-      {/* Workspace layout: sidebar + main */}
-      <div className="flex gap-4">
-        {/* Left sidebar: Stage Timeline + Actions */}
-        <div className="w-56 shrink-0 space-y-3">
-          <div className="rounded-xl border border-border bg-card p-3">
-            <StageTimeline caseId={id!} onAdvanced={load} />
-          </div>
+      {/* Workspace layout */}
+      <div className="space-y-3">
+        {/* Actions */}
+        <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="w-full text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
+            className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
             onClick={() => setMeetingOpen(true)}
           >
             <Users className="h-3.5 w-3.5" />
@@ -256,11 +198,12 @@ export default function CaseDetailPage() {
         </div>
 
         {/* Main panel with tabs */}
-        <div className="flex-1 min-w-0 space-y-3">
+        <div className="space-y-3">
           {/* Tab bar */}
           <div className="flex gap-1 rounded-lg border border-border bg-card p-1 overflow-x-auto">
             {([
               { id: "overview" as const, label: "Overview", icon: Brain },
+              { id: "workflow" as const, label: "Workflow", icon: Layers },
               { id: "tasks" as const, label: `Tasks (${caseTasks.length})`, icon: ListChecks },
               { id: "docs" as const, label: t.cases.documents, icon: FileText },
               { id: "parties" as const, label: "Parties", icon: Users },
@@ -308,64 +251,12 @@ export default function CaseDetailPage() {
                   <p className="text-sm text-muted-foreground">No summary generated yet. Click "Generate" to create an AI summary.</p>
                 )}
               </div>
-
-              {/* Workflow Phases */}
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    <GitBranch className="h-3.5 w-3.5" /> {t.phases.title} {hasPhases && `(${phases.filter(p => p.status === "Completed").length}/${phases.length})`}
-                  </h2>
-                  {hasPhases && currentPhase && (() => {
-                    const openCount = caseTasks.filter(t => t.status === "open" || t.status === "blocked").length;
-                    const isBlocked = openCount > 0;
-                    return (
-                      <div className="flex flex-col items-end gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={`text-xs gap-1 ${isBlocked ? "border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400" : "border-primary/30 text-primary hover:bg-primary/5"}`}
-                          onClick={handleAdvance}
-                          disabled={advancing || isBlocked}
-                          title={isBlocked ? `${openCount} open task${openCount !== 1 ? "s" : ""} must be completed first` : "Advance to next phase"}
-                        >
-                          {advancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isBlocked ? <AlertTriangle className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                          {isBlocked ? `${openCount} open task${openCount !== 1 ? "s" : ""}` : "Advance"}
-                        </Button>
-                        {advanceError && (
-                          <p className="text-[10px] text-destructive max-w-xs text-right">{advanceError}</p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {!hasPhases && (
-                    <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5" onClick={handleInitPhases}>
-                      Initialize Workflow
-                    </Button>
-                  )}
-                </div>
-                {hasPhases ? (
-                  <div className="rounded-xl border border-border bg-card divide-y divide-border">
-                    {phases.map((phase) => (
-                      <PhaseRow
-                        key={phase.id}
-                        caseId={id!}
-                        phase={phase}
-                        tasks={caseTasks}
-                        phaseLabel={phaseLabel}
-                        phaseStatusLabel={phaseStatusLabel}
-                        phaseStatusIcon={phaseStatusIcon}
-                        phaseStatusVariant={phaseStatusVariant}
-                        onUpdated={load}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-border bg-card/50 p-6 text-center">
-                    <p className="text-sm text-muted-foreground">No workflow phases initialized yet.</p>
-                  </div>
-                )}
-              </div>
             </div>
+          )}
+
+          {/* Workflow Tab */}
+          {activeTab === "workflow" && (
+            <CaseWorkflowPanel caseId={id!} />
           )}
 
           {/* Tasks Tab */}
@@ -430,6 +321,9 @@ export default function CaseDetailPage() {
                 <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <Users className="h-3.5 w-3.5" /> Parties ({parties.length})
                 </h2>
+                <Button size="sm" className="gap-1.5 text-xs h-7" onClick={() => setAddPartyOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> Add Party
+                </Button>
               </div>
               <div className="rounded-xl border border-bordered bg-card divide-y divide-border">
                 {parties.length === 0 ? (
@@ -474,10 +368,20 @@ export default function CaseDetailPage() {
 
           {/* Activity Timeline Tab */}
           {activeTab === "activity" && (
-            <CaseEventFeed caseId={id!} />
+            <CaseAuditActivity caseId={id!} caseNumber={caseData.caseNumber} locale={locale} />
           )}
         </div>
       </div>
+
+      {/* Add Party Modal */}
+      {addPartyOpen && (
+        <AddPartyModal
+          caseId={id!}
+          locale={locale}
+          onAdded={() => { load(); setAddPartyOpen(false); }}
+          onClose={() => setAddPartyOpen(false)}
+        />
+      )}
 
       {/* Creditor Meeting Modal */}
       <CreditorMeetingModal
@@ -486,243 +390,6 @@ export default function CaseDetailPage() {
         onClose={() => setMeetingOpen(false)}
         onCreated={load}
       />
-    </div>
-  );
-}
-
-/* ── Phase Row Component ─────────────────────────── */
-interface PhaseRowProps {
-  caseId: string;
-  phase: CasePhaseDto;
-  tasks: TaskDto[];
-  phaseLabel: (type: string) => string;
-  phaseStatusLabel: (status: string) => string;
-  phaseStatusIcon: (status: string) => JSX.Element;
-  phaseStatusVariant: (status: string) => "success" | "default" | "destructive" | "secondary" | "warning";
-  onUpdated: () => void;
-}
-
-function PhaseRow({ caseId, phase, tasks, phaseLabel, phaseStatusLabel, phaseStatusIcon, phaseStatusVariant, onUpdated }: PhaseRowProps) {
-  const [expanded, setExpanded] = useState(phase.status === "InProgress");
-  const [editing, setEditing] = useState(false);
-  const [notes, setNotes] = useState(phase.notes ?? "");
-  const [courtRef, setCourtRef] = useState(phase.courtDecisionRef ?? "");
-  const [dueDate, setDueDate] = useState(phase.dueDate ? format(new Date(phase.dueDate), "yyyy-MM-dd") : "");
-  const [saving, setSaving] = useState(false);
-  const [genTasksLoading, setGenTasksLoading] = useState(false);
-  const [requirements, setRequirements] = useState<{ requiredTasks: string[]; requiredDocTypes: string[]; goal: string } | null>(null);
-
-  const phaseTasks = tasks.filter(t =>
-    (t as unknown as Record<string, unknown>).caseId === caseId
-  );
-
-  useEffect(() => {
-    if (expanded && !requirements) {
-      casesApi.getPhaseRequirements(caseId, phase.id)
-        .then(r => setRequirements(r.data))
-        .catch(console.error);
-    }
-  }, [expanded, caseId, phase.id, requirements]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await casesApi.updatePhase(caseId, phase.id, {
-        notes: notes || undefined,
-        courtDecisionRef: courtRef || undefined,
-        dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
-      } as Parameters<typeof casesApi.updatePhase>[2]);
-      setEditing(false);
-      onUpdated();
-    } catch (err) { console.error(err); }
-    finally { setSaving(false); }
-  };
-
-  const handleGenerateTasks = async () => {
-    setGenTasksLoading(true);
-    try {
-      await casesApi.generatePhaseTasks(caseId, phase.id);
-      onUpdated();
-    } catch (err) { console.error(err); }
-    finally { setGenTasksLoading(false); }
-  };
-
-  const doneTasks = phaseTasks.filter(t => t.status === "done").length;
-  const totalTasks = phaseTasks.length;
-
-  return (
-    <div className={phase.status === "InProgress" ? "bg-primary/5" : ""}>
-      {/* Header row */}
-      <div
-        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors"
-        onClick={() => setExpanded(e => !e)}
-      >
-        <div className="flex items-center justify-center w-6 shrink-0">
-          {phaseStatusIcon(phase.status)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className={`text-sm font-medium ${phase.status === "Completed" ? "text-muted-foreground line-through" : phase.status === "InProgress" ? "text-primary" : "text-foreground"}`}>
-            {phaseLabel(phase.phaseType)}
-          </p>
-          {phase.courtDecisionRef && !expanded && (
-            <p className="text-[10px] text-muted-foreground truncate">{phase.courtDecisionRef}</p>
-          )}
-        </div>
-        {totalTasks > 0 && (
-          <span className="text-[10px] text-muted-foreground shrink-0">{doneTasks}/{totalTasks}</span>
-        )}
-        <Badge variant={phaseStatusVariant(phase.status)} className="text-[10px] shrink-0">
-          {phaseStatusLabel(phase.status)}
-        </Badge>
-        {phase.dueDate && !expanded && (
-          <span className="text-[10px] text-muted-foreground shrink-0">
-            {format(new Date(phase.dueDate), "dd MMM")}
-          </span>
-        )}
-        <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} />
-      </div>
-
-      {/* Expanded panel */}
-      {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-border/60 space-y-3">
-          {/* Goal */}
-          {requirements?.goal && (
-            <p className="text-xs text-muted-foreground italic">{requirements.goal}</p>
-          )}
-
-          {/* Fields edit / display */}
-          {editing ? (
-            <div className="space-y-2.5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Court Decision Ref</label>
-                  <input
-                    value={courtRef}
-                    onChange={e => setCourtRef(e.target.value)}
-                    placeholder="e.g. Dosar 1234/2024"
-                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Due Date</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={e => setDueDate(e.target.value)}
-                    className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</label>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  rows={2}
-                  placeholder="Phase notes, observations..."
-                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" className="text-xs h-7 gap-1" onClick={handleSave} disabled={saving}>
-                  {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                  Save
-                </Button>
-                <Button size="sm" variant="ghost" className="text-xs h-7 gap-1" onClick={() => setEditing(false)}>
-                  <X className="h-3 w-3" /> Cancel
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-wrap gap-4">
-              {phase.courtDecisionRef && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Court Decision</p>
-                  <p className="text-sm">{phase.courtDecisionRef}</p>
-                </div>
-              )}
-              {phase.dueDate && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Due Date</p>
-                  <p className="text-sm">{format(new Date(phase.dueDate), "dd MMM yyyy")}</p>
-                </div>
-              )}
-              {phase.startedOn && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Started</p>
-                  <p className="text-sm">{format(new Date(phase.startedOn), "dd MMM yyyy")}</p>
-                </div>
-              )}
-              {phase.completedOn && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Completed</p>
-                  <p className="text-sm">{format(new Date(phase.completedOn), "dd MMM yyyy")}</p>
-                </div>
-              )}
-              {phase.notes && (
-                <div className="w-full">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
-                  <p className="text-sm text-muted-foreground">{phase.notes}</p>
-                </div>
-              )}
-              {!phase.courtDecisionRef && !phase.dueDate && !phase.notes && (
-                <p className="text-xs text-muted-foreground/60 italic">No details added yet.</p>
-              )}
-              <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] gap-1 ml-auto"
-                onClick={() => setEditing(true)}>
-                <Pencil className="h-3 w-3" /> Edit
-              </Button>
-            </div>
-          )}
-
-          {/* Required tasks checklist */}
-          {requirements && requirements.requiredTasks.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Required Tasks ({doneTasks}/{requirements.requiredTasks.length})
-                </p>
-                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] gap-1"
-                  onClick={handleGenerateTasks} disabled={genTasksLoading}>
-                  {genTasksLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
-                  Generate Tasks
-                </Button>
-              </div>
-              <div className="space-y-1">
-                {requirements.requiredTasks.map((taskTitle, i) => {
-                  const matchingTask = phaseTasks.find(t =>
-                    t.title.toLowerCase().includes(taskTitle.toLowerCase()) ||
-                    taskTitle.toLowerCase().includes(t.title.toLowerCase().split(" – ")[0])
-                  );
-                  const isDone = matchingTask?.status === "done";
-                  return (
-                    <div key={i} className="flex items-start gap-2">
-                      <div className={`mt-0.5 h-3.5 w-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${isDone ? "border-green-500 bg-green-500" : "border-border"}`}>
-                        {isDone && <Check className="h-2 w-2 text-white" />}
-                      </div>
-                      <span className={`text-xs ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                        {taskTitle}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Required document types */}
-          {requirements && requirements.requiredDocTypes.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Required Documents</p>
-              <div className="flex flex-wrap gap-1.5">
-                {requirements.requiredDocTypes.map(dt => (
-                  <Badge key={dt} variant="outline" className="text-[10px]">{dt}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -763,132 +430,583 @@ function CalendarTab({ caseId }: { caseId: string }) {
     </div>
   );
 }
-/* ── Templates Tab Component ─────────────────────────── */
-function TemplatesTab({ caseId }: { caseId: string }) {
-  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
-  const [generated, setGenerated] = useState<GeneratedDocResult[]>([]);
+
+function CaseAuditActivity({ caseId, caseNumber, locale }: { caseId: string; caseNumber: string; locale: "en" | "ro" | "hu" }) {
+  const [logs, setLogs] = useState<Array<import("@/services/api/types").AuditLogDto>>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState<string | null>(null);
-  const [generatingAll, setGeneratingAll] = useState(false);
+
+  const texts = {
+    en: {
+      title: "Case activity",
+      empty: "No related audit activity found.",
+    },
+    ro: {
+      title: "Activitate dosar",
+      empty: "Nu există activitate de audit aferentă dosarului.",
+    },
+    hu: {
+      title: "Ügy aktivitás",
+      empty: "Nincs kapcsolódó audit tevékenység.",
+    },
+  }[locale];
 
   useEffect(() => {
-    workflowApi.mailMerge.getTemplates()
-      .then(r => setTemplates(r.data))
+    let mounted = true;
+    const loadLogs = async () => {
+      setLoading(true);
+      try {
+        const [byEntity, byCaseNumber] = await Promise.all([
+          auditLogsApi.getAll({ entityId: caseId, pageSize: 100 }),
+          caseNumber ? auditLogsApi.getAll({ search: caseNumber, pageSize: 100 }) : Promise.resolve({ data: { items: [], total: 0, page: 0, pageSize: 100 } }),
+        ]);
+
+        if (!mounted) return;
+
+        const merged = new Map<string, import("@/services/api/types").AuditLogDto>();
+        for (const item of byEntity.data.items) merged.set(item.id, item);
+        for (const item of byCaseNumber.data.items) merged.set(item.id, item);
+
+        setLogs(Array.from(merged.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    void loadLogs();
+    return () => { mounted = false; };
+  }, [caseId, caseNumber]);
+
+  if (loading) return <div className="p-6 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>;
+
+  return (
+    <div className="rounded-xl border border-border bg-card divide-y divide-border">
+      <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{texts.title}</div>
+      {logs.length === 0 ? (
+        <p className="px-4 py-6 text-center text-sm text-muted-foreground">{texts.empty}</p>
+      ) : (
+        logs.map(log => (
+          <div key={log.id} className="px-4 py-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{log.action}</p>
+                <p className="text-[11px] text-muted-foreground truncate">{log.description || log.entityType || log.category}</p>
+              </div>
+              <Badge variant="outline" className="text-[10px] shrink-0">{log.severity}</Badge>
+            </div>
+            <div className="mt-1 text-[10px] text-muted-foreground">
+              {format(new Date(log.timestamp), "dd MMM yyyy HH:mm")} {log.userEmail ? `· ${log.userEmail}` : ""}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+/* ── Templates Tab Component ─────────────────────────── */
+function TemplatesTab({ caseId }: { caseId: string }) {
+  const [templates, setTemplates] = useState<import("@/services/api/documentTemplatesApi").DocumentTemplateDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  useEffect(() => {
+    documentTemplatesApi.getAll()
+      .then(r => setTemplates(
+        r.data.filter(t => t.isSystem && String(t.templateType) !== "CourtOpeningDecision")
+      ))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
-  const handleGenerate = async (templateType: string) => {
-    setGenerating(templateType);
+  const handleDownloadPdf = async (tpl: import("@/services/api/documentTemplatesApi").DocumentTemplateDto) => {
+    setDownloading(tpl.id);
     try {
-      const r = await workflowApi.mailMerge.generate(caseId, templateType);
-      setGenerated(prev => [r.data, ...prev.filter(g => g.templateType !== templateType)]);
-    } catch (err) { console.error(err); }
-    finally { setGenerating(null); }
-  };
-
-  const handleGenerateAll = async () => {
-    setGeneratingAll(true);
-    try {
-      const r = await workflowApi.mailMerge.generateAll(caseId);
-      setGenerated(r.data);
-    } catch (err) { console.error(err); }
-    finally { setGeneratingAll(false); }
-  };
-
-  const friendlyName = (type: string) => {
-    const labels: Record<string, string> = {
-      CourtOpeningDecision: "Court Opening Decision",
-      CreditorNotificationBpi: "Notificare Creditori (BPI)",
-      CreditorNotificationHtml: "Notificare Deschidere Procedură (PDF)",
-      ReportArt97: "Raport Art. 97 (40 zile)",
-      PreliminaryClaimsTable: "Tabel Preliminar de Creanțe",
-      CreditorsMeetingMinutes: "Proces-Verbal AGC",
-      DefinitiveClaimsTable: "Tabel Definitiv de Creanțe",
-      FinalReportArt167: "Raport Final Art. 167",
-    };
-    return labels[type] ?? type.replace(/([A-Z])/g, " $1").trim();
-  };
-
-  const getToken = () => localStorage.getItem("authToken");
-  const getTenantId = () => localStorage.getItem("selectedTenantId");
-
-  const downloadDoc = (key: string, fileName: string) => {
-    const token = getToken();
-    const tenantId = getTenantId();
-    fetch(`/api/mailmerge/download?key=${encodeURIComponent(key)}`, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(tenantId ? { "X-Tenant-Id": tenantId } : {}),
-      },
-    }).then(r => r.blob()).then(blob => {
+      const { blob, fileName } = await documentTemplatesApi.renderPdfBlob(tpl.id, { caseId });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
       a.click();
       URL.revokeObjectURL(url);
-    });
+    } catch (err) { console.error(err); }
+    finally { setDownloading(null); }
   };
 
-  if (loading) return <div className="p-6 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>;
+  const friendlyType = (type: string) => {
+    const map: Record<string, string> = {
+      CreditorNotificationBpi: "Notificare Creditori (BPI)",
+      CreditorNotificationHtml: "Notificare Deschidere Procedură",
+      ReportArt97: "Raport Art. 97 (40 zile)",
+      PreliminaryClaimsTable: "Tabel Preliminar de Creanțe",
+      CreditorsMeetingMinutes: "Proces-Verbal AGC",
+      DefinitiveClaimsTable: "Tabel Definitiv de Creanțe",
+      FinalReportArt167: "Raport Final Art. 167",
+    };
+    return map[type] ?? type.replace(/([A-Z])/g, " $1").trim();
+  };
+
+  if (loading) return (
+    <div className="p-6 text-center">
+      <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+    </div>
+  );
 
   return (
     <div className="space-y-3">
-      {/* Header with Generate All */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Mail Merge Templates (Templates-Ro)</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">Generate case documents from predefined Romanian insolvency templates</p>
-          </div>
-          <Button size="sm" className="gap-1.5 text-xs" onClick={handleGenerateAll} disabled={generatingAll}>
-            {generatingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileOutput className="h-3.5 w-3.5" />}
-            Generate All
-          </Button>
-        </div>
+        <h3 className="text-sm font-semibold text-foreground">Documente Insolvență</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Generează documentele dosarului din șabloanele HTML configurate. Fișierul PDF este descărcat direct.
+        </p>
       </div>
 
-      {/* Template list */}
       <div className="rounded-xl border border-border bg-card divide-y divide-border">
         {templates.length === 0 && (
-          <p className="px-4 py-6 text-center text-sm text-muted-foreground">No templates available. Add .doc files to Templates-Ro folder.</p>
+          <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+            Niciun șablon activ. Accesează <strong>Setări → Șabloane Documente</strong> pentru configurare.
+          </p>
         )}
         {templates.map(tpl => {
-          const result = generated.find(g => g.templateType === tpl.templateType);
-          const isGenerating = generating === tpl.templateType;
-          const hasTemplate = tpl.effectiveSource !== "missing";
-          const displayFile = tpl.tenantOverrideFileName ?? tpl.globalOverrideFileName ?? tpl.defaultFileName;
+          const isBusy = downloading === tpl.id;
           return (
-            <div key={tpl.templateType} className="flex items-center gap-3 px-4 py-3">
-              <FileText className={`h-4 w-4 shrink-0 ${hasTemplate ? "text-primary" : "text-muted-foreground/40"}`} />
+            <div key={tpl.id} className="flex items-center gap-3 px-4 py-3">
+              <FileText className={`h-4 w-4 shrink-0 ${tpl.hasContent ? "text-primary" : "text-muted-foreground/40"}`} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-foreground">{friendlyName(tpl.templateType)}</p>
-                  {tpl.templateType === "CreditorNotificationHtml" && (
-                    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                      HTML→PDF
+                  <p className="text-sm font-medium text-foreground">{tpl.name}</p>
+                  {tpl.category && (
+                    <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
+                      {tpl.category}
+                    </span>
+                  )}
+                  {!tpl.hasContent && (
+                    <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                      Fără conținut
                     </span>
                   )}
                 </div>
-                <p className="text-[10px] text-muted-foreground">{displayFile}{!hasTemplate && " — template not available"}</p>
+                <p className="text-[10px] text-muted-foreground">{friendlyType(tpl.templateType)}</p>
               </div>
-              {result && (
-                <Button variant="ghost" size="sm" className="text-xs gap-1 h-7 text-primary"
-                  onClick={() => downloadDoc(result.storageKey, result.fileName)}>
-                  <Download className="h-3 w-3" />
-                  {result.fileName}
-                </Button>
-              )}
-              <Button variant="outline" size="sm" className="text-xs gap-1 h-7 shrink-0"
-                onClick={() => handleGenerate(tpl.templateType)}
-                disabled={!hasTemplate || isGenerating}>
-                {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileOutput className="h-3 w-3" />}
-                {result ? "Re-generate" : "Generate"}
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs gap-1.5 h-7 shrink-0"
+                onClick={() => handleDownloadPdf(tpl)}
+                disabled={!tpl.hasContent || isBusy}
+              >
+                {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                {isBusy ? "Se generează..." : "Descarcă PDF"}
               </Button>
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Add Party Modal Component ─────────────────────────── */
+const PARTY_ROLES: { value: string; translationKey: keyof import("@/i18n/types").Translations["partyRoles"] }[] = [
+  { value: "Debtor", translationKey: "debtor" },
+  { value: "InsolvencyPractitioner", translationKey: "insolvencyPractitioner" },
+  { value: "SecuredCreditor", translationKey: "securedCreditor" },
+  { value: "UnsecuredCreditor", translationKey: "unsecuredCreditor" },
+  { value: "BudgetaryCreditor", translationKey: "budgetaryCreditor" },
+  { value: "EmployeeCreditor", translationKey: "employeeCreditor" },
+  { value: "JudgeSyndic", translationKey: "judgeSyndic" },
+  { value: "CourtExpert", translationKey: "courtExpert" },
+  { value: "CreditorsCommittee", translationKey: "creditorsCommittee" },
+  { value: "SpecialAdministrator", translationKey: "specialAdministrator" },
+  { value: "Guarantor", translationKey: "guarantor" },
+  { value: "ThirdParty", translationKey: "thirdParty" },
+];
+
+interface AddPartyModalProps {
+  caseId: string;
+  locale: "en" | "ro" | "hu";
+  onAdded: () => void;
+  onClose: () => void;
+}
+
+function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps) {
+  const [query, setQuery] = useState("");
+  const [companies, setCompanies] = useState<CompanyDto[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+  const [onrcResults, setOnrcResults] = useState<ONRCFirmResult[]>([]);
+  const [onrcLoading, setOnrcLoading] = useState(false);
+  const [onrcSearched, setOnrcSearched] = useState(false);
+  const [selected, setSelected] = useState<CompanyDto | null>(null);
+  const { t } = useTranslation();
+  const [role, setRole] = useState("UnsecuredCreditor");
+  const [roleDescription, setRoleDescription] = useState("");
+  const [claimAmount, setClaimAmount] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isCreditorRole = ["SecuredCreditor", "UnsecuredCreditor", "BudgetaryCreditor", "EmployeeCreditor"].includes(role);
+
+  const uiText = {
+    en: {
+      title: "Add Party to Case",
+      company: "Company",
+      role: "Role",
+      roleDescription: "Role Description",
+      optional: "optional",
+      claim: "Claim (RON)",
+      searchPlaceholder: "Search by name or CUI...",
+      noLocal: "No local company found. Click ONRC to search the national registry.",
+      noAny: "No company found locally or in ONRC.",
+      localCompanies: "Local companies",
+      onrcRegistry: "ONRC Registry",
+      noCui: "No CUI",
+      save: "Add Party",
+      saving: "Saving...",
+      cancel: "Cancel",
+      selectCompanyError: "Select a company.",
+      selectRoleError: "Select a role.",
+      addPartyError: "Error adding party.",
+      createFromOnrcError: "Error creating company from ONRC.",
+      rolePlaceholder: "e.g. Secured rank I creditor",
+      onrcTitle: "Search ONRC national registry",
+      onrcSkipped: "Exact match found locally — ONRC search skipped",
+    },
+    ro: {
+      title: "Adaugă Parte la Dosar",
+      company: "Companie",
+      role: "Rol",
+      roleDescription: "Descriere Rol",
+      optional: "opțional",
+      claim: "Creanță (RON)",
+      searchPlaceholder: "Caută după nume sau CUI...",
+      noLocal: "Nicio companie locală găsită. Apasă ONRC pentru a căuta în registrul național.",
+      noAny: "Nicio companie găsită nici local, nici în ONRC.",
+      localCompanies: "Companii locale",
+      onrcRegistry: "Registrul ONRC",
+      noCui: "Fără CUI",
+      save: "Adaugă Parte",
+      saving: "Se salvează...",
+      cancel: "Anulează",
+      selectCompanyError: "Selectează o companie.",
+      selectRoleError: "Selectează un rol.",
+      addPartyError: "Eroare la adăugarea părții.",
+      createFromOnrcError: "Eroare la crearea companiei din ONRC.",
+      rolePlaceholder: "ex: Creditor ipotecar rang I",
+      onrcTitle: "Caută în registrul național ONRC",
+      onrcSkipped: "Potrivire exactă găsită local — căutarea ONRC a fost omisă",
+    },
+    hu: {
+      title: "Fél hozzáadása az ügyhöz",
+      company: "Cég",
+      role: "Szerep",
+      roleDescription: "Szerep leírás",
+      optional: "opcionális",
+      claim: "Követelés (RON)",
+      searchPlaceholder: "Keresés név vagy CUI alapján...",
+      noLocal: "Nem található helyi cég. Kattints az ONRC-re az országos kereséshez.",
+      noAny: "Nem található cég sem helyben, sem az ONRC-ben.",
+      localCompanies: "Helyi cégek",
+      onrcRegistry: "ONRC nyilvántartás",
+      noCui: "Nincs CUI",
+      save: "Fél hozzáadása",
+      saving: "Mentés...",
+      cancel: "Mégse",
+      selectCompanyError: "Válassz céget.",
+      selectRoleError: "Válassz szerepet.",
+      addPartyError: "Hiba a fél hozzáadásakor.",
+      createFromOnrcError: "Hiba a cég ONRC-ből történő létrehozásakor.",
+      rolePlaceholder: "pl. 1. rangú biztosított hitelező",
+      onrcTitle: "Keresés az ONRC országos nyilvántartásban",
+      onrcSkipped: "Pontos egyezés helyben megtalálva — ONRC keresés kihagyva",
+    },
+  }[locale];
+
+  // Check if we have an exact match in local results (by CUI or exact name)
+  const hasExactMatch = companies.some(c => {
+    const q = query.trim().toLowerCase();
+    return (c.cuiRo && c.cuiRo.toLowerCase() === q) ||
+           c.name.toLowerCase() === q;
+  });
+
+  // Search local DB as user types (debounced)
+  useEffect(() => {
+    if (!query.trim() || query.trim().length < 2) {
+      setCompanies([]);
+      setOnrcResults([]);
+      setOnrcSearched(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setLoadingCompanies(true);
+      companiesApi.search(query.trim(), 10)
+        .then(r => setCompanies(r.data))
+        .catch(console.error)
+        .finally(() => setLoadingCompanies(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Search ONRC on button click
+  const searchOnrc = async () => {
+    if (query.trim().length < 2 || hasExactMatch) return;
+    setOnrcLoading(true);
+    try {
+      const r = await onrcApi.search(query.trim(), "Romania", 10);
+      setOnrcResults(r.data);
+      setOnrcSearched(true);
+    } catch (e) { console.error(e); }
+    finally { setOnrcLoading(false); }
+  };
+
+  const handleSubmit = async () => {
+    if (!selected) { setError(uiText.selectCompanyError); return; }
+    if (!role) { setError(uiText.selectRoleError); return; }
+    setSaving(true);
+    setError(null);
+    try {
+      await casesApi.addParty(caseId, {
+        companyId: selected.id,
+        role,
+        roleDescription: roleDescription || undefined,
+        claimAmountRon: claimAmount ? parseFloat(claimAmount) : undefined,
+      } as Parameters<typeof casesApi.addParty>[1]);
+      onAdded();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? uiText.addPartyError);
+    } finally { setSaving(false); }
+  };
+
+  // Select an ONRC result — create company locally first, then select it
+  const selectOnrc = async (firm: ONRCFirmResult) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const r = await companiesApi.create({
+        name: firm.name,
+        cuiRo: firm.cui,
+        tradeRegisterNo: firm.tradeRegisterNo ?? undefined,
+        address: firm.address ?? undefined,
+        locality: firm.locality ?? undefined,
+        county: firm.county ?? undefined,
+        postalCode: firm.postalCode ?? undefined,
+        caen: firm.caen ?? undefined,
+        phone: firm.phone ?? undefined,
+        incorporationYear: firm.incorporationYear ?? undefined,
+      } as Partial<CompanyDto>);
+      setSelected(r.data);
+      setQuery("");
+      setCompanies([]);
+      setOnrcResults([]);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? uiText.createFromOnrcError);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg rounded-xl border border-border bg-card shadow-xl p-5 mx-4"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" /> {uiText.title}
+          </h2>
+          <button onClick={onClose} className="rounded-md p-1 hover:bg-muted transition-colors">
+            <X className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {/* Company search */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{uiText.company}</label>
+            {selected ? (
+              <div className="mt-1 flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{selected.name}</p>
+                  {selected.cuiRo && <p className="text-[10px] text-muted-foreground">CUI: {selected.cuiRo}</p>}
+                </div>
+                <button onClick={() => { setSelected(null); setQuery(""); }} className="rounded p-0.5 hover:bg-muted">
+                  <X className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-1 space-y-2">
+                {/* Search input + ONRC button */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <div className="flex items-center rounded-md border border-border bg-background px-3 gap-2">
+                      <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <input
+                        value={query}
+                        onChange={e => { setQuery(e.target.value); setOnrcResults([]); setOnrcSearched(false); }}
+                        onKeyDown={e => e.key === "Enter" && (e.preventDefault(), searchOnrc())}
+                        placeholder={uiText.searchPlaceholder}
+                        className="flex-1 py-1.5 text-sm bg-transparent focus:outline-none"
+                        autoFocus
+                      />
+                      {loadingCompanies && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground shrink-0" />}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={searchOnrc}
+                    disabled={onrcLoading || query.trim().length < 2 || hasExactMatch}
+                    className="shrink-0 gap-1 text-xs h-auto"
+                    title={hasExactMatch ? uiText.onrcSkipped : uiText.onrcTitle}
+                  >
+                    {onrcLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                    ONRC
+                  </Button>
+                </div>
+
+                {/* Results dropdown */}
+                {(companies.length > 0 || onrcResults.length > 0) && (
+                  <div className="rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
+                    {/* Local results */}
+                    {companies.length > 0 && (
+                      <>
+                        <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 sticky top-0 z-10">
+                          {uiText.localCompanies}
+                        </p>
+                        {companies.map(c => (
+                          <button
+                            key={c.id}
+                            className="w-full text-left px-3 py-2 hover:bg-muted transition-colors flex items-start gap-2"
+                            onClick={() => { setSelected(c); setQuery(""); setCompanies([]); setOnrcResults([]); }}
+                          >
+                            <Building2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground">{c.name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {c.cuiRo ? `CUI: ${c.cuiRo}` : uiText.noCui}
+                                {c.caseNumbers && c.caseNumbers.length > 0 ? ` · ${c.caseNumbers.length} dosar(e)` : ""}
+                              </p>
+                            </div>
+                            <span className="ml-auto shrink-0 self-center text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                              local
+                            </span>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    {/* ONRC results */}
+                    {onrcResults.length > 0 && (
+                      <>
+                        <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 sticky top-0 z-10">
+                          {uiText.onrcRegistry}
+                        </p>
+                        {onrcResults.map(r => (
+                          <button
+                            key={r.id}
+                            className="w-full text-left px-3 py-2 hover:bg-muted transition-colors flex items-start gap-2"
+                            onClick={() => selectOnrc(r)}
+                          >
+                            <Building2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground">{r.name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                CUI: {r.cui}
+                                {r.locality ? ` · ${r.locality}` : ""}
+                                {r.county ? `, ${r.county}` : ""}
+                              </p>
+                            </div>
+                            <span className="ml-auto shrink-0 self-center text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                              ONRC
+                            </span>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* No results message */}
+                {query.trim().length >= 2 && !loadingCompanies && companies.length === 0 && !onrcSearched && (
+                  <p className="text-xs text-muted-foreground px-1">
+                    {uiText.noLocal}
+                  </p>
+                )}
+                {query.trim().length >= 2 && onrcSearched && companies.length === 0 && onrcResults.length === 0 && (
+                  <p className="text-xs text-muted-foreground px-1">
+                    {uiText.noAny}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Role */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{uiText.role}</label>
+            <select
+              value={role}
+              onChange={e => setRole(e.target.value)}
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              {PARTY_ROLES.map(r => (
+                <option key={r.value} value={r.value}>{t.partyRoles[r.translationKey]}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Role description */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {uiText.roleDescription} <span className="font-normal text-muted-foreground/60">({uiText.optional})</span>
+            </label>
+            <input
+              value={roleDescription}
+              onChange={e => setRoleDescription(e.target.value)}
+              placeholder={uiText.rolePlaceholder}
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+
+          {/* Claim amount — only for creditor roles */}
+          {isCreditorRole && (
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {uiText.claim} <span className="font-normal text-muted-foreground/60">({uiText.optional})</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={claimAmount}
+                onChange={e => setClaimAmount(e.target.value)}
+                placeholder="0.00"
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          )}
+
+          {error && <p className="text-xs text-destructive">{error}</p>}
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-1">
+            <Button
+              className="flex-1 gap-1.5 text-xs"
+              onClick={handleSubmit}
+              disabled={saving || !selected}
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              {saving ? uiText.saving : uiText.save}
+            </Button>
+            <Button variant="outline" className="text-xs" onClick={onClose} disabled={saving}>
+              {uiText.cancel}
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

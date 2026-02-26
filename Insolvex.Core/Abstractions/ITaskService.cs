@@ -17,7 +17,7 @@ public interface ITaskService
     Task DeleteAsync(Guid id, CancellationToken ct = default);
 
     // Case-scoped operations
-    Task<List<TaskDto>> GetByCaseAsync(Guid caseId, CaseStage? stage = null,
+    Task<List<TaskDto>> GetByCaseAsync(Guid caseId,
         Domain.Enums.TaskStatus? status = null, string? category = null, CancellationToken ct = default);
     Task<CaseTaskSummaryResult> GetCaseTaskSummaryAsync(Guid caseId, CancellationToken ct = default);
     Task<TaskDto> CreateForCaseAsync(Guid caseId, CreateTaskCommand command, CancellationToken ct = default);
@@ -58,8 +58,6 @@ public class CaseTaskSummaryResult
     public int Overdue { get; init; }
     public int Critical { get; init; }
     public List<CategoryCount> ByCategory { get; init; } = new();
-    public List<StageCount> ByStage { get; init; } = new();
 }
 
 public record CategoryCount(string Category, int Count);
-public record StageCount(string Stage, int Count);

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
-using Insolvex.API.Services;
+using Insolvex.Data.Services;
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.Configuration;
 using Insolvex.Domain.Entities;
@@ -18,7 +18,7 @@ public class CaseCreationServiceTests
   private static readonly Guid TestTenantId = Guid.NewGuid();
   private static readonly Guid TestUserId = Guid.NewGuid();
 
-  private static (CaseCreationService svc, Insolvex.API.Data.ApplicationDbContext db) CreateService()
+  private static (CaseCreationService svc, Insolvex.Data.ApplicationDbContext db) CreateService()
   {
     var db = TestDbFactory.Create();
     var deadlineEngine = new DeadlineEngine(db);
@@ -32,19 +32,23 @@ public class CaseCreationServiceTests
 
     // Create a real MailMergeService with mocked dependencies that won't crash
     var storage = new Mock<IFileStorageService>();
+    var mergeEngine = new Mock<MergeEngine>(
+        MockBehavior.Loose, db, Mock.Of<ILogger<MergeEngine>>());
     var templateGen = new Mock<TemplateGenerationService>(
-MockBehavior.Loose, db, storage.Object, Mock.Of<ILogger<TemplateGenerationService>>());
+MockBehavior.Loose, db, storage.Object, Mock.Of<ILogger<TemplateGenerationService>>(), mergeEngine.Object);
+    var htmlPdf = new Mock<HtmlPdfService>(
+        MockBehavior.Loose, storage.Object, Mock.Of<ILogger<HtmlPdfService>>());
     var mailMergeOptions = Options.Create(new MailMergeOptions { TemplatesPath = "Templates-Ro" });
     var env = new Mock<IWebHostEnvironment>();
     env.Setup(e => e.ContentRootPath).Returns(Path.GetTempPath());
 
     var mailMerge = new MailMergeService(
-              db, storage.Object, templateGen.Object, mailMergeOptions,
-    env.Object, Mock.Of<ILogger<MailMergeService>>());
+              db, storage.Object, templateGen.Object, htmlPdf.Object,
+              mailMergeOptions, env.Object, Mock.Of<ILogger<MailMergeService>>());
 
     var svc = new CaseCreationService(
         db, currentUser.Object, audit.Object, deadlineEngine,
-      mailMerge, Mock.Of<ILogger<CaseCreationService>>());
+        mailMerge, Mock.Of<IONRCFirmService>(), Mock.Of<ILogger<CaseCreationService>>());
 
     return (svc, db);
   }
@@ -96,7 +100,7 @@ MockBehavior.Loose, db, storage.Object, Mock.Of<ILogger<TemplateGenerationServic
     result.CaseId.Should().NotBeEmpty();
     result.CaseNumber.Should().Be("1234/85/2025");
     result.NoticeDate.Should().Be(new DateTime(2025, 3, 1));
-    result.Stage.Should().Be(CaseStage.Intake);
+    result.Status.Should().Be("Active");
 
     // Case in DB
     var caseEntity = db.InsolvencyCases.First(c => c.Id == result.CaseId);
@@ -131,9 +135,12 @@ MockBehavior.Loose, db, storage.Object, Mock.Of<ILogger<TemplateGenerationServic
 
     var companies = db.Companies.ToList();
     companies.Should().HaveCount(3);
-    companies.Should().Contain(c => c.CompanyType == CompanyType.Debtor);
-    companies.Should().Contain(c => c.CompanyType == CompanyType.Creditor);
-    companies.Should().Contain(c => c.CompanyType == CompanyType.InsolvencyPractitioner);
+
+    // CompanyType was removed — verify parties carry the correct roles instead
+    var parties = db.CaseParties.Where(p => p.CaseId == result.CaseId).ToList();
+    parties.Should().Contain(p => p.Role == CasePartyRole.Debtor);
+    parties.Should().Contain(p => p.Role == CasePartyRole.SecuredCreditor);
+    parties.Should().Contain(p => p.Role == CasePartyRole.InsolvencyPractitioner);
   }
 
   [Fact]
@@ -170,37 +177,6 @@ MockBehavior.Loose, db, storage.Object, Mock.Of<ILogger<TemplateGenerationServic
     db.Companies.Count().Should().Be(1);
     var party = db.CaseParties.First(p => p.CaseId == result.CaseId);
     party.CompanyId.Should().Be(existingId);
-  }
-
-  // ?? Phases ??????????????????????????????????????????????
-
-  [Theory]
-  [InlineData("FalimentSimplificat", 10)]
-  [InlineData("Reorganizare", 13)]
-  [InlineData("ConcordatPreventiv", 7)]
-  public async Task CreateFromUpload_InitializesCorrectPhaseCount(string procType, int expectedPhases)
-  {
-    var (svc, db) = CreateService();
-    var upload = CreateTestUpload();
-    upload.DetectedProcedureType = Enum.Parse<ProcedureType>(procType);
-    db.Set<PendingUpload>().Add(upload);
-    await db.SaveChangesAsync();
-
-    var request = new CaseCreationRequest
-    {
-      ProcedureType = procType,
-      Parties = new() { new() { Role = "Debtor", Name = "X", FiscalId = "RO1" } },
-    };
-
-    var result = await svc.CreateFromUploadAsync(upload, request);
-
-    result.PhasesCreated.Should().Be(expectedPhases);
-
-    var phases = db.CasePhases.Where(p => p.CaseId == result.CaseId).OrderBy(p => p.SortOrder).ToList();
-    phases.Should().HaveCount(expectedPhases);
-    phases.First().Status.Should().Be(PhaseStatus.Completed);
-    phases.Skip(1).First().Status.Should().Be(PhaseStatus.InProgress);
-    phases.Skip(2).Should().OnlyContain(p => p.Status == PhaseStatus.NotStarted);
   }
 
   // ?? Tasks ???????????????????????????????????????????????
@@ -292,26 +268,4 @@ e.Subject.Should().Contain("Insolvex");
     caseEntity.KeyDeadlinesJson.Should().NotBeNullOrWhiteSpace();
   }
 
-  // ?? Phase mapping ???????????????????????????????????????
-
-  [Fact]
-  public void GetPhasesForProcedure_Faliment_StartsWithOpeningRequest()
-  {
-    var phases = CaseCreationService.GetPhasesForProcedure(ProcedureType.Faliment);
-
-    phases.First().Should().Be(PhaseType.OpeningRequest);
-    phases.Last().Should().Be(PhaseType.ProcedureClosure);
-    phases.Should().Contain(PhaseType.ProcedureClosure);
-  }
-
-  [Fact]
-  public void GetPhasesForProcedure_Reorganizare_IncludesReorgPhases()
-  {
-    var phases = CaseCreationService.GetPhasesForProcedure(ProcedureType.Reorganizare);
-
-    phases.Should().Contain(PhaseType.ReorganizationPlanProposal);
-    phases.Should().Contain(PhaseType.ReorganizationPlanVoting);
-    phases.Should().Contain(PhaseType.ReorganizationExecution);
-    phases.Should().NotContain(PhaseType.AssetLiquidation);
-  }
 }

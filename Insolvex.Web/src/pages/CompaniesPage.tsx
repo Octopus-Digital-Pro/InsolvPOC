@@ -41,7 +41,9 @@ export default function CompaniesPage() {
     const q = search.toLowerCase();
     return c.name.toLowerCase().includes(q) ||
       (c.cuiRo ?? "").toLowerCase().includes(q) ||
-      (c.county ?? "").toLowerCase().includes(q);
+      (c.email ?? "").toLowerCase().includes(q) ||
+      (c.county ?? "").toLowerCase().includes(q) ||
+      (c.caseNumbers ?? []).some(cn => cn.toLowerCase().includes(q));
   });
 
   const typeCounts = companies.reduce<Record<string, number>>((acc, c) => {
@@ -107,7 +109,7 @@ export default function CompaniesPage() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
-          placeholder={t.companies.searchPlaceholder}
+          placeholder="Search by name, email, CUI, county, or case number…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -134,10 +136,18 @@ export default function CompaniesPage() {
                 </Badge>
               </div>
               {c.cuiRo && <p className="mt-0.5 text-xs text-muted-foreground">{t.companies.cuiRo}: {c.cuiRo}</p>}
-              {c.address && <p className="text-xs text-muted-foreground truncate">{c.address}</p>}
+              {c.email && <p className="text-xs text-muted-foreground truncate">{c.email}</p>}
+              {!c.email && c.address && <p className="text-xs text-muted-foreground truncate">{c.address}</p>}
               <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                 <span>{c.caseCount} {t.companies.casesCount}</span>
-                {c.assignedToName && <span className="truncate ml-2">{c.assignedToName}</span>}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {c.caseNumbers && c.caseNumbers.length > 0 && (
+                    <span className="truncate text-[10px] font-mono text-primary/70">
+                      {c.caseNumbers.slice(0, 2).join(", ")}{c.caseNumbers.length > 2 ? ` +${c.caseNumbers.length - 2}` : ""}
+                    </span>
+                  )}
+                  {c.assignedToName && <span className="truncate ml-1">{c.assignedToName}</span>}
+                </div>
               </div>
             </div>
           ))

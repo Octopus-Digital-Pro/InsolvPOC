@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { casesApi, companiesApi } from "@/services/api";
 import { tribunalsApi } from "@/services/api/authorities";
@@ -120,89 +120,227 @@ function TribunalCombobox({ tribunals, value, section, onChange }: TribunalCombo
   );
 }
 
-// ── ONRC Debtor Search ───────────────────────────────────────────────────────
+// ── Debtor Selector ──────────────────────────────────────────────────────────
 
-function ONRCDebtorSearch({ onSelect }: { onSelect: (name: string, cui: string) => void }) {
+interface SelectedDebtor {
+  name: string;
+  cui: string;
+  source: "existing" | "onrc";
+  companyId?: string;
+}
+
+function DebtorSelector({
+  companies,
+  onSelect,
+}: {
+  companies: CompanyDto[];
+  onSelect: (name: string, cui: string, companyId?: string) => void;
+}) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<ONRCFirmResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [localResults, setLocalResults] = useState<CompanyDto[]>([]);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [onrcResults, setOnrcResults] = useState<ONRCFirmResult[]>([]);
+  const [onrcLoading, setOnrcLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selected, setSelected] = useState<SelectedDebtor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Check for exact match locally — skip ONRC if found
+  const hasExactMatch = localResults.some(c => {
+    const q = query.trim().toLowerCase();
+    return (c.cuiRo && c.cuiRo.toLowerCase() === q) || c.name.toLowerCase() === q;
+  });
+
+  // Also search inline from already-loaded companies for instant results
+  const inlineMatched = query.trim().length >= 2
+    ? companies.filter(c =>
+        c.name.toLowerCase().includes(query.toLowerCase()) ||
+        (c.cuiRo ?? "").toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
+  // Merge inline + backend search results, deduplicate by id
+  const matchedCompanies = (() => {
+    const seen = new Set<string>();
+    const merged: CompanyDto[] = [];
+    for (const c of [...inlineMatched, ...localResults]) {
+      if (!seen.has(c.id)) { seen.add(c.id); merged.push(c); }
+    }
+    return merged.slice(0, 10);
+  })();
+
+  // Search backend as user types (debounced)
+  useEffect(() => {
+    if (query.trim().length < 2) { setLocalResults([]); return; }
+    const timer = setTimeout(() => {
+      setLocalLoading(true);
+      companiesApi.search(query.trim(), 10)
+        .then(r => setLocalResults(r.data))
+        .catch(console.error)
+        .finally(() => setLocalLoading(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!containerRef.current?.contains(e.target as Node)) setShowDropdown(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const doSearch = useCallback((q: string) => {
-    if (q.trim().length < 2) { setResults([]); setOpen(false); return; }
-    setLoading(true);
-    onrcApi.search(q, "Romania", 8)
-      .then(r => { setResults(r.data); setOpen(r.data.length > 0); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const q = e.target.value;
-    setQuery(q);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => doSearch(q), 380);
+  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+    setOnrcResults([]);
+    setShowDropdown(true);
   };
 
-  const select = (r: ONRCFirmResult) => {
-    onSelect(r.name, r.cui);
-    setQuery("");
-    setResults([]);
-    setOpen(false);
+  const searchOnrc = async () => {
+    if (query.trim().length < 2 || hasExactMatch) return;
+    setOnrcLoading(true);
+    try {
+      const r = await onrcApi.search(query.trim(), "Romania", 10);
+      setOnrcResults(r.data);
+      setShowDropdown(true);
+    } catch (e) { console.error(e); }
+    finally { setOnrcLoading(false); }
   };
+
+  const selectExisting = (c: CompanyDto) => {
+    const sel: SelectedDebtor = { name: c.name, cui: c.cuiRo ?? "", source: "existing", companyId: c.id };
+    setSelected(sel);
+    onSelect(c.name, c.cuiRo ?? "", c.id);
+    setQuery(""); setOnrcResults([]); setLocalResults([]); setShowDropdown(false);
+  };
+
+  const selectOnrc = (r: ONRCFirmResult) => {
+    const sel: SelectedDebtor = { name: r.name, cui: r.cui, source: "onrc" };
+    setSelected(sel);
+    onSelect(r.name, r.cui, undefined);
+    setQuery(""); setOnrcResults([]); setLocalResults([]); setShowDropdown(false);
+  };
+
+  const clear = () => {
+    setSelected(null);
+    setQuery(""); setOnrcResults([]); setLocalResults([]); setShowDropdown(false);
+    onSelect("", "", undefined);
+  };
+
+  if (selected) {
+    return (
+      <div className="flex items-center gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-800 px-3 py-2.5">
+        <Building2 className="h-4 w-4 text-emerald-600 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">{selected.name}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {selected.cui ? `CUI: ${selected.cui} · ` : ""}
+            {selected.source === "existing" ? "Linked to existing company record" : "New company will be created from ONRC"}
+          </p>
+        </div>
+        <button type="button" onClick={clear} className="shrink-0 text-muted-foreground hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  const hasOnrcResults = onrcResults.length > 0;
+  const hasExisting = matchedCompanies.length > 0;
+  const showPanel = showDropdown && query.trim().length >= 2;
 
   return (
-    <div ref={containerRef} className="relative">
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        {loading
-          ? <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-          : query && (
-            <button type="button" onClick={() => { setQuery(""); setResults([]); setOpen(false); }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        <input
-          value={query}
-          onChange={handleChange}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="Search national registry by name or CUI…"
-          className="w-full rounded-md border border-dashed border-primary/50 bg-primary/5 pl-8 pr-8 py-2 text-sm placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring focus:border-solid"
-        />
+    <div ref={containerRef} className="space-y-2">
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            value={query}
+            onChange={handleQueryChange}
+            onFocus={() => query.trim().length >= 2 && setShowDropdown(true)}
+            onKeyDown={e => e.key === "Enter" && (e.preventDefault(), searchOnrc())}
+            placeholder="Type debtor name or CUI…"
+            className="w-full rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={searchOnrc}
+          disabled={onrcLoading || query.trim().length < 2 || hasExactMatch}
+          className="shrink-0 gap-1.5 text-xs"
+          title={hasExactMatch ? "Exact match found locally — ONRC search skipped" : "Search ONRC national registry"}
+        >
+          {onrcLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+          ONRC
+        </Button>
       </div>
 
-      {open && results.length > 0 && (
-        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-border bg-popover shadow-lg">
-          {results.map(r => (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => select(r)}
-              className="w-full text-left px-3 py-2.5 hover:bg-accent flex items-start gap-2.5 border-b border-border/40 last:border-0"
-            >
-              <Building2 className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{r.name}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  CUI: {r.cui}
-                  {r.locality ? ` · ${r.locality}` : ""}
-                  {r.county ? `, ${r.county}` : ""}
-                  {r.tradeRegisterNo ? ` · ${r.tradeRegisterNo}` : ""}
-                </p>
-              </div>
-            </button>
-          ))}
+      {showPanel && (
+        <div className="rounded-lg border border-border bg-popover shadow-md overflow-hidden">
+          {hasExisting && (
+            <>
+              <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 sticky top-0">
+                Existing companies
+              </p>
+              {matchedCompanies.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => selectExisting(c)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-accent flex items-start gap-2.5 border-b border-border/30 last:border-0 transition-colors"
+                >
+                  <Building2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{c.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {c.cuiRo ? `CUI: ${c.cuiRo}` : "No CUI on record"}
+                      {c.caseNumbers && c.caseNumbers.length > 0 ? ` · ${c.caseNumbers.length} case(s)` : ""}
+                    </p>
+                  </div>
+                  <span className="ml-auto shrink-0 self-center text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+                    existing
+                  </span>
+                </button>
+              ))}
+            </>
+          )}
+          {hasOnrcResults && (
+            <>
+              <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 sticky top-0">
+                ONRC Registry
+              </p>
+              {onrcResults.map(r => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => selectOnrc(r)}
+                  className="w-full text-left px-3 py-2.5 hover:bg-accent flex items-start gap-2.5 border-b border-border/30 last:border-0 transition-colors"
+                >
+                  <Building2 className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{r.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      CUI: {r.cui}
+                      {r.locality ? ` · ${r.locality}` : ""}
+                      {r.county ? `, ${r.county}` : ""}
+                      {r.tradeRegisterNo ? ` · ${r.tradeRegisterNo}` : ""}
+                    </p>
+                  </div>
+                  {r.status && (
+                    <span className={`ml-auto shrink-0 self-center text-[10px] px-1.5 py-0.5 rounded ${r.status.toUpperCase() === "ACTIV" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                      {r.status}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </>
+          )}
+          {!hasExisting && !hasOnrcResults && (
+            <p className="px-3 py-3 text-sm text-muted-foreground">
+              No existing companies match. Click <strong>Search ONRC</strong> to query the national registry.
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -317,18 +455,27 @@ export default function NewCasePage() {
           </div>
         </div>
 
-        {/* Debtor — ONRC lookup */}
+        {/* Debtor — search existing companies or ONRC */}
         <div className="rounded-xl border border-border bg-card p-5 space-y-4">
           <h2 className="text-sm font-semibold text-foreground">Debtor</h2>
           <div>
             <label className={labelCls}>
               <span className="flex items-center gap-1.5">
                 <Building2 className="h-3 w-3" />
-                ONRC Lookup
-                <span className="normal-case font-normal text-muted-foreground/70">— search national registry to auto-fill</span>
+                Search Debtor
+                <span className="normal-case font-normal text-muted-foreground/70">
+                  — matches existing companies instantly, or click Search ONRC
+                </span>
               </span>
             </label>
-            <ONRCDebtorSearch onSelect={(name, cui) => { setDebtorName(name); setDebtorCui(cui); }} />
+            <DebtorSelector
+              companies={companies}
+              onSelect={(name, cui, cid) => {
+                setDebtorName(name);
+                setDebtorCui(cui);
+                setCompanyId(cid ?? "");
+              }}
+            />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -339,20 +486,6 @@ export default function NewCasePage() {
               <label className={labelCls}>Debtor CUI</label>
               <input value={debtorCui} onChange={e => setDebtorCui(e.target.value)} className={inputCls} placeholder="e.g. RO12345678" />
             </div>
-          </div>
-        </div>
-
-        {/* Attachment */}
-        <div className="rounded-xl border border-border bg-card p-5 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Attachment</h2>
-          <div>
-            <label className={labelCls}>Attach to Company</label>
-            <select value={companyId} onChange={e => setCompanyId(e.target.value)} className={inputCls}>
-              <option value="">— None (create standalone) —</option>
-              {companies.map(c => (
-                <option key={c.id} value={c.id}>{c.name}{c.cuiRo ? ` (${c.cuiRo})` : ""}</option>
-              ))}
-            </select>
           </div>
         </div>
 

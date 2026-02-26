@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 using Insolvex.API.Authorization;
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.DTOs;
@@ -107,6 +108,18 @@ public class SettingsController : ControllerBase
   {
     await _errors.ResolveAsync(id, ct);
     return Ok(new { message = "Marked as resolved" });
+  }
+
+  [HttpPost("errors/client")]
+  public async Task<IActionResult> LogClientError([FromBody] CreateClientErrorLogRequest request, CancellationToken ct)
+  {
+    if (string.IsNullOrWhiteSpace(request.Message))
+      return BadRequest(new { message = "Message is required" });
+
+    var userId = User?.FindFirstValue(ClaimTypes.NameIdentifier);
+    var userEmail = User?.FindFirstValue(ClaimTypes.Email);
+    await _errors.CreateClientErrorAsync(request, userId, userEmail, ct);
+    return Ok(new { message = "Client error logged" });
   }
 
   // ── Users (admin read) ─────────────────────────────────────────────────

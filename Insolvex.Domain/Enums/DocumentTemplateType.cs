@@ -32,4 +32,7 @@ public enum DocumentTemplateType
     /// Template file: notificare_deschidere_procedura_template.html
     /// </summary>
     CreditorNotificationHtml,
+
+    /// <summary>User-created custom template (not tied to a mandatory procedure step).</summary>
+    Custom = 99,
 }

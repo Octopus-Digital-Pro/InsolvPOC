@@ -18,9 +18,18 @@ public record CaseEventDto(
     string? KeyDatesJson,
     string? DocumentSummary,
     string? ExtractedActionsJson,
-    string? PhaseType,
     string Severity,
     string? MetadataJson
+);
+
+/// <summary>
+/// Paginated page of case timeline events.
+/// </summary>
+public record CaseEventsPageDto(
+    List<CaseEventDto> Items,
+    int TotalCount,
+    int Page,
+    int PageSize
 );
 
 /// <summary>
@@ -51,7 +60,6 @@ public class RecordCaseEventRequest
     public string? DocumentSummary { get; set; }
     public object? ExtractedActions { get; set; }
 
-    public string? PhaseType { get; set; }
     public string Severity { get; set; } = "Info";
 
     /// <summary>Arbitrary structured payload for AI ingestion.</summary>

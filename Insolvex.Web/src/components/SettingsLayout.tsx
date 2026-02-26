@@ -4,7 +4,7 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import {
   ArrowLeft, Building2, Users, KeyRound,
   Mail, AlertCircle, ShieldCheck, Gavel, Receipt, MapPin,
-  RotateCcw, Database, Clock, FileText, Brain,
+  RotateCcw, Database, Clock, FileText, Brain, Layers,
 } from "lucide-react";
 
 interface SettingsNavItemProps {
@@ -67,6 +67,7 @@ const { isGlobalAdmin } = useAuth();
     <SettingsNavItem to="/settings/localgov" icon={MapPin} label={t.authorities?.localGov ?? "Local Gov"} />
         <SettingsNavItem to="/settings/deadlines" icon={Clock} label={t.tasks?.deadline ?? "Deadlines"} />
           <SettingsNavItem to="/settings/templates" icon={FileText} label="Document Templates" />
+          <SettingsNavItem to="/settings/workflow-stages" icon={Layers} label="Etape procedură" />
           {/* System */}
      <div className="mb-1 px-3 pt-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
     {t.nav.admin}

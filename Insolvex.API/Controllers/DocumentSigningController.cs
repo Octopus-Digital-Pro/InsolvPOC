@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Insolvex.API.Authorization;
 using Insolvex.Core.Abstractions;
+using Insolvex.Core.DTOs;
 using Insolvex.Domain;
 using Insolvex.Domain.Enums;
 using System.Security.Cryptography.X509Certificates;
@@ -19,6 +20,18 @@ public class DocumentSigningController : ControllerBase
   public DocumentSigningController(ISigningKeyService signingKeys) => _signingKeys = signingKeys;
 
   // ── Key Management ────────────────────────────────────────────────────────
+
+    [HttpGet("preferences")]
+    [RequirePermission(Permission.DocumentSign)]
+    public async Task<ActionResult<SigningPreferenceDto>> GetMyPreferences(CancellationToken ct = default)
+      => Ok(await _signingKeys.GetMyPreferenceAsync(ct));
+
+    [HttpPut("preferences")]
+    [RequirePermission(Permission.DocumentSign)]
+    public async Task<ActionResult<SigningPreferenceDto>> UpdateMyPreferences(
+      [FromBody] UpdateSigningPreferenceRequest request,
+      CancellationToken ct = default)
+      => Ok(await _signingKeys.UpdateMyPreferenceAsync(request.UseSavedSigningKey, ct));
 
   /// <summary>Upload a PFX/PKCS#12 signing key for the current user.</summary>
   [HttpPost("keys/upload")]

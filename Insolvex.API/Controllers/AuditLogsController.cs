@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text;
 using Insolvex.API.Authorization;
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.DTOs;
@@ -20,8 +21,40 @@ public class AuditLogsController : ControllerBase
   [HttpGet]
   public async Task<IActionResult> GetAll([FromQuery] AuditLogFilter filter, CancellationToken ct)
   {
-    var (items, _) = await _logs.GetAllAsync(filter, ct);
-    return Ok(items);
+    var (items, total) = await _logs.GetAllAsync(filter, ct);
+    return Ok(new { items, total, page = filter.Page, pageSize = filter.PageSize });
+  }
+
+  [HttpGet("export")]
+  public async Task<IActionResult> Export([FromQuery] AuditLogFilter filter, CancellationToken ct)
+  {
+    var items = await _logs.GetForExportAsync(filter with { Page = 0, PageSize = 50_000 }, ct);
+
+    var csv = new StringBuilder();
+    csv.AppendLine("Timestamp,Severity,Category,Action,UserEmail,EntityType,EntityId,RequestMethod,RequestPath,ResponseStatusCode,DurationMs,Description");
+
+    foreach (var log in items)
+    {
+      csv.AppendLine(string.Join(",", new[]
+      {
+        CsvEscape(log.Timestamp.ToString("o")),
+        CsvEscape(log.Severity),
+        CsvEscape(log.Category),
+        CsvEscape(log.Action),
+        CsvEscape(log.UserEmail),
+        CsvEscape(log.EntityType),
+        CsvEscape(log.EntityId?.ToString()),
+        CsvEscape(log.RequestMethod),
+        CsvEscape(log.RequestPath),
+        CsvEscape(log.ResponseStatusCode?.ToString()),
+        CsvEscape(log.DurationMs?.ToString()),
+        CsvEscape(log.Description),
+      }));
+    }
+
+    var bytes = Encoding.UTF8.GetBytes(csv.ToString());
+    var fileName = $"audit-logs-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
+    return File(bytes, "text/csv", fileName);
   }
 
   [HttpGet("count")]
@@ -35,4 +68,10 @@ public class AuditLogsController : ControllerBase
   [HttpGet("stats")]
   public async Task<IActionResult> GetStats([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
       => Ok(await _logs.GetStatsAsync(from, to, ct));
+
+  private static string CsvEscape(string? value)
+  {
+    if (string.IsNullOrEmpty(value)) return string.Empty;
+    return $"\"{value.Replace("\"", "\"\"") }\"";
+  }
 }

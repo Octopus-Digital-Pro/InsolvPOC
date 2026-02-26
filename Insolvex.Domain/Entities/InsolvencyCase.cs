@@ -14,9 +14,10 @@ public class InsolvencyCase : TenantScopedEntity
     public string DebtorName { get; set; } = string.Empty;
     public string? DebtorCui { get; set; }
 
-    // ?? Procedure ??
+    // ── Procedure ──
     public ProcedureType ProcedureType { get; set; } = ProcedureType.Other;
-    public CaseStage Stage { get; set; } = CaseStage.Intake;
+    /// <summary>Active, Suspended, Closed, Cancelled</summary>
+    public string Status { get; set; } = "Active";
     public string? LawReference { get; set; }
 
     // ?? Practitioner info (denormalized) ??
@@ -36,11 +37,9 @@ public class InsolvencyCase : TenantScopedEntity
     public DateTime? ReorganizationPlanDeadline { get; set; }
     public DateTime? ClosureDate { get; set; }
 
-    // ?? Stage tracking ??
-    /// <summary>When the current stage was entered.</summary>
-    public DateTime? StageEnteredAt { get; set; }
-    /// <summary>When the current stage was completed (before advancing).</summary>
-    public DateTime? StageCompletedAt { get; set; }
+    // ── Stage tracking ──
+    /// <summary>When the status was last changed.</summary>
+    public DateTime? StatusChangedAt { get; set; }
 
     // ?? Structured key deadlines (JSON) ??
     /// <summary>JSON object with typed deadline keys: claimDeadline, objectionDeadline, meetingDate, reportDates, etc.</summary>
@@ -100,7 +99,6 @@ public class InsolvencyCase : TenantScopedEntity
     // Navigation
     public ICollection<InsolvencyDocument> Documents { get; set; } = new List<InsolvencyDocument>();
     public ICollection<CaseParty> Parties { get; set; } = new List<CaseParty>();
-    public ICollection<CasePhase> Phases { get; set; } = new List<CasePhase>();
     public ICollection<CalendarEvent> CalendarEvents { get; set; } = new List<CalendarEvent>();
     public ICollection<CaseSummary> Summaries { get; set; } = new List<CaseSummary>();
     public ICollection<CompanyTask> Tasks { get; set; } = new List<CompanyTask>();
@@ -108,4 +106,7 @@ public class InsolvencyCase : TenantScopedEntity
     public ICollection<GeneratedLetter> GeneratedLetters { get; set; } = new List<GeneratedLetter>();
     public ICollection<CaseDeadlineOverride> DeadlineOverrides { get; set; } = new List<CaseDeadlineOverride>();
     public ICollection<CaseEvent> Events { get; set; } = new List<CaseEvent>();
+    public ICollection<CreditorClaim> Claims { get; set; } = new List<CreditorClaim>();
+    public ICollection<Asset> Assets { get; set; } = new List<Asset>();
+    public ICollection<CaseWorkflowStage> WorkflowStages { get; set; } = new List<CaseWorkflowStage>();
 }

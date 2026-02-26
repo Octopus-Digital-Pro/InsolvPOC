@@ -19,18 +19,13 @@ public interface ICaseEventService
     Task<CaseEventDto> RecordDocumentUploadedAsync(Guid caseId, Guid documentId,
         string fileName, string docType, string? aiSummary,
         object? extractedParties, object? extractedDates, object? extractedActions,
-        string? phaseType, CancellationToken ct = default);
+        CancellationToken ct = default);
 
     /// <summary>Convenience: record a task status-change event.</summary>
     Task<CaseEventDto> RecordTaskEventAsync(Guid caseId, Guid taskId,
         string eventType, string taskTitle, string? description,
-        object? involvedParties, DateTime? deadline, string? phaseType,
+        object? involvedParties, DateTime? deadline,
         CancellationToken ct = default);
-
-    /// <summary>Convenience: record a phase transition event.</summary>
-    Task<CaseEventDto> RecordPhaseEventAsync(Guid caseId,
-        string eventType, string completedPhase, string? nextPhase,
-        string? description, CancellationToken ct = default);
 
     /// <summary>Convenience: record a missed-deadline event.</summary>
     Task<CaseEventDto> RecordDeadlineEventAsync(Guid caseId,
@@ -40,8 +35,8 @@ public interface ICaseEventService
 
     // ── Querying ───────────────────────────────────────────────────────────
 
-    /// <summary>Get all events for a case, newest first.</summary>
-    Task<List<CaseEventDto>> GetByCaseAsync(Guid caseId, int page = 1, int pageSize = 50,
+    /// <summary>Get a paginated page of events for a case, newest first.</summary>
+    Task<CaseEventsPageDto> GetByCaseAsync(Guid caseId, int page = 1, int pageSize = 50,
         string? category = null, CancellationToken ct = default);
 
     /// <summary>

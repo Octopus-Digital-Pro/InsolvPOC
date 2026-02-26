@@ -13,7 +13,16 @@ export interface WindowsCertInfo {
   subjectKeyId: string;
 }
 
+export interface SigningPreferenceDto {
+  useSavedSigningKey: boolean;
+}
+
 export const signingApi = {
+  // User preferences
+  getPreferences: () => client.get<SigningPreferenceDto>("/signing/preferences"),
+  updatePreferences: (useSavedSigningKey: boolean) =>
+    client.put<SigningPreferenceDto>("/signing/preferences", { useSavedSigningKey }),
+
   // Key management
   getKeyStatus: () => client.get("/signing/keys/status"),
   getMyKeys: () => client.get("/signing/keys"),

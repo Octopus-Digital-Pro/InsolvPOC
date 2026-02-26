@@ -57,6 +57,7 @@ export interface Translations {
     cases: string;
     companies: string;
     tasks: string;
+    reports: string;
     auditTrail: string;
     settings: string;
     admin: string;
@@ -121,7 +122,7 @@ export interface Translations {
     debtorName: string;
     debtorCui: string;
     procedureType: string;
-    stage: string;
+    status: string;
     lawReference: string;
     practitioner: string;
     practitionerRole: string;
@@ -150,46 +151,12 @@ export interface Translations {
     adHocMandate: string;
   };
 
-  // Stages
-  stages: {
-    opened: string;
-    claimsWindow: string;
-    preliminaryTable: string;
-    definitiveTable: string;
-    liquidation: string;
-    closed: string;
-    unknown: string;
-  };
-
-  // Workflow phases
-  phases: {
-    title: string;
-    openingRequest: string;
-    observationPeriod: string;
-    creditorNotification: string;
-    claimsFiling: string;
-    preliminaryClaimsTable: string;
-    claimsContestations: string;
-    definitiveClaimsTable: string;
-    causesReport: string;
-    reorganizationPlanProposal: string;
-    reorganizationPlanVoting: string;
-    reorganizationPlanConfirmation: string;
-    reorganizationExecution: string;
-    bankruptcyConversion: string;
-    assetLiquidation: string;
-    creditorDistribution: string;
-    finalReport: string;
-    procedureClosure: string;
-  };
-
-  // Phase statuses
-  phaseStatus: {
-    notStarted: string;
-    inProgress: string;
-    completed: string;
-    skipped: string;
-    blocked: string;
+  // Statuses
+  statuses: {
+    Active: string;
+    Suspended: string;
+    Closed: string;
+    Cancelled: string;
   };
 
   // Party roles
@@ -281,6 +248,8 @@ export interface Translations {
     title: string;
     subtitle: string;
     confidence: string;
+    aiExtracted: string;
+    heuristicExtracted: string;
     documentDetails: string;
     file: string;
     size: string;
@@ -292,6 +261,24 @@ export interface Translations {
     fileToExisting: string;
     fileToExistingDesc: string;
     newCaseDetails: string;
+    debtorSelection: string;
+    tribunalSelection: string;
+    chooseDebtor: string;
+    searchDebtorMatches: string;
+    createDebtor: string;
+    chooseTribunal: string;
+    createTribunal: string;
+    keyDates: string;
+    contestationsDeadline: string;
+    partiesTitle: string;
+    addParty: string;
+    noPartiesDetected: string;
+    role: string;
+    partyName: string;
+    fiscalId: string;
+    whatWillBeCreated: string;
+    companiesAutoCreated: string;
+    noNewCompanies: string;
     selectCase: string;
     chooseCase: string;
     createAndAttach: string;

@@ -1,99 +1,1023 @@
-import { useState, useEffect, useRef } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { settingsApi, type TemplateUploadResult } from "@/services/api/settingsApi";
-import type { TemplateInfo } from "@/services/api/workflow";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+/**
+ * TemplateSettingsPage — Rich document template manager.
+ *
+ * Three views:
+ *  1. "Required Templates" — system/mandatory templates tied to insolvency stages.
+ *     Users can write and save the HTML body for each.
+ *  2. "Custom Templates"   — user-created templates for any purpose.
+ *  3. "Incoming Documents" — document types received from courts / external parties.
+ *     Admins upload a sample PDF so AI can recognise and auto-classify these documents.
+ *
+ * The editor uses Tiptap (ProseMirror-based) with a placeholder sidebar so users
+ * can click {{PlaceholderName}} tokens that get inserted at the cursor.
+ */
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import Highlight from "@tiptap/extension-highlight";
+import Link from "@tiptap/extension-link";
+import Superscript from "@tiptap/extension-superscript";
+import Subscript from "@tiptap/extension-subscript";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Color from "@tiptap/extension-color";
+import Image from "@tiptap/extension-image";
+import Placeholder from "@tiptap/extension-placeholder";
 import {
-  FileText, Upload, Download, Trash2, Loader2,
-  CheckCircle2, AlertTriangle, Globe, Building2, HardDrive, RefreshCw,
+  documentTemplatesApi,
+  type DocumentTemplateDto,
+  type DocumentTemplateDetailDto,
+  type PlaceholderGroup,
+  type IncomingDocumentType,
+  type IncomingDocumentReferenceStatus,
+  SYSTEM_TEMPLATE_LABELS,
+  SYSTEM_TEMPLATE_STAGE,
+  INCOMING_DOCUMENT_LABELS,
+  INCOMING_DOCUMENT_DESC,
+} from "@/services/api/documentTemplatesApi";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  FileText, Plus, Pencil, Trash2, Loader2, ChevronRight,
+  Bold, Italic, UnderlineIcon, List, ListOrdered,
+  Heading1, Heading2, Heading3, AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  Eye, EyeOff, Save, ArrowLeft, CheckCircle2, AlertTriangle,
+  Upload, Info, CheckCircle,
+  Table as TableIcon, Undo2, Redo2, Strikethrough, Code,
+  Link as LinkIcon, Unlink, Highlighter,
+  Superscript as SuperscriptIcon, Subscript as SubscriptIcon,
+  Minus, Quote, RemoveFormatting, Columns, RowsIcon,
+  ImageIcon, Palette,
 } from "lucide-react";
-import { format } from "date-fns";
+import { useTranslation } from "@/contexts/LanguageContext";
 
-const TEMPLATE_LABELS: Record<string, string> = {
-  CourtOpeningDecision: "Court Opening Decision",
-  CreditorNotificationBpi: "Creditor Notification (BPI) — DOCX",
-  CreditorNotificationHtml: "Notificare Deschidere Procedură — HTML→PDF",
-  ReportArt97: "Report Art. 97 (40 zile)",
-  PreliminaryClaimsTable: "Preliminary Claims Table",
-  CreditorsMeetingMinutes: "Creditors Meeting Minutes",
-  DefinitiveClaimsTable: "Definitive Claims Table",
-  FinalReportArt167: "Final Report Art. 167",
-};
+// ── Editor toolbar ────────────────────────────────────────────────────────────
 
-function sourceLabel(src: string) {
-  switch (src) {
-    case "tenant": return { text: "Tenant Override", icon: Building2, color: "text-blue-500", badge: "default" as const };
-    case "global-db": return { text: "Global (DB)", icon: Globe, color: "text-green-500", badge: "success" as const };
-    case "disk": return { text: "Disk File", icon: HardDrive, color: "text-muted-foreground", badge: "secondary" as const };
-    default: return { text: "Missing", icon: AlertTriangle, color: "text-destructive", badge: "destructive" as const };
-  }
+function EditorToolbar({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  if (!editor) return null;
+
+  const btn = (active: boolean, title: string, icon: React.ReactNode, onClick: () => void, disabled = false) => (
+    <button
+      key={title}
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className={`
+        rounded px-2 py-1.5 text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed
+        ${active
+          ? "bg-primary text-primary-foreground"
+          : "hover:bg-accent text-muted-foreground hover:text-foreground"
+        }
+      `}
+    >
+      {icon}
+    </button>
+  );
+
+  const sep = () => <div className="mx-0.5 h-5 w-px bg-border shrink-0" />;
+
+  const insertTable = () => {
+    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+  };
+
+  const setLink = () => {
+    const prev = editor.getAttributes("link").href;
+    const url = window.prompt("URL:", prev ?? "https://");
+    if (url === null) return;
+    if (url === "") { editor.chain().focus().unsetLink().run(); return; }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  };
+
+  const insertImage = () => {
+    const url = window.prompt("URL imagine:");
+    if (url) editor.chain().focus().setImage({ src: url }).run();
+  };
+
+  const setFontColor = () => {
+    const color = window.prompt("Culoare (hex):", "#000000");
+    if (color) editor.chain().focus().setColor(color).run();
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-0.5 rounded-t-lg border border-border bg-muted/40 p-1 border-b-0">
+      {/* ── Undo / Redo ── */}
+      {btn(false, "Undo (Ctrl+Z)", <Undo2 className="h-4 w-4" />,
+        () => editor.chain().focus().undo().run(), !editor.can().undo())}
+      {btn(false, "Redo (Ctrl+Y)", <Redo2 className="h-4 w-4" />,
+        () => editor.chain().focus().redo().run(), !editor.can().redo())}
+
+      {sep()}
+
+      {/* ── Inline formatting ── */}
+      {btn(editor.isActive("bold"), "Bold (Ctrl+B)", <Bold className="h-4 w-4" />,
+        () => editor.chain().focus().toggleBold().run())}
+      {btn(editor.isActive("italic"), "Italic (Ctrl+I)", <Italic className="h-4 w-4" />,
+        () => editor.chain().focus().toggleItalic().run())}
+      {btn(editor.isActive("underline"), "Underline (Ctrl+U)", <UnderlineIcon className="h-4 w-4" />,
+        () => editor.chain().focus().toggleUnderline().run())}
+      {btn(editor.isActive("strike"), "Strikethrough", <Strikethrough className="h-4 w-4" />,
+        () => editor.chain().focus().toggleStrike().run())}
+      {btn(editor.isActive("code"), "Inline code", <Code className="h-4 w-4" />,
+        () => editor.chain().focus().toggleCode().run())}
+      {btn(editor.isActive("superscript"), "Superscript", <SuperscriptIcon className="h-4 w-4" />,
+        () => editor.chain().focus().toggleSuperscript().run())}
+      {btn(editor.isActive("subscript"), "Subscript", <SubscriptIcon className="h-4 w-4" />,
+        () => editor.chain().focus().toggleSubscript().run())}
+      {btn(editor.isActive("highlight"), "Highlight", <Highlighter className="h-4 w-4" />,
+        () => editor.chain().focus().toggleHighlight().run())}
+
+      {sep()}
+
+      {/* ── Font color ── */}
+      {btn(false, "Font color", <Palette className="h-4 w-4" />, setFontColor)}
+
+      {sep()}
+
+      {/* ── Headings ── */}
+      {btn(editor.isActive("heading", { level: 1 }), "Heading 1", <Heading1 className="h-4 w-4" />,
+        () => editor.chain().focus().toggleHeading({ level: 1 }).run())}
+      {btn(editor.isActive("heading", { level: 2 }), "Heading 2", <Heading2 className="h-4 w-4" />,
+        () => editor.chain().focus().toggleHeading({ level: 2 }).run())}
+      {btn(editor.isActive("heading", { level: 3 }), "Heading 3", <Heading3 className="h-4 w-4" />,
+        () => editor.chain().focus().toggleHeading({ level: 3 }).run())}
+
+      {sep()}
+
+      {/* ── Lists ── */}
+      {btn(editor.isActive("bulletList"), "Bullet list", <List className="h-4 w-4" />,
+        () => editor.chain().focus().toggleBulletList().run())}
+      {btn(editor.isActive("orderedList"), "Numbered list", <ListOrdered className="h-4 w-4" />,
+        () => editor.chain().focus().toggleOrderedList().run())}
+
+      {sep()}
+
+      {/* ── Alignment ── */}
+      {btn(editor.isActive({ textAlign: "left" }), "Align left", <AlignLeft className="h-4 w-4" />,
+        () => editor.chain().focus().setTextAlign("left").run())}
+      {btn(editor.isActive({ textAlign: "center" }), "Align center", <AlignCenter className="h-4 w-4" />,
+        () => editor.chain().focus().setTextAlign("center").run())}
+      {btn(editor.isActive({ textAlign: "right" }), "Align right", <AlignRight className="h-4 w-4" />,
+        () => editor.chain().focus().setTextAlign("right").run())}
+      {btn(editor.isActive({ textAlign: "justify" }), "Justify", <AlignJustify className="h-4 w-4" />,
+        () => editor.chain().focus().setTextAlign("justify").run())}
+
+      {sep()}
+
+      {/* ── Block elements ── */}
+      {btn(editor.isActive("blockquote"), "Blockquote", <Quote className="h-4 w-4" />,
+        () => editor.chain().focus().toggleBlockquote().run())}
+      {btn(false, "Horizontal rule", <Minus className="h-4 w-4" />,
+        () => editor.chain().focus().setHorizontalRule().run())}
+
+      {sep()}
+
+      {/* ── Links & Images ── */}
+      {btn(editor.isActive("link"), "Insert / edit link", <LinkIcon className="h-4 w-4" />, setLink)}
+      {btn(false, "Remove link", <Unlink className="h-4 w-4" />,
+        () => editor.chain().focus().unsetLink().run(), !editor.isActive("link"))}
+      {btn(false, "Insert image (URL)", <ImageIcon className="h-4 w-4" />, insertImage)}
+
+      {sep()}
+
+      {/* ── Table ── */}
+      {btn(false, "Insert table 3×3", <TableIcon className="h-4 w-4" />, insertTable)}
+      {btn(false, "Add column after", <Columns className="h-4 w-4" />,
+        () => editor.chain().focus().addColumnAfter().run(), !editor.can().addColumnAfter())}
+      {btn(false, "Add row after", <RowsIcon className="h-4 w-4" />,
+        () => editor.chain().focus().addRowAfter().run(), !editor.can().addRowAfter())}
+      {btn(false, "Delete column", <span className="text-[10px] font-bold leading-none">−Col</span>,
+        () => editor.chain().focus().deleteColumn().run(), !editor.can().deleteColumn())}
+      {btn(false, "Delete row", <span className="text-[10px] font-bold leading-none">−Row</span>,
+        () => editor.chain().focus().deleteRow().run(), !editor.can().deleteRow())}
+      {btn(false, "Delete table", <Trash2 className="h-4 w-4" />,
+        () => editor.chain().focus().deleteTable().run(), !editor.can().deleteTable())}
+      {btn(false, "Merge / split cells", <span className="text-[10px] font-bold leading-none">M/S</span>,
+        () => editor.chain().focus().mergeOrSplit().run(), !editor.can().mergeOrSplit())}
+      {btn(false, "Toggle header row", <span className="text-[10px] font-bold leading-none">TH</span>,
+        () => editor.chain().focus().toggleHeaderRow().run(), !editor.can().toggleHeaderRow())}
+
+      {sep()}
+
+      {/* ── Clear formatting ── */}
+      {btn(false, "Clear formatting", <RemoveFormatting className="h-4 w-4" />,
+        () => editor.chain().focus().unsetAllMarks().clearNodes().run())}
+    </div>
+  );
 }
 
-function formatBytes(bytes: number) {
-  if (bytes === 0) return "—";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+// ── Placeholder sidebar ───────────────────────────────────────────────────────
+
+/**
+ * Detects group type from the group name convention returned by the API:
+ * - "🔁 Creditori ({{#each Creditors}})" → repeater block
+ * - "❓ Condiții ({{#if}})"              → conditional block
+ * - anything else                         → scalar placeholder
+ */
+function parseGroupType(groupName: string): {
+  type: "scalar" | "each" | "if";
+  collectionName?: string;
+} {
+  const eachMatch = groupName.match(/\{\{#each\s+(\w+)\}\}/);
+  if (eachMatch) return { type: "each", collectionName: eachMatch[1] };
+  if (groupName.includes("{{#if}}")) return { type: "if" };
+  return { type: "scalar" };
 }
+
+function PlaceholderSidebar({
+  groups,
+  onInsert,
+}: {
+  groups: PlaceholderGroup[];
+  onInsert: (placeholder: string) => void;
+}) {
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+  /** Insert a full {{#each Collection}} … {{/each}} block with all fields as a table row. */
+  const insertEachBlock = (collectionName: string, fields: { key: string; label: string }[]) => {
+    const cols = fields.map((f) => `<td>{{${f.key}}}</td>`).join("");
+    const headerCols = fields.map((f) => `<th>${f.label}</th>`).join("");
+    const block =
+      `<table border="1" cellpadding="4" cellspacing="0" style="width:100%; border-collapse:collapse;">\n` +
+      `<thead><tr>${headerCols}</tr></thead>\n` +
+      `<tbody>\n{{#each ${collectionName}}}\n<tr>${cols}</tr>\n{{/each}}\n</tbody>\n</table>`;
+    onInsert(block);
+  };
+
+  /** Insert a single field inside a repeater context (no wrapper). */
+  const insertRepeaterField = (key: string) => {
+    onInsert(`{{${key}}}`);
+  };
+
+  /** Insert a {{#if key}} … {{/if}} conditional block. */
+  const insertIfBlock = (key: string) => {
+    onInsert(`{{#if ${key}}}\n<p>…conținut afișat dacă ${key} este adevărat…</p>\n{{/if}}`);
+  };
+
+  return (
+    <div className="flex flex-col gap-0 divide-y divide-border rounded-lg border border-border overflow-hidden">
+      <div className="bg-muted/60 px-3 py-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          Câmpuri disponibile
+        </p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Clic pe un câmp pentru a-l insera în document
+        </p>
+      </div>
+      {groups.map((g) => {
+        const { type, collectionName } = parseGroupType(g.group);
+
+        return (
+          <div key={g.group}>
+            <button
+              type="button"
+              onClick={() => setOpenGroup(openGroup === g.group ? null : g.group)}
+              className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium hover:bg-accent/50 transition-colors"
+            >
+              <span>{g.group}</span>
+              <ChevronRight
+                className={`h-4 w-4 text-muted-foreground transition-transform ${
+                  openGroup === g.group ? "rotate-90" : ""
+                }`}
+              />
+            </button>
+            {openGroup === g.group && (
+              <div className="bg-muted/20 px-2 pb-2 flex flex-col gap-0.5">
+                {/* Repeater groups get a "Insert full table" button */}
+                {type === "each" && collectionName && (
+                  <button
+                    type="button"
+                    onClick={() => insertEachBlock(collectionName, g.fields)}
+                    className="text-left rounded px-2 py-2 text-xs font-medium bg-primary/5 hover:bg-primary/15 text-primary transition-colors mb-1 border border-primary/20"
+                  >
+                    ⚡ Inserează tabel complet {`{{#each ${collectionName}}}`}
+                  </button>
+                )}
+
+                {g.fields.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    title={
+                      type === "if"
+                        ? `{{#if ${f.key}}} … {{/if}}`
+                        : `{{${f.key}}}`
+                    }
+                    onClick={() =>
+                      type === "if"
+                        ? insertIfBlock(f.key)
+                        : type === "each"
+                          ? insertRepeaterField(f.key)
+                          : onInsert(`{{${f.key}}}`)
+                    }
+                    className="text-left rounded px-2 py-1.5 text-xs hover:bg-primary/10 hover:text-primary transition-colors"
+                  >
+                    <span className="font-mono text-primary mr-1.5 text-[11px]">
+                      {type === "if"
+                        ? `{{#if ${f.key}}}`
+                        : `{{${f.key}}}`}
+                    </span>
+                    <span className="text-muted-foreground">{f.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Template editor panel ─────────────────────────────────────────────────────
+
+interface TemplateEditorPanelProps {
+  template: DocumentTemplateDetailDto;
+  placeholders: PlaceholderGroup[];
+  onSave: (id: string, bodyHtml: string, meta: { name: string; description: string; category: string; isActive: boolean }) => Promise<void>;
+  onClose: () => void;
+}
+
+function TemplateEditorPanel({
+  template,
+  placeholders,
+  onSave,
+  onClose,
+}: TemplateEditorPanelProps) {
+  const [name, setName] = useState(template.name);
+  const [description, setDescription] = useState(template.description ?? "");
+  const [category, setCategory] = useState(template.category ?? "");
+  const [isActive, setIsActive] = useState(template.isActive);
+  const [saving, setSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showHtml, setShowHtml] = useState(false);
+  const [htmlContent, setHtmlContent] = useState(template.bodyHtml ?? "");
+  const [savedOk, setSavedOk] = useState(false);
+  const htmlRef = useRef<HTMLTextAreaElement>(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [1, 2, 3] },
+      }),
+      Underline,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Table.configure({ resizable: true, allowTableNodeSelection: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
+      Highlight.configure({ multicolor: true }),
+      Link.configure({ openOnClick: false, autolink: true }),
+      Superscript,
+      Subscript,
+      TextStyle,
+      Color,
+      Image.configure({ inline: false, allowBase64: true }),
+      Placeholder.configure({ placeholder: "Începe să scrii documentul aici…" }),
+    ],
+    content: template.bodyHtml ?? "",
+  });
+
+  const insertPlaceholder = useCallback(
+    (token: string) => {
+      if (!editor) return;
+
+      const isBlockSyntax = token.includes("{{#each") || token.includes("{{#if");
+
+      // Block syntax ({{#each}}/{{#if}}) must go through the HTML textarea
+      //  because ProseMirror strips Handlebars nodes between table elements.
+      if (isBlockSyntax && !showHtml) {
+        // Snapshot current rich-text content, switch to HTML view,
+        // then insert the block after a short tick.
+        const currentHtml = editor.getHTML();
+        setHtmlContent(currentHtml);
+        setShowHtml(true);
+        setTimeout(() => {
+          const ta = htmlRef.current;
+          if (!ta) return;
+          const pos = ta.value.length; // append at end
+          const newValue = ta.value + "\n" + token;
+          setHtmlContent(newValue);
+          ta.focus();
+          setTimeout(() => ta.setSelectionRange(newValue.length, newValue.length), 0);
+        }, 60);
+        return;
+      }
+
+      if (showHtml) {
+        const ta = htmlRef.current;
+        if (!ta) return;
+        const pos = ta.selectionStart ?? ta.value.length;
+        const v = ta.value;
+        const newVal = v.slice(0, pos) + token + v.slice(pos);
+        setHtmlContent(newVal);
+        ta.focus();
+        setTimeout(() => ta.setSelectionRange(pos + token.length, pos + token.length), 0);
+      } else {
+        editor.chain().focus().insertContent(token).run();
+      }
+    },
+    [editor, showHtml]
+  );
+
+  const toggleHtmlView = useCallback(() => {
+    if (!showHtml) {
+      // Switch TO html view: snapshot editor content
+      setHtmlContent(editor?.getHTML() ?? "");
+      setShowHtml(true);
+    } else {
+      // Switch back: push textarea content into editor
+      editor?.commands.setContent(htmlContent, false);
+      setShowHtml(false);
+    }
+  }, [showHtml, editor, htmlContent]);
+
+  const handleSave = async () => {
+    if (!editor) return;
+    setSaving(true);
+    try {
+      const bodyHtml = showHtml ? htmlContent : editor.getHTML();
+      await onSave(template.id, bodyHtml, { name, description, category, isActive });
+      setSavedOk(true);
+      setTimeout(() => setSavedOk(false), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const preview = showHtml ? htmlContent : (editor?.getHTML() ?? "");
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-md p-1 hover:bg-accent text-muted-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div className="flex-1 min-w-0">
+          {template.isSystem ? (
+            <>
+              <p className="font-semibold text-sm truncate">{template.name}</p>
+              <p className="text-xs text-muted-foreground">
+                Template de sistem •{" "}
+                {SYSTEM_TEMPLATE_STAGE[template.templateType] ?? template.stage ?? ""}
+              </p>
+            </>
+          ) : (
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-transparent text-sm font-semibold outline-none w-full"
+              placeholder="Denumire template…"
+            />
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={toggleHtmlView}
+            title={showHtml ? "Switch to rich-text editor" : "Edit HTML source"}
+            className={`rounded-md p-1.5 transition-colors ${
+              showHtml
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-accent text-muted-foreground"
+            }`}
+          >
+            <Code className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPreview(!showPreview)}
+            title={showPreview ? "Ascunde previzualizare" : "Previzualizare"}
+            className="rounded-md p-1.5 hover:bg-accent text-muted-foreground"
+          >
+            {showPreview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+            ) : savedOk ? (
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-green-500" />
+            ) : (
+              <Save className="h-3.5 w-3.5 mr-1" />
+            )}
+            {savedOk ? "Salvat!" : "Salvează"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Description + Category for custom templates */}
+      {!template.isSystem && (
+        <div className="flex gap-3 border-b border-border px-4 py-2 bg-muted/30">
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="flex-1 bg-transparent text-xs outline-none text-muted-foreground placeholder:text-muted-foreground/50"
+            placeholder="Descriere opțională…"
+          />
+          <input
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-40 bg-transparent text-xs outline-none text-muted-foreground placeholder:text-muted-foreground/50 border-l border-border pl-3"
+            placeholder="Categorie…"
+          />
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground border-l border-border pl-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="rounded"
+            />
+            Activ
+          </label>
+        </div>
+      )}
+
+      {/* Main content: editor + sidebar */}
+      <div className="flex flex-1 min-h-0 overflow-hidden gap-3 p-4">
+        {showPreview ? (
+          /* Preview pane */
+          <div className="flex-1 overflow-auto">
+            <div
+              className="prose prose-sm max-w-none bg-white dark:bg-card border rounded-lg p-6 shadow-sm"
+              dangerouslySetInnerHTML={{ __html: preview }}
+            />
+          </div>
+        ) : showHtml ? (
+          /* HTML source editor */
+          <div className="flex-1 overflow-auto flex flex-col min-w-0">
+            <div className="flex items-center gap-2 rounded-t-lg border border-border bg-muted/40 px-3 py-1.5 border-b-0">
+              <Code className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">HTML source</span>
+              <span className="ml-auto text-[11px] text-muted-foreground/60">{"Handlebars {{#each}} / {{#if}} blocks preserved"}</span>
+            </div>
+            <textarea
+              ref={htmlRef}
+              value={htmlContent}
+              onChange={e => setHtmlContent(e.target.value)}
+              className="flex-1 rounded-b-lg border border-border border-t-0 bg-background font-mono text-xs p-4 resize-none outline-none leading-relaxed text-foreground min-h-[400px]"
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+            />
+          </div>
+        ) : (
+          /* Editor pane */
+          <div className="flex-1 overflow-auto flex flex-col min-w-0">
+            <EditorToolbar editor={editor} />
+            <div className="flex-1 overflow-auto rounded-b-lg border border-border border-t-0 bg-background">
+              <EditorContent editor={editor} />
+            </div>
+          </div>
+        )}
+
+        {/* Placeholder sidebar (always visible) */}
+        <div className="w-64 shrink-0 overflow-y-auto">
+          <PlaceholderSidebar groups={placeholders} onInsert={insertPlaceholder} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── System template card ──────────────────────────────────────────────────────
+
+function SystemTemplateCard({
+  template,
+  onEdit,
+}: {
+  template: DocumentTemplateDto;
+  onEdit: (id: string) => void;
+}) {
+  const label = SYSTEM_TEMPLATE_LABELS[template.templateType] ?? template.name;
+  const stage = SYSTEM_TEMPLATE_STAGE[template.templateType];
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 hover:border-primary/40 transition-colors">
+      <div className="mt-0.5 rounded-md bg-primary/10 p-2 shrink-0">
+        <FileText className="h-4 w-4 text-primary" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium leading-tight">{label}</p>
+        {stage && (
+          <p className="text-xs text-muted-foreground mt-0.5">{stage}</p>
+        )}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {template.hasContent ? (
+            <Badge className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Conținut definit
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs border-0 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Fără conținut
+            </Badge>
+          )}
+          {!template.isActive && (
+            <Badge variant="secondary" className="text-xs">Inactiv</Badge>
+          )}
+        </div>
+      </div>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onEdit(template.id)}
+        className="shrink-0"
+      >
+        <Pencil className="h-3.5 w-3.5 mr-1" />
+        Editează
+      </Button>
+    </div>
+  );
+}
+
+// ── Custom template card ──────────────────────────────────────────────────────
+
+function CustomTemplateCard({
+  template,
+  onEdit,
+  onDelete,
+  deleting,
+}: {
+  template: DocumentTemplateDto;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  deleting: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 hover:border-primary/40 transition-colors">
+      <div className="mt-0.5 rounded-md bg-muted p-2 shrink-0">
+        <FileText className="h-4 w-4 text-muted-foreground" />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium leading-tight">{template.name}</p>
+        {template.description && (
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{template.description}</p>
+        )}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
+          {template.category && (
+            <Badge variant="outline" className="text-xs">{template.category}</Badge>
+          )}
+          {template.hasContent ? (
+            <Badge className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Are conținut
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs">Gol</Badge>
+          )}
+          {!template.isActive && (
+            <Badge variant="secondary" className="text-xs">Inactiv</Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-1 shrink-0">
+        <Button variant="ghost" size="sm" onClick={() => onEdit(template.id)}>
+          <Pencil className="h-3.5 w-3.5 mr-1" />
+          Editează
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDelete(template.id)}
+          disabled={deleting}
+          className="text-destructive hover:text-destructive"
+        >
+          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Incoming document card (sample PDF upload for AI recognition) ─────────────
+
+function IncomingDocumentCard({
+  type,
+  status,
+  onUploaded,
+}: {
+  type: IncomingDocumentType;
+  status: IncomingDocumentReferenceStatus | null;
+  onUploaded: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setError("Doar fișiere PDF sunt acceptate.");
+      return;
+    }
+    setUploading(true);
+    setUploadPct(0);
+    setError(null);
+    try {
+      await documentTemplatesApi.uploadIncomingReference(type, file, (pct) => setUploadPct(pct));
+      onUploaded();
+    } catch {
+      setError("Eroare la încărcare. Încearcă din nou.");
+    } finally {
+      setUploading(false);
+      setUploadPct(null);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-lg bg-primary/10 p-2">
+            <FileText className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">{INCOMING_DOCUMENT_LABELS[type]}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-amber-400 text-amber-600 dark:text-amber-400">
+                Document primit
+              </Badge>
+              {status?.exists && (
+                <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-emerald-400 text-emerald-600 dark:text-emerald-400 gap-1">
+                  <CheckCircle className="h-2.5 w-2.5" />
+                  Referință încărcată
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Description */}
+      <div className="flex gap-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3">
+        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+        <p className="text-xs text-blue-700 dark:text-blue-300">
+          {INCOMING_DOCUMENT_DESC[type]}
+        </p>
+      </div>
+
+      {/* Upload area */}
+      {!uploading ? (
+        <div
+          className={`rounded-lg border-2 border-dashed transition-colors cursor-pointer p-5 text-center ${
+            dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+          }`}
+          onClick={() => fileRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const f = e.dataTransfer.files[0];
+            if (f) handleFile(f);
+          }}
+        >
+          <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+          {status?.exists ? (
+            <div>
+              <p className="text-sm font-medium text-foreground">Înlocuiește documentul de referință</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Fișier existent: <span className="font-mono">{status.fileName ?? "referință"}</span>
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm font-medium text-foreground">Încarcă document PDF de referință</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Click sau trage fișierul aici</p>
+            </div>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+          />
+        </div>
+      ) : (
+        <div className="space-y-2 py-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{uploadPct !== null && uploadPct < 100 ? `Se încarcă… ${uploadPct}%` : "Se procesează…"}</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${uploadPct !== null && uploadPct < 100 ? "bg-primary" : "bg-amber-500 animate-pulse"}`}
+              style={{ width: `${uploadPct !== null && uploadPct < 100 ? uploadPct : 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p className="text-xs text-destructive flex items-center gap-1">
+          <AlertTriangle className="h-3.5 w-3.5" />
+          {error}
+        </p>
+      )}
+
+      {/* AI recognition status */}
+      {status?.exists && (
+        <div className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <p className="text-xs text-emerald-700 dark:text-emerald-300">
+            Recunoaștere AI activă — documentele similare încărcate de practicieni vor fi auto-clasificate ca <strong>{INCOMING_DOCUMENT_LABELS[type]}</strong>.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── New template form ─────────────────────────────────────────────────────────
+
+function NewTemplateForm({
+  onCreated,
+  onCancel,
+}: {
+  onCreated: (id: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleCreate = async () => {
+    if (!name.trim()) { setError("Denumirea este obligatorie."); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const r = await documentTemplatesApi.create({ name: name.trim(), description, category });
+      onCreated(r.data.id);
+    } catch {
+      setError("Eroare la creare. Încearcă din nou.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+      <p className="text-sm font-semibold">Șablon nou</p>
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+        placeholder="Denumire șablon *"
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+      />
+      <input
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Descriere (opțional)"
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+      />
+      <input
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        placeholder="Categorie (opțional, ex: Notificări, Rapoarte)"
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+      />
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <div className="flex gap-2">
+        <Button size="sm" onClick={handleCreate} disabled={saving}>
+          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+          Crează și deschide editorul
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>Anulează</Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function TemplateSettingsPage() {
-  const { isGlobalAdmin } = useAuth();
-  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploadingType, setUploadingType] = useState<string | null>(null);
+  const { locale } = useTranslation();
+  const [tab, setTab] = useState<"system" | "custom" | "incoming">("system");
+  const [templates, setTemplates] = useState<DocumentTemplateDto[]>([]);
+  const [placeholders, setPlaceholders] = useState<PlaceholderGroup[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [editingTemplate, setEditingTemplate] = useState<DocumentTemplateDetailDto | null>(null);
+  const [loadingEditor, setLoadingEditor] = useState(false);
+  const [showNewForm, setShowNewForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<TemplateUploadResult | null>(null);
-  const [uploadAsGlobal, setUploadAsGlobal] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const pendingTypeRef = useRef<string | null>(null);
+  const [incomingStatuses, setIncomingStatuses] = useState<Record<string, IncomingDocumentReferenceStatus>>({});
 
-  const load = async () => {
-    setLoading(true);
+  // System templates: exclude CourtOpeningDecision (it's an incoming document, not generated)
+  const systemTemplates = templates.filter((t) => t.isSystem && t.templateType !== "CourtOpeningDecision");
+  const customTemplates = templates.filter((t) => !t.isSystem);
+
+  const INCOMING_TYPES: IncomingDocumentType[] = ["CourtOpeningDecision"];
+
+  const incomingText = {
+    en: {
+      tab: "Incoming documents",
+      description:
+        "Incoming documents are issued by courts or third parties and received by the practitioner. Upload one sample PDF for each type so AI can auto-recognize and classify similar documents later.",
+    },
+    ro: {
+      tab: "Documente primite",
+      description:
+        "Documentele primite sunt emise de instanță sau de terți și primite de practician. Încarcă un exemplu PDF pentru fiecare tip, iar AI-ul va recunoaște și clasifica automat documentele similare încărcate ulterior.",
+    },
+    hu: {
+      tab: "Beérkező dokumentumok",
+      description:
+        "A beérkező dokumentumokat a bíróság vagy harmadik felek állítják ki, és a felszámoló kapja meg. Töltsön fel típusonként egy mint PDF-et, így az AI később automatikusan felismeri és osztályozza a hasonló dokumentumokat.",
+    },
+  }[locale];
+
+  const loadTemplates = useCallback(async () => {
+    setLoadingList(true);
     try {
-      const r = await settingsApi.templates.getAll();
-      setTemplates(r.data);
+      const [tmpl, ph] = await Promise.all([
+        documentTemplatesApi.getAll(),
+        documentTemplatesApi.getPlaceholders(),
+      ]);
+      setTemplates(tmpl.data);
+      setPlaceholders(ph.data);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      setLoadingList(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  const loadIncomingStatuses = useCallback(async () => {
+    const results = await Promise.allSettled(
+      INCOMING_TYPES.map((t) => documentTemplatesApi.getIncomingReference(t))
+    );
+    const next: Record<string, IncomingDocumentReferenceStatus> = {};
+    results.forEach((r, i) => {
+      if (r.status === "fulfilled") next[INCOMING_TYPES[i]] = r.value.data;
+      else next[INCOMING_TYPES[i]] = { type: INCOMING_TYPES[i], exists: false };
+    });
+    setIncomingStatuses(next);
+  }, []);
 
-  const triggerUpload = (templateType: string, asGlobal = false) => {
-    pendingTypeRef.current = templateType;
-    setUploadAsGlobal(asGlobal);
-    fileInputRef.current?.click();
-  };
+  useEffect(() => {
+    loadTemplates();
+    loadIncomingStatuses();
+  }, [loadTemplates, loadIncomingStatuses]);
 
-  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    const templateType = pendingTypeRef.current;
-    if (!file || !templateType) return;
-    e.target.value = "";
-
-    setUploadingType(templateType);
+  const openEditor = async (id: string) => {
+    setLoadingEditor(true);
     try {
-      const r = await settingsApi.templates.upload(file, templateType, {
-        name: TEMPLATE_LABELS[templateType] ?? templateType,
-        global: uploadAsGlobal,
-      });
-      setLastResult(r.data);
-      await load();
+      const r = await documentTemplatesApi.getById(id);
+      setEditingTemplate(r.data);
     } catch (err) {
       console.error(err);
     } finally {
-      setUploadingType(null);
+      setLoadingEditor(false);
     }
+  };
+
+  const handleSave = async (
+    id: string,
+    bodyHtml: string,
+    meta: { name: string; description: string; category: string; isActive: boolean }
+  ) => {
+    if (!editingTemplate) return;
+    await documentTemplatesApi.update(id, {
+      name: meta.name || editingTemplate.name,
+      description: meta.description || undefined,
+      category: meta.category || undefined,
+      bodyHtml,
+      isActive: meta.isActive,
+    });
+    // Refresh list (hasContent flag may change)
+    setTemplates((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, hasContent: bodyHtml.length > 50 } : t))
+    );
   };
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm("Ștergi acest șablon? Acțiunea este ireversibilă.")) return;
     setDeletingId(id);
     try {
-      await settingsApi.templates.delete(id);
-      await load();
+      await documentTemplatesApi.delete(id);
+      setTemplates((prev) => prev.filter((t) => t.id !== id));
+      if (editingTemplate?.id === id) setEditingTemplate(null);
     } catch (err) {
       console.error(err);
     } finally {
@@ -101,246 +1025,193 @@ export default function TemplateSettingsPage() {
     }
   };
 
-  const downloadFile = async (id: string, fileName: string) => {
-    const token = localStorage.getItem("authToken");
-    const tenantId = localStorage.getItem("selectedTenantId");
-    const url = settingsApi.templates.downloadUrl(id);
-    const res = await fetch(url, {
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(tenantId ? { "X-Tenant-Id": tenantId } : {}),
-      },
-    });
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  const handleCreated = async (newId: string) => {
+    setShowNewForm(false);
+    await loadTemplates();
+    await openEditor(newId);
+    setTab("custom");
   };
 
-  if (loading) {
+  // ── Render: loading editor ───────────────────────────────────────────────
+
+  if (loadingEditor) {
     return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
+  // ── Render: editor panel (full page) ─────────────────────────────────────
+
+  if (editingTemplate) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-8rem)]">
+        <TemplateEditorPanel
+          template={editingTemplate}
+          placeholders={placeholders}
+          onSave={handleSave}
+          onClose={() => setEditingTemplate(null)}
+        />
+      </div>
+    );
+  }
+
+  // ── Render: list view ─────────────────────────────────────────────────────
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
+    <div className="space-y-6">
+      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Document Templates</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Mail-merge templates used to generate insolvency documents.
-            {isGlobalAdmin && " Global admins can replace disk files; tenant admins upload per-tenant overrides."}
+          <h1 className="text-xl font-bold">Șabloane documente</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Definește conținutul șabloanelor obligatorii și crează șabloane custom cu câmpuri dinamice.
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={load} className="gap-1.5 text-xs">
-          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+        <Button onClick={() => { setShowNewForm(true); setTab("custom"); }}>
+          <Plus className="h-4 w-4 mr-1.5" />
+          Șablon nou
         </Button>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 rounded-lg border border-border bg-card/50 px-4 py-2.5">
-        <span className="text-xs text-muted-foreground font-medium">Effective source:</span>
-        {(["tenant", "global-db", "disk", "missing"] as const).map(src => {
-          const s = sourceLabel(src);
-          return (
-            <span key={src} className={`flex items-center gap-1 text-xs ${s.color}`}>
-              <s.icon className="h-3.5 w-3.5" /> {s.text}
-            </span>
-          );
-        })}
+      {/* Tabs */}
+      <div className="flex border-b border-border">
+        <button
+          type="button"
+          onClick={() => setTab("system")}
+          className={`
+            px-4 py-2 text-sm font-medium border-b-2 transition-colors
+            ${tab === "system"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+            }
+          `}
+        >
+          Obligatorii{" "}
+          <span className="ml-1 text-xs text-muted-foreground">({systemTemplates.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("custom")}
+          className={`
+            px-4 py-2 text-sm font-medium border-b-2 transition-colors
+            ${tab === "custom"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+            }
+          `}
+        >
+          Custom{" "}
+          <span className="ml-1 text-xs text-muted-foreground">({customTemplates.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("incoming")}
+          className={`
+            px-4 py-2 text-sm font-medium border-b-2 transition-colors
+            ${tab === "incoming"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+            }
+          `}
+        >
+          {incomingText.tab}{" "}
+          <span className="ml-1 text-xs text-muted-foreground">({INCOMING_TYPES.length})</span>
+        </button>
       </div>
 
-      {lastResult && (
-        <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 px-4 py-2.5 flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-          <p className="text-sm text-green-700 dark:text-green-300">
-            Uploaded <strong>{lastResult.fileName}</strong> as {lastResult.isGlobal ? "global" : "tenant"} override (v{lastResult.version})
-          </p>
-          <button onClick={() => setLastResult(null)} className="ml-auto text-green-600 hover:text-green-800">×</button>
+      {/* Loading */}
+      {loadingList && (
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Se încarcă…
         </div>
       )}
 
-      {/* Template list */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
-        {templates.length === 0 && (
-          <div className="px-6 py-10 text-center">
-            <FileText className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="text-sm text-muted-foreground">No templates configured.</p>
-          </div>
-        )}
-
-        {templates.map(tpl => {
-          const src = sourceLabel(tpl.effectiveSource);
-          const isUploading = uploadingType === tpl.templateType;
-          const displayName = TEMPLATE_LABELS[tpl.templateType] ?? tpl.templateType;
-          const effectiveFile = tpl.tenantOverrideFileName ?? tpl.globalOverrideFileName ?? tpl.defaultFileName;
-          const effectiveSize = tpl.tenantOverrideFileSizeBytes || tpl.globalOverrideFileSizeBytes || tpl.diskFileSizeBytes;
-          const overrideId = tpl.tenantOverrideId ?? tpl.globalOverrideId;
-
-          return (
-            <div key={tpl.templateType} className="px-4 py-3">
-              <div className="flex items-start gap-3">
-                {/* Icon */}
-                <div className={`mt-0.5 shrink-0 ${src.color}`}>
-                  <src.icon className="h-5 w-5" />
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-foreground">{displayName}</p>
-                    <Badge variant={src.badge} className="text-[10px]">{src.text}</Badge>
-                    {tpl.tenantOverrideId && (
-                      <Badge variant="outline" className="text-[10px] text-blue-500 border-blue-300">
-                        v{tpl.tenantOverrideVersion}
-                      </Badge>
-                    )}
-                    {!tpl.tenantOverrideId && tpl.globalOverrideId && (
-                      <Badge variant="outline" className="text-[10px] text-green-600 border-green-300">
-                        v{tpl.globalOverrideVersion}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                    {effectiveFile} · {formatBytes(effectiveSize)}
-                  </p>
-
-                  {/* Disk file status */}
-                  {tpl.diskExists ? (
-                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                      Disk: {tpl.defaultFileName} ({formatBytes(tpl.diskFileSizeBytes)})
-                    </p>
-                  ) : (
-                    <p className="text-[10px] text-amber-500 mt-0.5">
-                      ⚠ Disk file not found — upload a template to enable generation
-                    </p>
-                  )}
-
-                  {/* Override info */}
-                  {tpl.tenantOverrideId && (
-                    <p className="text-[10px] text-blue-500 mt-0.5">
-                      Tenant override: {tpl.tenantOverrideFileName} ({formatBytes(tpl.tenantOverrideFileSizeBytes)})
-                    </p>
-                  )}
-                  {tpl.globalOverrideId && !tpl.tenantOverrideId && (
-                    <p className="text-[10px] text-green-600 mt-0.5">
-                      Global override: {tpl.globalOverrideFileName} ({formatBytes(tpl.globalOverrideFileSizeBytes)})
-                    </p>
-                  )}
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {/* Download effective template */}
-                  {overrideId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-xs gap-1"
-                      onClick={() => downloadFile(overrideId, effectiveFile)}
-                      title="Download current effective template"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-
-                  {/* Upload tenant override */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2.5 text-xs gap-1"
-                    onClick={() => triggerUpload(tpl.templateType, false)}
-                    disabled={isUploading}
-                    title="Upload tenant-specific override"
-                  >
-                    {isUploading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Upload className="h-3.5 w-3.5" />
-                    )}
-                    {tpl.tenantOverrideId ? "Replace Override" : "Upload Override"}
-                  </Button>
-
-                  {/* Global upload (GlobalAdmin only) */}
-                  {isGlobalAdmin && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 px-2.5 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50 dark:text-green-400 dark:border-green-700"
-                      onClick={() => triggerUpload(tpl.templateType, true)}
-                      disabled={isUploading}
-                      title="Upload as global default"
-                    >
-                      <Globe className="h-3.5 w-3.5" />
-                      Global
-                    </Button>
-                  )}
-
-                  {/* Delete override */}
-                  {tpl.tenantOverrideId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDelete(tpl.tenantOverrideId!)}
-                      disabled={deletingId === tpl.tenantOverrideId}
-                      title="Remove tenant override (revert to global/disk)"
-                    >
-                      {deletingId === tpl.tenantOverrideId ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  )}
-                  {isGlobalAdmin && tpl.globalOverrideId && !tpl.tenantOverrideId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDelete(tpl.globalOverrideId!)}
-                      disabled={deletingId === tpl.globalOverrideId}
-                      title="Remove global DB override (revert to disk file)"
-                    >
-                      {deletingId === tpl.globalOverrideId ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
+      {/* System templates tab */}
+      {!loadingList && tab === "system" && (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Aceste șabloane sunt obligatorii conform procedurii de insolvență. Definește conținutul HTML
+            cu câmpuri dinamice din dosar — vor fi completate automat la generare.
+          </p>
+          {systemTemplates.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-8 text-center">
+              <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">
+                Nu există șabloane de sistem. Contactează administratorul pentru inițializare.
+              </p>
             </div>
-          );
-        })}
-      </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {systemTemplates.map((t) => (
+                <SystemTemplateCard key={t.id} template={t} onEdit={openEditor} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".doc,.docx,.pdf"
-        className="hidden"
-        onChange={handleFileSelected}
-      />
+      {/* Custom templates tab */}
+      {!loadingList && tab === "custom" && (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Șabloane create de tine pentru orice scop — notificări, adrese, rapoarte interne.
+            Inserează câmpuri dinamice din dosar, debitor, creditori și alte persoane implicate.
+          </p>
 
-      {/* Info panel */}
-      <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 space-y-1">
-        <p className="text-xs font-medium text-foreground">Resolution order</p>
-        <ol className="text-xs text-muted-foreground space-y-0.5 list-decimal list-inside">
-          <li><span className="text-blue-500 font-medium">Tenant override</span> — uploaded by your tenant admin, specific to your workspace</li>
-          <li><span className="text-green-600 font-medium">Global DB override</span> — uploaded by a GlobalAdmin, applies to all tenants without their own override</li>
-          <li><span className="text-muted-foreground font-medium">Disk file</span> — shipped with the application in <code className="text-[10px] bg-muted px-1 rounded">Templates-Ro/</code></li>
-        </ol>
-      </div>
+          {/* New template form */}
+          {showNewForm && (
+            <NewTemplateForm
+              onCreated={handleCreated}
+              onCancel={() => setShowNewForm(false)}
+            />
+          )}
+
+          {customTemplates.length === 0 && !showNewForm ? (
+            <div className="rounded-lg border border-dashed border-border p-8 text-center">
+              <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground mb-3">
+                Nu ai creat încă niciun șablon custom.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => setShowNewForm(true)}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Crează primul șablon
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {customTemplates.map((t) => (
+                <CustomTemplateCard
+                  key={t.id}
+                  template={t}
+                  onEdit={openEditor}
+                  onDelete={handleDelete}
+                  deleting={deletingId === t.id}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Incoming documents tab */}
+      {!loadingList && tab === "incoming" && (
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            {incomingText.description}
+          </p>
+          {INCOMING_TYPES.map((type) => (
+            <IncomingDocumentCard
+              key={type}
+              type={type}
+              status={incomingStatuses[type] ?? null}
+              onUploaded={loadIncomingStatuses}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

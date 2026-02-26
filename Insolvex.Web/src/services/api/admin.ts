@@ -1,5 +1,5 @@
 import client from "./client";
-import type { UserDto, TenantDto, AuditLogDto, AuditLogStats } from "./types";
+import type { UserDto, TenantDto, AuditLogListResponse, AuditLogStats } from "./types";
 
 export const usersApi = {
   getAll: () => client.get<UserDto[]>("/users"),
@@ -19,10 +19,12 @@ export const tenantsApi = {
 
 export const auditLogsApi = {
   getAll: (params?: Record<string, string | number | undefined>) =>
-  client.get<AuditLogDto[]>("/auditlogs", { params }),
+    client.get<AuditLogListResponse>("/auditlogs", { params }),
   getCount: (params?: Record<string, string | number | undefined>) =>
     client.get<{ count: number }>("/auditlogs/count", { params }),
   getCategories: () => client.get<string[]>("/auditlogs/categories"),
   getStats: (params?: { from?: string; to?: string }) =>
     client.get<AuditLogStats>("/auditlogs/stats", { params }),
+  export: (params?: Record<string, string | number | undefined>) =>
+    client.get<Blob>("/auditlogs/export", { params, responseType: "blob" }),
 };

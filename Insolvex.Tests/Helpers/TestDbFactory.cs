@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Insolvex.API.Data;
+using Insolvex.Data;
 
 namespace Insolvex.Tests.Helpers;
 

@@ -40,4 +40,8 @@ public class PendingUpload : BaseEntity
     public DateTime? DetectedContestationsDeadline { get; set; }
     /// <summary>JSON array of ExtractedParty objects</summary>
     public string? DetectedPartiesJson { get; set; }
+    /// <summary>Romanian CUI of the debtor company, e.g. "RO12345678"</summary>
+    public string? DetectedDebtorCui { get; set; }
+    /// <summary>True when classification was performed by the AI provider (vs regex heuristics)</summary>
+    public bool IsAiExtracted { get; set; }
 }

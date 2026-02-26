@@ -49,4 +49,22 @@ public class DocumentTemplate : BaseEntity
 
   /// <summary>Version counter for audit trail.</summary>
   public int Version { get; set; } = 1;
+
+  // ── Rich-text template fields ─────────────────────────────────────────────
+
+  /// <summary>
+  /// HTML body of the template (written in the rich-text editor).
+  /// Contains {{PlaceholderName}} tokens that are replaced at generation time.
+  /// </summary>
+  public string? BodyHtml { get; set; }
+
+  /// <summary>
+  /// True = built-in/system mandatory template tied to a procedure phase.
+  /// False = custom user-created template.
+  /// System templates cannot be deleted.
+  /// </summary>
+  public bool IsSystem { get; set; } = false;
+
+  /// <summary>Grouping / display category (e.g. "Deschidere", "Creanțe", "Custom").</summary>
+  public string? Category { get; set; }
 }

@@ -15,6 +15,12 @@ public class CompanyTask : TenantScopedEntity
     public string? Description { get; set; }
     public string? Labels { get; set; }
 
+    /// <summary>Task summary text used for quick display.</summary>
+    public string? Summary { get; set; }
+
+    /// <summary>Language-keyed JSON map of task summaries (e.g. en/ro/hu).</summary>
+    public string? SummaryByLanguageJson { get; set; }
+
     /// <summary>Mandatory deadline per InsolvencyAppRules.</summary>
     public DateTime? Deadline { get; set; }
 
@@ -26,9 +32,6 @@ public class CompanyTask : TenantScopedEntity
 
     /// <summary>Category: Document, Email, Filing, Meeting, Call, Review, Payment, Report, Compliance.</summary>
     public string? Category { get; set; }
-
-    /// <summary>The workflow stage this task belongs to.</summary>
-    public CaseStage? Stage { get; set; }
 
     public Enums.TaskStatus Status { get; set; } = Enums.TaskStatus.Open;
 

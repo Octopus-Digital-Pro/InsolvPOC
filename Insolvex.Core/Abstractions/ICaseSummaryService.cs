@@ -23,6 +23,7 @@ public interface ICaseSummaryService
 public class CaseSummaryResult
 {
   public string Text { get; set; } = string.Empty;
+  public Dictionary<string, string> TextByLanguage { get; set; } = new();
   public List<string> NextActions { get; set; } = new();
   public List<string> Risks { get; set; } = new();
   public List<CaseSummaryDeadline> UpcomingDeadlines { get; set; } = new();

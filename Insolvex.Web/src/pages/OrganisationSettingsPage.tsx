@@ -6,7 +6,7 @@
  *  - Insolvency firm details — with ONRC autocomplete to pre-fill from national registry
  *  - Plan / usage stats
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LanguageContext";
 import type { Locale } from "@/i18n/types";
@@ -36,7 +36,6 @@ function ONRCFirmSearch({ onSelect }: ONRCFirmSearchProps) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -46,20 +45,13 @@ function ONRCFirmSearch({ onSelect }: ONRCFirmSearchProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const doSearch = useCallback((q: string) => {
-    if (q.trim().length < 2) { setResults([]); setOpen(false); return; }
+  const doSearch = async () => {
+    if (query.trim().length < 2) return;
     setLoading(true);
-    onrcApi.search(q, "Romania", 10)
+    onrcApi.search(query.trim(), "Romania", 10)
       .then(r => { setResults(r.data); setOpen(r.data.length > 0); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const q = e.target.value;
-    setQuery(q);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => doSearch(q), 380);
   };
 
   const select = (r: ONRCFirmResult) => {
@@ -99,22 +91,26 @@ function ONRCFirmSearch({ onSelect }: ONRCFirmSearchProps) {
 
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-          {loading
-            ? <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-            : query && (
-              <button type="button" onClick={() => { setQuery(""); setResults([]); setOpen(false); }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
           <input
             autoFocus
             value={query}
-            onChange={handleChange}
+            onChange={e => { setQuery(e.target.value); setResults([]); setOpen(false); }}
+            onKeyDown={e => e.key === "Enter" && (e.preventDefault(), doSearch())}
             onFocus={() => results.length > 0 && setOpen(true)}
             placeholder="Type firm name or CUI (RO12345678)…"
-            className="w-full rounded-md border border-input bg-background pl-8 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-md border border-input bg-background pl-8 pr-24 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={doSearch}
+            disabled={loading || query.trim().length < 2}
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 gap-1 text-xs px-2"
+          >
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+            Search
+          </Button>
         </div>
 
         {open && results.length > 0 && (
@@ -142,9 +138,9 @@ function ONRCFirmSearch({ onSelect }: ONRCFirmSearchProps) {
           </div>
         )}
 
-        {results.length === 0 && query.length >= 2 && !loading && (
+        {results.length === 0 && query.length >= 2 && !loading && open === false && (
           <p className="text-xs text-muted-foreground">
-            No results found. Check the ONRC database is populated in{" "}
+            Click <strong>Search</strong> or press Enter to query the ONRC registry. If no results appear, ensure the database is populated in{" "}
             <a href="/settings/firms-database" className="text-primary hover:underline">Settings → Firms Database</a>.
           </p>
         )}

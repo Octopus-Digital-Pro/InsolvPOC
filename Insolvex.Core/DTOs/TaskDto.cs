@@ -12,7 +12,6 @@ public record TaskDto(
     string? Description,
     string? Labels,
     string? Category,
-    string? Stage,
     DateTime? Deadline,
     string? DeadlineSource,
     bool IsCriticalDeadline,
@@ -21,7 +20,9 @@ public record TaskDto(
     string? AssignedToName,
     Guid? CreatedByUserId,
     DateTime? CompletedAt,
-    DateTime CreatedOn
+    DateTime CreatedOn,
+    string? Summary,
+    string? SummaryByLanguageJson
 );
 
 public record CreateTaskRequest(

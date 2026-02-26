@@ -7,16 +7,7 @@ import type { ONRCFirmResult } from "@/services/api/onrc";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
 import AddressSearch from "@/components/AddressSearch";
-import { Loader2, Building2, Phone, Landmark, Scale, DollarSign, Flag, MoreHorizontal, ArrowRight, Database } from "lucide-react";
-
-const COMPANY_TYPES = [
-  { value: "Debtor", icon: Building2, color: "border-red-200 bg-red-50 hover:border-red-400", textColor: "text-red-700", desc: "Company undergoing insolvency procedure" },
-  { value: "InsolvencyPractitioner", icon: Scale, color: "border-blue-200 bg-blue-50 hover:border-blue-400", textColor: "text-blue-700", desc: "Judicial administrator / liquidator firm" },
-  { value: "Creditor", icon: DollarSign, color: "border-amber-200 bg-amber-50 hover:border-amber-400", textColor: "text-amber-700", desc: "Secured, unsecured, budgetary, or employee creditor" },
-  { value: "Court", icon: Landmark, color: "border-purple-200 bg-purple-50 hover:border-purple-400", textColor: "text-purple-700", desc: "Tribunal, court of appeal, or other judicial body" },
-  { value: "GovernmentAgency", icon: Flag, color: "border-green-200 bg-green-50 hover:border-green-400", textColor: "text-green-700", desc: "ANAF, ONRC, or other government institution" },
-  { value: "Other", icon: MoreHorizontal, color: "border-gray-200 bg-gray-50 hover:border-gray-400", textColor: "text-gray-700", desc: "Guarantor, expert, third party, or other" },
-] as const;
+import { Loader2, Building2, Phone, Database, Search } from "lucide-react";
 
 function CompanyForm({ initial, onSubmit, saving, onCancel, title }: {
   initial: Partial<CompanyDto>;
@@ -27,7 +18,6 @@ function CompanyForm({ initial, onSubmit, saving, onCancel, title }: {
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(initial.name ?? "");
-  const [companyType, setCompanyType] = useState(initial.companyType ?? "Debtor");
   const [cuiRo, setCuiRo] = useState(initial.cuiRo ?? "");
   const [tradeRegisterNo, setTradeRegisterNo] = useState(initial.tradeRegisterNo ?? "");
   const [vatNumber, setVatNumber] = useState(initial.vatNumber ?? "");
@@ -51,29 +41,67 @@ function CompanyForm({ initial, onSubmit, saving, onCancel, title }: {
   const [onrcResults, setOnrcResults] = useState<ONRCFirmResult[]>([]);
   const [onrcSearching, setOnrcSearching] = useState(false);
   const [showOnrcDropdown, setShowOnrcDropdown] = useState(false);
+  const [localResults, setLocalResults] = useState<CompanyDto[]>([]);
+  const [localSearching, setLocalSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     usersApi.getAll().then(r => setUsers(r.data)).catch(console.error);
   }, []);
 
-  // Debounced ONRC search
+  // Search local DB as user types
   useEffect(() => {
-    if (!onrcQuery || onrcQuery.length < 2) {
-      setOnrcResults([]);
-      setShowOnrcDropdown(false);
+    if (!onrcQuery || onrcQuery.trim().length < 2) {
+      setLocalResults([]);
+      setShowDropdown(false);
       return;
- }
-    const timer = setTimeout(async () => {
-      setOnrcSearching(true);
-try {
-        const r = await onrcApi.search(onrcQuery, "Romania", 8);
-        setOnrcResults(r.data);
-        setShowOnrcDropdown(r.data.length > 0);
-    } catch { /* ignore */ }
-  finally { setOnrcSearching(false); }
-    }, 350);
+    }
+    const timer = setTimeout(() => {
+      setLocalSearching(true);
+      companiesApi.search(onrcQuery.trim(), 8)
+        .then(r => { setLocalResults(r.data); setShowDropdown(true); })
+        .catch(console.error)
+        .finally(() => setLocalSearching(false));
+    }, 300);
     return () => clearTimeout(timer);
   }, [onrcQuery]);
+
+  // Check for exact match — skip ONRC if found
+  const hasExactMatch = localResults.some(c => {
+    const q = onrcQuery.trim().toLowerCase();
+    return (c.cuiRo && c.cuiRo.toLowerCase() === q) || c.name.toLowerCase() === q;
+  });
+
+  const triggerOnrcSearch = async () => {
+    if (!onrcQuery || onrcQuery.trim().length < 2 || hasExactMatch) return;
+    setOnrcSearching(true);
+    try {
+      const r = await onrcApi.search(onrcQuery.trim(), "Romania", 8);
+      setOnrcResults(r.data);
+      setShowDropdown(true);
+    } catch { /* ignore */ }
+    finally { setOnrcSearching(false); }
+  };
+
+  const fillFromLocal = (company: CompanyDto) => {
+    setName(company.name);
+    setCuiRo(company.cuiRo ?? "");
+    if (company.tradeRegisterNo) setTradeRegisterNo(company.tradeRegisterNo);
+    if (company.caen) setCaen(company.caen);
+    if (company.address) setAddress(company.address);
+    if (company.locality) setLocality(company.locality);
+    if (company.county) setCounty(company.county);
+    if (company.country) setCountry(company.country);
+    if (company.postalCode) setPostalCode(company.postalCode);
+    if (company.phone) setPhone(company.phone);
+    if (company.email) setEmail(company.email);
+    if (company.contactPerson) setContactPerson(company.contactPerson);
+    if (company.iban) setIban(company.iban);
+    if (company.bankName) setBankName(company.bankName);
+    if (company.incorporationYear) setIncorporationYear(company.incorporationYear);
+    setShowDropdown(false);
+    setOnrcQuery("");
+  };
 
 const fillFromOnrc = (firm: ONRCFirmResult) => {
     setName(firm.name);
@@ -86,6 +114,7 @@ const fillFromOnrc = (firm: ONRCFirmResult) => {
     if (firm.postalCode) setPostalCode(firm.postalCode);
     if (firm.phone) setPhone(firm.phone);
     if (firm.incorporationYear) setIncorporationYear(firm.incorporationYear);
+    setShowDropdown(false);
     setShowOnrcDropdown(false);
     setOnrcQuery("");
   };
@@ -93,7 +122,7 @@ const fillFromOnrc = (firm: ONRCFirmResult) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      name, companyType,
+      name,
     cuiRo: cuiRo || undefined,
       tradeRegisterNo: tradeRegisterNo || undefined,
       vatNumber: vatNumber || undefined,
@@ -118,44 +147,91 @@ county: county || undefined,
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* ONRC Lookup */}
+      {/* Company Lookup — Local DB first, then ONRC */}
 <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
         <div className="flex items-center gap-2">
      <Database className="h-4 w-4 text-primary" />
-  <h2 className="text-sm font-semibold text-foreground">{t.settings.onrcDatabase ?? "ONRC Lookup"}</h2>
-        <span className="text-[10px] text-muted-foreground ml-auto">Search ONRC to auto-fill company details</span>
+  <h2 className="text-sm font-semibold text-foreground">{t.settings.onrcDatabase ?? "Company Lookup"}</h2>
+        <span className="text-[10px] text-muted-foreground ml-auto">Search local DB first, then ONRC registry</span>
         </div>
         <div className="relative">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <input
-    value={onrcQuery}
-          onChange={e => setOnrcQuery(e.target.value)}
-        placeholder={t.settings.onrcSearchPlaceholder ?? "Search by CUI or company name..."}
-    className={inputCls}
-        onFocus={() => onrcResults.length > 0 && setShowOnrcDropdown(true)}
-   />
-    {onrcSearching && (
-            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
-       )}
-      </div>
- </div>
-          {showOnrcDropdown && (
+                value={onrcQuery}
+                onChange={e => { setOnrcQuery(e.target.value); setOnrcResults([]); setShowOnrcDropdown(false); }}
+                onKeyDown={e => e.key === "Enter" && (e.preventDefault(), triggerOnrcSearch())}
+                placeholder={t.settings.onrcSearchPlaceholder ?? "Search by CUI or company name..."}
+                className={inputCls}
+                onFocus={() => (localResults.length > 0 || onrcResults.length > 0) && setShowDropdown(true)}
+              />
+              {(onrcSearching || localSearching) && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={triggerOnrcSearch}
+              disabled={onrcSearching || !onrcQuery || onrcQuery.trim().length < 2 || hasExactMatch}
+              className="shrink-0 gap-1.5 text-xs px-3"
+              title={hasExactMatch ? "Exact match found locally — ONRC search skipped" : "Search ONRC registry"}
+            >
+              {onrcSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+              ONRC
+            </Button>
+          </div>
+          {showDropdown && (localResults.length > 0 || onrcResults.length > 0) && (
    <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg max-h-64 overflow-y-auto">
-  {onrcResults.map(firm => (
+  {/* Local DB results */}
+  {localResults.length > 0 && (
+    <>
+      <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 sticky top-0 z-10">
+        Companii locale
+      </p>
+      {localResults.map(company => (
+        <button
+          key={company.id}
+          type="button"
+          onClick={() => fillFromLocal(company)}
+          className="flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-muted/50 transition-colors border-b border-border last:border-0"
+        >
+          <Building2 className="h-4 w-4 text-emerald-500 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground truncate">{company.name}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {company.cuiRo ? `CUI: ${company.cuiRo}` : "No CUI"}
+              {company.tradeRegisterNo && ` · ${company.tradeRegisterNo}`}
+              {company.county && ` · ${company.county}`}
+            </p>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
+            local
+          </span>
+        </button>
+      ))}
+    </>
+  )}
+  {/* ONRC results */}
+  {onrcResults.length > 0 && (
+    <>
+      <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 sticky top-0 z-10">
+        Registrul ONRC
+      </p>
+      {onrcResults.map(firm => (
          <button
          key={firm.id}
        type="button"
       onClick={() => fillFromOnrc(firm)}
                   className="flex items-center gap-3 w-full px-4 py-2.5 text-left hover:bg-muted/50 transition-colors border-b border-border last:border-0"
          >
-    <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
+    <Building2 className="h-4 w-4 text-primary shrink-0" />
           <div className="min-w-0 flex-1">
    <p className="text-sm font-medium text-foreground truncate">{firm.name}</p>
            <p className="text-xs text-muted-foreground truncate">
       CUI: {firm.cui}
-         {firm.tradeRegisterNo && ` � ${firm.tradeRegisterNo}`}
-       {firm.county && ` � ${firm.county}`}
+         {firm.tradeRegisterNo && ` · ${firm.tradeRegisterNo}`}
+       {firm.county && ` · ${firm.county}`}
                   </p>
    </div>
          {firm.status && (
@@ -165,7 +241,14 @@ county: county || undefined,
     )}
    </button>
               ))}
+    </>
+  )}
             </div>
+     )}
+     {onrcQuery.trim().length >= 2 && !localSearching && localResults.length === 0 && onrcResults.length === 0 && !onrcSearching && (
+       <p className="mt-1 text-xs text-muted-foreground">
+         No local companies found. Click <strong>ONRC</strong> to search the national registry.
+       </p>
      )}
         </div>
   </div>
@@ -182,12 +265,6 @@ county: county || undefined,
          <label className={labelCls}>{t.companies.companyName} *</label>
     <input value={name} onChange={e => setName(e.target.value)} required className={inputCls} />
           </div>
-          <div>
-            <label className={labelCls}>{t.companies.companyType || "Type"}</label>
-<select value={companyType} onChange={e => setCompanyType(e.target.value)} className={inputCls}>
-    {COMPANY_TYPES.map(ct => <option key={ct.value} value={ct.value}>{ct.value}</option>)}
-     </select>
-      </div>
           <div>
             <label className={labelCls}>{t.companies.cuiRo}</label>
     <input value={cuiRo} onChange={e => setCuiRo(e.target.value)} className={inputCls} placeholder="RO12345678" />
@@ -296,7 +373,6 @@ export function NewCompanyPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
 
   const handleCreate = async (data: Partial<CompanyDto>) => {
     setSaving(true);
@@ -307,53 +383,19 @@ export function NewCompanyPage() {
     finally { setSaving(false); }
   };
 
-  // Step 1: Choose company type
-  if (!selectedType) {
-    return (
-      <div className="mx-auto max-w-3xl">
-     <BackButton onClick={() => navigate("/companies")}>{t.companies.backToCompanies}</BackButton>
-        <div className="mt-4 text-center">
-       <h1 className="text-xl font-bold text-foreground">{t.companies.newCompany}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">What type of company are you creating?</p>
-        </div>
-     <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {COMPANY_TYPES.map(ct => {
-            const Icon = ct.icon;
-         return (
-    <button
-         key={ct.value}
-      type="button"
-  onClick={() => setSelectedType(ct.value)}
-                className={`flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all cursor-pointer ${ct.color}`}
-        >
-            <div className="flex items-center gap-2">
-      <Icon className={`h-5 w-5 ${ct.textColor}`} />
-          <span className={`text-sm font-bold ${ct.textColor}`}>{ct.value.replace(/([A-Z])/g, " $1").trim()}</span>
-      </div>
-   <p className="text-xs text-muted-foreground">{ct.desc}</p>
-  <ArrowRight className={`h-4 w-4 mt-1 ${ct.textColor} opacity-50`} />
-              </button>
- );
-   })}
-  </div>
-      </div>
-    );
-  }
-
-  // Step 2: Company form with pre-selected type
   return (
     <div className="mx-auto max-w-2xl">
-      <BackButton onClick={() => setSelectedType(null)}>? Change type</BackButton>
-   <div className="mt-2">
+      <BackButton onClick={() => navigate("/companies")}>{t.companies.backToCompanies}</BackButton>
+      <div className="mt-2">
         <CompanyForm
-        initial={{ companyType: selectedType }}
+          initial={{}}
           onSubmit={handleCreate}
           saving={saving}
- onCancel={() => navigate("/companies")}
-          title={`${t.companies.newCompany}: ${selectedType.replace(/([A-Z])/g, " $1").trim()}`}
+          onCancel={() => navigate("/companies")}
+          title={t.companies.newCompany}
         />
+      </div>
     </div>
-  </div>
   );
 }
 

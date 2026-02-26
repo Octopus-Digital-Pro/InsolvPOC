@@ -29,6 +29,8 @@ import AuditTrailPage from "./pages/AuditTrailPage";
 import TenantAdminPage from "./pages/TenantAdminPage";
 import ONRCSettingsPage from "./pages/ONRCSettingsPage";
 import AiSettingsPage from "./pages/AiSettingsPage";
+import WorkflowStagesPage from "./pages/WorkflowStagesPage";
+import ReportsPage from "./pages/ReportsPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Loader2, Menu, X } from "lucide-react";
 
@@ -133,6 +135,7 @@ function AppRoutes() {
         <Route path="/companies/:id" element={<CompanyDetailPage />} />
         <Route path="/companies/:id/edit" element={<EditCompanyPage />} />
         <Route path="/tasks" element={<TasksPage />} />
+        <Route path="/reports" element={<ReportsPage />} />
         <Route path="/documents/:id/review" element={<DocumentReviewPage />} />
 
         {/* Settings � sidebar takeover layout */}
@@ -146,6 +149,7 @@ function AppRoutes() {
           <Route path="localgov" element={<SettingsPage tab="localgov" />} />
           <Route path="deadlines" element={<DeadlineSettingsPage />} />
           <Route path="templates" element={<TemplateSettingsPage />} />
+          <Route path="workflow-stages" element={<WorkflowStagesPage />} />
           <Route path="emails" element={<SettingsPage tab="emails" />} />
           <Route path="errors" element={<SettingsPage tab="errors" />} />
           <Route
@@ -171,14 +175,14 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <ErrorBoundary>
+    <AuthProvider>
       <BrowserRouter>
         <LanguageProvider>
-          <AuthProvider>
+          <ErrorBoundary>
             <AppRoutes />
-          </AuthProvider>
+          </ErrorBoundary>
         </LanguageProvider>
       </BrowserRouter>
-    </ErrorBoundary>
+    </AuthProvider>
   );
 }
