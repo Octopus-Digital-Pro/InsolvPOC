@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Insolvex.API.Authorization;
 using Insolvex.API.Data;
 using Insolvex.Core.Abstractions;
+using Insolvex.Domain;
 using Insolvex.Domain.Entities;
 using Insolvex.Domain.Enums;
 
@@ -503,7 +504,7 @@ documentId,
 
     /// <summary>Determine if a document type requires signature.</summary>
     public static bool DocTypeRequiresSignature(string? docType)
-        => !string.IsNullOrWhiteSpace(docType) && SignatureRequiredDocTypes.Contains(docType);
+   => DocumentTypeRules.RequiresSignature(docType);
 
   private byte[] GetMasterKey()
     {

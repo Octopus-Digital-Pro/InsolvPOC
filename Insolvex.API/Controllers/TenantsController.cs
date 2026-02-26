@@ -30,20 +30,21 @@ public class TenantsController : ControllerBase
     {
         var tenants = await _db.Tenants
   .IgnoreQueryFilters()
-        .OrderBy(t => t.Name)
+ .OrderBy(t => t.Name)
    .Select(t => new
    {
-     t.Id,
+ t.Id,
     t.Name,
-            t.Domain,
+      t.Domain,
     t.IsActive,
        t.SubscriptionExpiry,
   t.PlanName,
-            t.CreatedOn,
+     Region = t.Region.ToString(),
+   t.CreatedOn,
   UserCount = _db.Users.IgnoreQueryFilters().Count(u => u.TenantId == t.Id),
       CompanyCount = _db.Companies.IgnoreQueryFilters().Count(c => c.TenantId == t.Id),
-        CaseCount = _db.InsolvencyCases.IgnoreQueryFilters().Count(c => c.TenantId == t.Id),
-   })
+  CaseCount = _db.InsolvencyCases.IgnoreQueryFilters().Count(c => c.TenantId == t.Id),
+ })
  .ToListAsync();
    return Ok(tenants);
   }
@@ -85,9 +86,11 @@ public class TenantsController : ControllerBase
   if (request.Domain != null) tenant.Domain = request.Domain;
 if (request.IsActive.HasValue) tenant.IsActive = request.IsActive.Value;
         if (request.PlanName != null) tenant.PlanName = request.PlanName;
-        if (request.SubscriptionExpiry.HasValue) tenant.SubscriptionExpiry = request.SubscriptionExpiry.Value;
+   if (request.SubscriptionExpiry.HasValue) tenant.SubscriptionExpiry = request.SubscriptionExpiry.Value;
+        if (request.Region != null && Enum.TryParse<SystemRegion>(request.Region, true, out var region))
+  tenant.Region = region;
 
-        await _db.SaveChangesAsync();
+   await _db.SaveChangesAsync();
     return Ok(tenant.ToDto());
  }
 

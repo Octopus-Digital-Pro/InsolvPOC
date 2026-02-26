@@ -55,9 +55,11 @@ public class CreditorMeetingController : ControllerBase
         {
             calendarEventId = result.CalendarEventId,
             taskCount = result.TaskCount,
+            emailCount = result.EmailCount,
             meetingDate = result.MeetingDate,
             noticeSendDeadline = result.NoticeSendDeadline,
-            message = "Creditor meeting scheduled. Notice tasks and emails created.",
+            noticeGenerated = result.NoticeGenerated,
+            message = "Creditor meeting scheduled. Notice tasks, emails, and documents created.",
         });
     }
 

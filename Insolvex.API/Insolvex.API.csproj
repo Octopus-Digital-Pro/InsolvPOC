@@ -40,4 +40,8 @@
     <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="8.0.11" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Insolvex.Tests" />
+  </ItemGroup>
+
 </Project>

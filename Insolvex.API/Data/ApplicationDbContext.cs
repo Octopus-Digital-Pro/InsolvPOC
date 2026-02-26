@@ -24,7 +24,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<InsolvencyDocument> InsolvencyDocuments => Set<InsolvencyDocument>();
     public DbSet<CompanyTask> CompanyTasks => Set<CompanyTask>();
     public DbSet<CaseParty> CaseParties => Set<CaseParty>();
-    public DbSet<CasePhase> CasePhases => Set<CasePhase>();
+  public DbSet<CasePhase> CasePhases => Set<CasePhase>();
     public DbSet<InsolvencyFirm> InsolvencyFirms => Set<InsolvencyFirm>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<ErrorLog> ErrorLogs => Set<ErrorLog>();
@@ -39,6 +39,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<Tribunal> Tribunals => Set<Tribunal>();
     public DbSet<FinanceAuthority> FinanceAuthorities => Set<FinanceAuthority>();
     public DbSet<LocalGovernment> LocalGovernments => Set<LocalGovernment>();
+ public DbSet<GeneratedLetter> GeneratedLetters => Set<GeneratedLetter>();
+    public DbSet<TenantDeadlineSettings> TenantDeadlineSettings => Set<TenantDeadlineSettings>();
+    public DbSet<CaseDeadlineOverride> CaseDeadlineOverrides => Set<CaseDeadlineOverride>();
+    public DbSet<ONRCFirmRecord> ONRCFirmRecords => Set<ONRCFirmRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -159,6 +163,25 @@ e.Property(p => p.Notes).HasMaxLength(2000);
             e.HasIndex(p => new { p.CaseId, p.PhaseType }).IsUnique();
         });
 
+        // CompanyTask
+  modelBuilder.Entity<CompanyTask>(e =>
+        {
+            e.HasKey(t => t.Id);
+          e.Property(t => t.Title).HasMaxLength(512).IsRequired();
+        e.Property(t => t.Description).HasMaxLength(4000);
+        e.Property(t => t.Labels).HasMaxLength(1024);
+   e.Property(t => t.DeadlineSource).HasMaxLength(64);
+          e.Property(t => t.Category).HasMaxLength(64);
+       e.Property(t => t.EscalationPolicyId).HasMaxLength(128);
+    e.Property(t => t.ReminderScheduleId).HasMaxLength(128);
+            e.HasOne(t => t.Company).WithMany(c => c.Tasks).HasForeignKey(t => t.CompanyId).OnDelete(DeleteBehavior.Restrict);
+       e.HasOne(t => t.Case).WithMany(ic => ic.Tasks).HasForeignKey(t => t.CaseId).OnDelete(DeleteBehavior.SetNull);
+          e.HasOne(t => t.AssignedTo).WithMany(u => u.AssignedTasks).HasForeignKey(t => t.AssignedToUserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(t => new { t.CaseId, t.Status });
+    e.HasIndex(t => new { t.AssignedToUserId, t.Status });
+            e.HasIndex(t => t.Deadline);
+     });
+
         // InsolvencyFirm
    modelBuilder.Entity<InsolvencyFirm>(e =>
  {
@@ -213,9 +236,14 @@ e.Property(p => p.Notes).HasMaxLength(2000);
     e.HasKey(s => s.Id);
      e.Property(s => s.To).HasMaxLength(512).IsRequired();
    e.Property(s => s.Cc).HasMaxLength(512);
-  e.Property(s => s.Subject).HasMaxLength(512).IsRequired();
-   e.HasIndex(s => new { s.IsSent, s.ScheduledFor });
-  });
+            e.Property(s => s.Bcc).HasMaxLength(512);
+     e.Property(s => s.Subject).HasMaxLength(512).IsRequired();
+       e.Property(s => s.Status).HasMaxLength(32);
+            e.Property(s => s.ProviderMessageId).HasMaxLength(256);
+            e.HasOne(s => s.Case).WithMany(ic => ic.Emails).HasForeignKey(s => s.CaseId).OnDelete(DeleteBehavior.SetNull);
+e.HasIndex(s => new { s.IsSent, s.ScheduledFor });
+     e.HasIndex(s => s.CaseId);
+        });
 
         // SystemConfig
         modelBuilder.Entity<SystemConfig>(e =>
@@ -360,7 +388,66 @@ e.HasKey(t => t.Id);
           e.HasIndex(t => new { t.TenantId, t.Name });
         });
 
- // ----- Tenant query filters -----
+        // GeneratedLetter
+        modelBuilder.Entity<GeneratedLetter>(e =>
+        {
+            e.HasKey(g => g.Id);
+e.Property(g => g.StorageKey).HasMaxLength(1024).IsRequired();
+          e.Property(g => g.FileName).HasMaxLength(512).IsRequired();
+    e.Property(g => g.ContentType).HasMaxLength(128);
+  e.Property(g => g.FileHash).HasMaxLength(128);
+  e.Property(g => g.DeliveryStatus).HasMaxLength(32);
+    e.Property(g => g.ErrorMessage).HasMaxLength(2000);
+        e.HasOne(g => g.Case).WithMany(ic => ic.GeneratedLetters).HasForeignKey(g => g.CaseId).OnDelete(DeleteBehavior.Cascade);
+      e.HasOne(g => g.Template).WithMany().HasForeignKey(g => g.TemplateId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(g => new { g.CaseId, g.TemplateType });
+        });
+
+        // TenantDeadlineSettings
+        modelBuilder.Entity<TenantDeadlineSettings>(e =>
+    {
+            e.HasKey(t => t.Id);
+            e.Property(t => t.ReminderDaysBeforeDeadline).HasMaxLength(128);
+   e.Property(t => t.EmailSendingDomain).HasMaxLength(256);
+      e.Property(t => t.EmailFromName).HasMaxLength(256);
+            e.HasIndex(t => t.TenantId).IsUnique();
+        });
+
+   // CaseDeadlineOverride
+   modelBuilder.Entity<CaseDeadlineOverride>(e =>
+     {
+       e.HasKey(o => o.Id);
+ e.Property(o => o.DeadlineKey).HasMaxLength(128).IsRequired();
+          e.Property(o => o.OriginalValue).HasMaxLength(256);
+       e.Property(o => o.OverrideValue).HasMaxLength(256).IsRequired();
+     e.Property(o => o.Reason).HasMaxLength(2000).IsRequired();
+         e.HasOne(o => o.Case).WithMany(ic => ic.DeadlineOverrides).HasForeignKey(o => o.CaseId).OnDelete(DeleteBehavior.Cascade);
+       e.HasOne(o => o.OverriddenBy).WithMany().HasForeignKey(o => o.OverriddenByUserId).OnDelete(DeleteBehavior.SetNull);
+          e.HasIndex(o => new { o.CaseId, o.DeadlineKey });
+        });
+
+        // ONRCFirmRecord (not tenant-scoped — system-wide per region)
+        modelBuilder.Entity<ONRCFirmRecord>(e =>
+      {
+            e.HasKey(f => f.Id);
+        e.Property(f => f.CUI).HasMaxLength(64).IsRequired();
+          e.Property(f => f.Name).HasMaxLength(512).IsRequired();
+    e.Property(f => f.TradeRegisterNo).HasMaxLength(128);
+    e.Property(f => f.CAEN).HasMaxLength(32);
+      e.Property(f => f.Address).HasMaxLength(512);
+ e.Property(f => f.Locality).HasMaxLength(256);
+ e.Property(f => f.County).HasMaxLength(256);
+            e.Property(f => f.PostalCode).HasMaxLength(16);
+  e.Property(f => f.Phone).HasMaxLength(64);
+    e.Property(f => f.Status).HasMaxLength(64);
+      e.Property(f => f.IncorporationYear).HasMaxLength(10);
+   e.Property(f => f.ShareCapitalRon).HasColumnType("decimal(18,2)");
+  e.HasIndex(f => f.CUI);
+  e.HasIndex(f => f.Name);
+  e.HasIndex(f => f.Region);
+    });
+
+    // ----- Tenant query filters -----
     ApplyTenantQueryFilters(modelBuilder);
   }
 

@@ -37,20 +37,21 @@ public class SettingsController : ControllerBase
         if (!_currentUser.TenantId.HasValue) return BadRequest(new { message = "No tenant context" });
 
     var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId.Value);
-        if (tenant == null) return NotFound();
+      if (tenant == null) return NotFound();
 
-        return Ok(new
+ return Ok(new
      {
      tenant.Id,
     tenant.Name,
         tenant.Domain,
-            tenant.IsActive,
-            tenant.PlanName,
+       tenant.IsActive,
+     tenant.PlanName,
             tenant.SubscriptionExpiry,
+    region = tenant.Region.ToString(),
  userCount = await _db.Users.IgnoreQueryFilters().CountAsync(u => u.TenantId == tenant.Id),
        companyCount = await _db.Companies.CountAsync(),
       caseCount = await _db.InsolvencyCases.CountAsync()
-        });
+      });
     }
 
     [HttpPut("tenant")]
@@ -59,18 +60,20 @@ public class SettingsController : ControllerBase
     {
    if (!_currentUser.TenantId.HasValue) return BadRequest(new { message = "No tenant context" });
 
-        var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId.Value);
+    var tenant = await _db.Tenants.FirstOrDefaultAsync(t => t.Id == _currentUser.TenantId.Value);
         if (tenant == null) return NotFound();
 
-        var oldValues = new { tenant.Name, tenant.Domain };
+        var oldValues = new { tenant.Name, tenant.Domain, Region = tenant.Region.ToString() };
 
    if (request.Name != null) tenant.Name = request.Name;
-    if (request.Domain != null) tenant.Domain = request.Domain;
+if (request.Domain != null) tenant.Domain = request.Domain;
+     if (request.Region != null && Enum.TryParse<SystemRegion>(request.Region, true, out var region))
+    tenant.Region = region;
 
      await _db.SaveChangesAsync();
-        await _audit.LogEntityAsync("Settings.TenantUpdated", "Tenant", tenant.Id,
-   oldValues, new { tenant.Name, tenant.Domain });
-        return Ok(new { message = "Settings updated" });
+     await _audit.LogEntityAsync("Settings.TenantUpdated", "Tenant", tenant.Id,
+   oldValues, new { tenant.Name, tenant.Domain, Region = tenant.Region.ToString() });
+    return Ok(new { message = "Settings updated" });
     }
 
     // ?? Scheduled Emails ??
@@ -568,7 +571,7 @@ t.ContentType,
 public record UpdateSystemConfigRequest(List<SystemConfigItem> Items);
 public record SystemConfigItem(string Key, string Value, string? Description = null, string? Group = null);
 
-public record UpdateTenantSettingsRequest(string? Name = null, string? Domain = null);
+public record UpdateTenantSettingsRequest(string? Name = null, string? Domain = null, string? Region = null);
 
 public record CreateScheduledEmailRequest(
     string To,

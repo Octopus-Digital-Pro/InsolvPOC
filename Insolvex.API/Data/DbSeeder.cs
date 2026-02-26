@@ -413,6 +413,26 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:UseBusinessDays", Value
 new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = "7,3,1,0", Description = "Days before deadline to send reminders (comma-separated)", Group = "Deadlines", CreatedOn = DateTime.UtcNow, CreatedBy = "System" }
         );
 
+        // Tenant-specific deadline settings (per InsolvencyAppRules)
+        db.TenantDeadlineSettings.Add(new TenantDeadlineSettings
+        {
+     Id = Guid.NewGuid(),
+            TenantId = tenantId,
+      SendInitialNoticeWithinDays = 2,
+    ClaimDeadlineDaysFromNotice = 30,
+     ObjectionDeadlineDaysFromNotice = 45,
+    MeetingNoticeMinimumDays = 14,
+          ReportEveryNDays = 30,
+            UseBusinessDays = false,
+      AdjustToNextWorkingDay = true,
+      ReminderDaysBeforeDeadline = "7,3,1,0",
+            UrgentQueueHoursBeforeDeadline = 24,
+  AutoAssignBackupOnCriticalOverdue = false,
+         EmailFromName = "Insolvex Notifications",
+         CreatedOn = DateTime.UtcNow,
+      CreatedBy = "System"
+        });
+
         await db.SaveChangesAsync();
     }
 }

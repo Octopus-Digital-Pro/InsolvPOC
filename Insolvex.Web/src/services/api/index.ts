@@ -8,4 +8,6 @@ export { usersApi, tenantsApi, auditLogsApi } from "./admin";
 export { signingApi } from "./signing";
 export { workflowApi } from "./workflow";
 export { tribunalsApi, financeApi, localGovApi } from "./authorities";
+export { deadlineSettingsApi } from "./deadlineSettings";
+export { caseTasksApi, caseEmailsApi, caseCalendarApi } from "./caseWorkspace";
 export type * from "./types";

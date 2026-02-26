@@ -10,12 +10,12 @@ public record DashboardDto(
     int PendingTasks,
     int OverdueTasks,
     List<UpcomingDeadlineDto> UpcomingDeadlines,
-    List<CalendarEventDto> CalendarEvents,
- List<TaskDto> RecentTasks
+    List<DashboardCalendarItemDto> CalendarEvents,
+    List<TaskDto> RecentTasks
 );
 
 public record UpcomingDeadlineDto(
-Guid CaseId,
+    Guid CaseId,
     string CaseNumber,
     string DebtorName,
     string DeadlineType,
@@ -23,9 +23,13 @@ Guid CaseId,
     string? CompanyName
 );
 
-public record CalendarEventDto(
+/// <summary>
+/// Lightweight calendar item for the dashboard (hearings, task deadlines).
+/// For full calendar event details, use CalendarEventDto.
+/// </summary>
+public record DashboardCalendarItemDto(
     Guid Id,
-  string Title,
+    string Title,
     DateTime Start,
     DateTime? End,
     string Type,

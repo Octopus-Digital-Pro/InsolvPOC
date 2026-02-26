@@ -79,4 +79,8 @@ public class InsolvencyCase : TenantScopedEntity
     public ICollection<CasePhase> Phases { get; set; } = new List<CasePhase>();
     public ICollection<CalendarEvent> CalendarEvents { get; set; } = new List<CalendarEvent>();
     public ICollection<CaseSummary> Summaries { get; set; } = new List<CaseSummary>();
+    public ICollection<CompanyTask> Tasks { get; set; } = new List<CompanyTask>();
+    public ICollection<ScheduledEmail> Emails { get; set; } = new List<ScheduledEmail>();
+    public ICollection<GeneratedLetter> GeneratedLetters { get; set; } = new List<GeneratedLetter>();
+    public ICollection<CaseDeadlineOverride> DeadlineOverrides { get; set; } = new List<CaseDeadlineOverride>();
 }

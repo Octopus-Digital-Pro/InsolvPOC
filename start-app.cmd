@@ -33,7 +33,7 @@ where npm >nul 2>&1
 if !ERRORLEVEL! neq 0 (
     echo [ERROR] Node.js / npm is not installed or not in PATH.
     echo         Install Node.js: https://nodejs.org
-pause
+    pause
     exit /b 1
 )
 
@@ -43,7 +43,7 @@ echo         All prerequisites found.
 :: 2. Start SQL Server in Docker
 :: -----------------------------------------------
 echo.
-echo [1/6] Starting SQL Server container...
+echo [1/4] Starting SQL Server container...
 docker-compose up -d sqlserver
 if !ERRORLEVEL! neq 0 (
     echo [ERROR] Failed to start SQL Server container.
@@ -57,7 +57,7 @@ if !ERRORLEVEL! neq 0 (
 ::    Uses 'docker inspect' to read the healthcheck status
 ::    set by docker-compose. Falls back to a simple TCP probe.
 :: -----------------------------------------------
-echo [2/6] Waiting for SQL Server to accept connections...
+echo [2/4] Waiting for SQL Server to accept connections...
 
 set RETRIES=0
 set MAX_RETRIES=40
@@ -96,36 +96,13 @@ goto WAIT_LOOP
 
 :SQL_READY
 
-:: -----------------------------------------------
-:: 4. Install EF Core tools if needed
-:: -----------------------------------------------
-echo [3/6] Checking EF Core tools...
-dotnet tool list -g 2>nul | findstr /i "dotnet-ef" >nul 2>&1
-if !ERRORLEVEL! neq 0 (
-    echo   Installing dotnet-ef tool...
-    dotnet tool install --global dotnet-ef
-)
+:: NOTE: Migrations are applied automatically by the API on startup (MigrateAsync).
+:: No manual 'dotnet ef database update' step is required.
 
 :: -----------------------------------------------
-:: 5. Apply database migrations
+:: 4. Install npm dependencies for frontend if needed
 :: -----------------------------------------------
-echo [4/6] Applying database migrations...
-pushd "%~dp0Insolvex.API"
-dotnet ef database update
-if !ERRORLEVEL! neq 0 (
-    echo [ERROR] Failed to apply migrations.
-    echo       Check connection string in appsettings.json
-    popd
-    pause
-    exit /b 1
-)
-popd
-echo         Migrations applied successfully!
-
-:: -----------------------------------------------
-:: 6. Install npm dependencies for frontend if needed
-:: -----------------------------------------------
-echo [5/6] Checking frontend npm dependencies...
+echo [3/4] Checking frontend npm dependencies...
 if not exist "%~dp0Insolvex.Web\node_modules" (
     echo Installing npm packages for Insolvex.Web...
     pushd "%~dp0Insolvex.Web"
@@ -134,9 +111,9 @@ if not exist "%~dp0Insolvex.Web\node_modules" (
 )
 
 :: -----------------------------------------------
-:: 7. Launch BE and FE in parallel windows
+:: 5. Launch BE and FE in parallel windows
 :: -----------------------------------------------
-echo [6/6] Starting backend and frontend...
+echo [4/4] Starting backend and frontend...
 echo.
 echo  ============================================
 echo.
@@ -151,6 +128,9 @@ echo.
 echo     admin@insolvex.local        / Admin123!      (GlobalAdmin)
 echo     practitioner@insolvex.local / Pract123!      (Practitioner)
 echo     secretary@insolvex.local    / Secr123!       (Secretary)
+echo.
+echo   NOTE: On first run the API will automatically apply
+echo         database migrations and seed demo data.
 echo.
 echo  ============================================
 echo.

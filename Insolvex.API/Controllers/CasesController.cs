@@ -1,12 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Insolvex.API.Authorization;
-using Insolvex.API.Data;
 using Insolvex.Core.Abstractions;
-using Insolvex.Core.DTOs;
-using Insolvex.Core.Mapping;
-using Insolvex.Domain.Entities;
+using Insolvex.Core.Exceptions;
 using Insolvex.Domain.Enums;
 
 namespace Insolvex.API.Controllers;
@@ -17,152 +13,113 @@ namespace Insolvex.API.Controllers;
 [RequirePermission(Permission.CaseView)]
 public class CasesController : ControllerBase
 {
- private readonly ApplicationDbContext _db;
-    private readonly IAuditService _audit;
+    private readonly ICaseService _cases;
 
-    public CasesController(ApplicationDbContext db, IAuditService audit)
-    {
-     _db = db;
-        _audit = audit;
-    }
+    public CasesController(ICaseService cases) => _cases = cases;
 
- [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] Guid? companyId = null)
-    {
-        var query = _db.InsolvencyCases
-      .Include(c => c.Company)
- .Include(c => c.AssignedTo)
-            .AsQueryable();
-
-        if (companyId.HasValue)
-     query = query.Where(c => c.CompanyId == companyId);
-
-        var cases = await query.OrderByDescending(c => c.CreatedOn).ToListAsync();
-
-        var caseIds = cases.Select(c => c.Id).ToList();
-        var docCounts = await _db.InsolvencyDocuments
-     .Where(d => caseIds.Contains(d.CaseId))
-            .GroupBy(d => d.CaseId)
- .Select(g => new { CaseId = g.Key, Count = g.Count() })
-   .ToDictionaryAsync(x => x.CaseId, x => x.Count);
-
-var partyCounts = await _db.CaseParties
-            .Where(p => caseIds.Contains(p.CaseId))
-            .GroupBy(p => p.CaseId)
-            .Select(g => new { CaseId = g.Key, Count = g.Count() })
-          .ToDictionaryAsync(x => x.CaseId, x => x.Count);
-
-        var dtos = cases.Select(c => c.ToDto(
-     docCounts.GetValueOrDefault(c.Id, 0),
-       partyCounts.GetValueOrDefault(c.Id, 0)
-   )).ToList();
-        return Ok(dtos);
-    }
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] Guid? companyId, CancellationToken ct)
+    => Ok(await _cases.GetAllAsync(companyId, ct));
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var c = await _db.InsolvencyCases
-      .Include(x => x.Company)
- .Include(x => x.AssignedTo)
-   .Include(x => x.Documents)
-   .Include(x => x.Phases)
-          .Include(x => x.Parties)
-   .FirstOrDefaultAsync(x => x.Id == id);
-      if (c == null) return NotFound();
-
-        var phases = c.Phases.OrderBy(p => p.SortOrder).Select(p => p.ToDto()).ToList();
-        return Ok(c.ToDto(c.Documents.Count, c.Parties.Count, phases));
+        var dto = await _cases.GetByIdAsync(id, ct);
+        return dto is null ? NotFound() : Ok(dto);
     }
 
     [HttpGet("{id:guid}/documents")]
-  public async Task<IActionResult> GetDocuments(Guid id)
-    {
-  var docs = await _db.InsolvencyDocuments
-   .Where(d => d.CaseId == id)
-    .OrderByDescending(d => d.UploadedAt)
-       .Select(d => d.ToDto())
-         .ToListAsync();
-      return Ok(docs);
-    }
+    public async Task<IActionResult> GetDocuments(Guid id, CancellationToken ct)
+        => Ok(await _cases.GetDocumentsAsync(id, ct));
 
-  [HttpPost]
+    [HttpPost]
     [RequirePermission(Permission.CaseCreate)]
-    public async Task<IActionResult> Create([FromBody] CreateCaseRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateCaseBody body, CancellationToken ct)
     {
-  var procedureType = request.ProcedureType ?? Domain.Enums.ProcedureType.Other;
-
-        var insolvencyCase = new InsolvencyCase
-  {
-        Id = Guid.NewGuid(),
-    CaseNumber = request.CaseNumber,
-            CourtName = request.CourtName,
-       CourtSection = request.CourtSection,
-  DebtorName = request.DebtorName,
-      DebtorCui = request.DebtorCui,
-     ProcedureType = procedureType,
-    LawReference = request.LawReference,
-            CompanyId = request.CompanyId
-        };
-
-        _db.InsolvencyCases.Add(insolvencyCase);
-      await _db.SaveChangesAsync();
-      await _audit.LogAsync("Case.Created", insolvencyCase.Id);
-  return CreatedAtAction(nameof(GetById), new { id = insolvencyCase.Id }, insolvencyCase.ToDto());
+      var dto = await _cases.CreateAsync(new CreateCaseCommand
+        {
+            CaseNumber = body.CaseNumber,
+        CourtName = body.CourtName,
+  CourtSection = body.CourtSection,
+       DebtorName = body.DebtorName,
+         DebtorCui = body.DebtorCui,
+            ProcedureType = body.ProcedureType,
+      LawReference = body.LawReference,
+        CompanyId = body.CompanyId,
+   }, ct);
+  return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
     }
 
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCaseRequest request)
+[HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCaseBody body, CancellationToken ct)
     {
-     var c = await _db.InsolvencyCases.FirstOrDefaultAsync(x => x.Id == id);
-        if (c == null) return NotFound();
-
-        if (request.CaseNumber != null) c.CaseNumber = request.CaseNumber;
-    if (request.CourtName != null) c.CourtName = request.CourtName;
-     if (request.CourtSection != null) c.CourtSection = request.CourtSection;
-        if (request.JudgeSyndic != null) c.JudgeSyndic = request.JudgeSyndic;
-        if (request.ProcedureType.HasValue) c.ProcedureType = request.ProcedureType.Value;
-        if (request.Stage.HasValue) c.Stage = request.Stage.Value;
-        if (request.LawReference != null) c.LawReference = request.LawReference;
-  if (request.PractitionerName != null) c.PractitionerName = request.PractitionerName;
-        if (request.PractitionerRole != null) c.PractitionerRole = request.PractitionerRole;
-        if (request.PractitionerFiscalId != null) c.PractitionerFiscalId = request.PractitionerFiscalId;
-        if (request.PractitionerDecisionNo != null) c.PractitionerDecisionNo = request.PractitionerDecisionNo;
-        if (request.OpeningDate.HasValue) c.OpeningDate = request.OpeningDate;
-        if (request.NextHearingDate.HasValue) c.NextHearingDate = request.NextHearingDate;
-        if (request.ClaimsDeadline.HasValue) c.ClaimsDeadline = request.ClaimsDeadline;
-        if (request.ContestationsDeadline.HasValue) c.ContestationsDeadline = request.ContestationsDeadline;
-        if (request.DefinitiveTableDate.HasValue) c.DefinitiveTableDate = request.DefinitiveTableDate;
-    if (request.ReorganizationPlanDeadline.HasValue) c.ReorganizationPlanDeadline = request.ReorganizationPlanDeadline;
-        if (request.ClosureDate.HasValue) c.ClosureDate = request.ClosureDate;
-        if (request.TotalClaimsRon.HasValue) c.TotalClaimsRon = request.TotalClaimsRon;
-        if (request.SecuredClaimsRon.HasValue) c.SecuredClaimsRon = request.SecuredClaimsRon;
-        if (request.UnsecuredClaimsRon.HasValue) c.UnsecuredClaimsRon = request.UnsecuredClaimsRon;
-        if (request.BudgetaryClaimsRon.HasValue) c.BudgetaryClaimsRon = request.BudgetaryClaimsRon;
-        if (request.EmployeeClaimsRon.HasValue) c.EmployeeClaimsRon = request.EmployeeClaimsRon;
-     if (request.EstimatedAssetValueRon.HasValue) c.EstimatedAssetValueRon = request.EstimatedAssetValueRon;
-        if (request.BpiPublicationNo != null) c.BpiPublicationNo = request.BpiPublicationNo;
-        if (request.BpiPublicationDate.HasValue) c.BpiPublicationDate = request.BpiPublicationDate;
-        if (request.OpeningDecisionNo != null) c.OpeningDecisionNo = request.OpeningDecisionNo;
-     if (request.Notes != null) c.Notes = request.Notes;
-        if (request.CompanyId.HasValue) c.CompanyId = request.CompanyId;
-     if (request.AssignedToUserId.HasValue) c.AssignedToUserId = request.AssignedToUserId;
-
-  await _db.SaveChangesAsync();
-        await _audit.LogAsync("Case.Updated", c.Id);
-      return Ok(c.ToDto());
-    }
+        var dto = await _cases.UpdateAsync(id, new UpdateCaseCommand
+   {
+            CaseNumber = body.CaseNumber,
+CourtName = body.CourtName,
+          CourtSection = body.CourtSection,
+      JudgeSyndic = body.JudgeSyndic,
+  ProcedureType = body.ProcedureType,
+       Stage = body.Stage,
+     LawReference = body.LawReference,
+            PractitionerName = body.PractitionerName,
+            PractitionerRole = body.PractitionerRole,
+            PractitionerFiscalId = body.PractitionerFiscalId,
+      PractitionerDecisionNo = body.PractitionerDecisionNo,
+      NoticeDate = body.NoticeDate,
+            OpeningDate = body.OpeningDate,
+     NextHearingDate = body.NextHearingDate,
+            ClaimsDeadline = body.ClaimsDeadline,
+  ContestationsDeadline = body.ContestationsDeadline,
+     DefinitiveTableDate = body.DefinitiveTableDate,
+            ReorganizationPlanDeadline = body.ReorganizationPlanDeadline,
+            ClosureDate = body.ClosureDate,
+            TotalClaimsRon = body.TotalClaimsRon,
+       SecuredClaimsRon = body.SecuredClaimsRon,
+       UnsecuredClaimsRon = body.UnsecuredClaimsRon,
+        BudgetaryClaimsRon = body.BudgetaryClaimsRon,
+      EmployeeClaimsRon = body.EmployeeClaimsRon,
+            EstimatedAssetValueRon = body.EstimatedAssetValueRon,
+       BpiPublicationNo = body.BpiPublicationNo,
+          BpiPublicationDate = body.BpiPublicationDate,
+        OpeningDecisionNo = body.OpeningDecisionNo,
+     Notes = body.Notes,
+   CompanyId = body.CompanyId,
+         AssignedToUserId = body.AssignedToUserId,
+        }, ct);
+        return Ok(dto);
+  }
 
     [HttpDelete("{id:guid}")]
- [RequirePermission(Permission.CaseDelete)]
-    public async Task<IActionResult> Delete(Guid id)
+    [RequirePermission(Permission.CaseDelete)]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
-   var c = await _db.InsolvencyCases.FirstOrDefaultAsync(x => x.Id == id);
-        if (c == null) return NotFound();
-
-    _db.InsolvencyCases.Remove(c);
-        await _db.SaveChangesAsync();
-     await _audit.LogAsync("Case.Deleted", id);
- return NoContent();
+        await _cases.DeleteAsync(id, ct);
+        return NoContent();
     }
 }
+
+// ?? API request bodies ??
+
+public record CreateCaseBody(
+    string CaseNumber,
+ string DebtorName,
+    string? CourtName = null,
+    string? CourtSection = null,
+    string? DebtorCui = null,
+    ProcedureType? ProcedureType = null,
+    string? LawReference = null,
+    Guid? CompanyId = null);
+
+public record UpdateCaseBody(
+ string? CaseNumber = null, string? CourtName = null, string? CourtSection = null,
+    string? JudgeSyndic = null, ProcedureType? ProcedureType = null, CaseStage? Stage = null,
+    string? LawReference = null, string? PractitionerName = null, string? PractitionerRole = null,
+    string? PractitionerFiscalId = null, string? PractitionerDecisionNo = null,
+    DateTime? NoticeDate = null, DateTime? OpeningDate = null, DateTime? NextHearingDate = null,
+    DateTime? ClaimsDeadline = null, DateTime? ContestationsDeadline = null,
+    DateTime? DefinitiveTableDate = null, DateTime? ReorganizationPlanDeadline = null, DateTime? ClosureDate = null,
+    decimal? TotalClaimsRon = null, decimal? SecuredClaimsRon = null, decimal? UnsecuredClaimsRon = null,
+    decimal? BudgetaryClaimsRon = null, decimal? EmployeeClaimsRon = null, decimal? EstimatedAssetValueRon = null,
+    string? BpiPublicationNo = null, DateTime? BpiPublicationDate = null, string? OpeningDecisionNo = null,
+    string? Notes = null, Guid? CompanyId = null, Guid? AssignedToUserId = null);

@@ -1,18 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { casesApi } from "@/services/api";
 import { workflowApi } from "@/services/api/workflow";
+import { caseEmailsApi } from "@/services/api/caseWorkspace";
+import { tasksApi } from "@/services/api/tasks";
 import { useTranslation } from "@/contexts/LanguageContext";
-import type { CaseDto, CasePartyDto, DocumentDto } from "@/services/api/types";
+import type { CaseDto, CasePartyDto, DocumentDto, TaskDto } from "@/services/api/types";
+import type { CaseEmailDto } from "@/services/api/caseWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
 import StageTimeline from "@/components/StageTimeline";
 import CreditorMeetingModal from "@/components/CreditorMeetingModal";
 import DocumentSigningPanel from "@/components/DocumentSigningPanel";
+import CaseTasksTab from "@/components/CaseTasksTab";
+import CaseEmailsTab from "@/components/CaseEmailsTab";
 import {
   Loader2, FileText, Upload, Users, GitBranch, ChevronRight,
   Check, Clock, Ban, SkipForward, Brain, CalendarDays, RefreshCw,
+  ListChecks, Mail,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -43,21 +49,29 @@ export default function CaseDetailPage() {
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "docs" | "parties" | "calendar">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "tasks" | "docs" | "parties" | "emails" | "calendar">("overview");
+  const [caseTasks, setCaseTasks] = useState<TaskDto[]>([]);
+  const [caseEmails, setCaseEmails] = useState<CaseEmailDto[]>([]);
 
-  const load = () => {
+  const load = useCallback(() => {
     if (!id) return;
     Promise.all([
       casesApi.getById(id),
       casesApi.getParties(id),
       casesApi.getDocuments(id),
-    ]).then(([caseRes, partiesRes, docsRes]) => {
+      tasksApi.getAll({ companyId: undefined, myTasks: false }).then(r => ({
+        data: r.data.filter((t: TaskDto) => (t as unknown as Record<string, unknown>).caseId === id)
+      })).catch(() => ({ data: [] as TaskDto[] })),
+      caseEmailsApi.getByCaseId(id).catch(() => ({ data: [] as CaseEmailDto[] })),
+    ]).then(([caseRes, partiesRes, docsRes, tasksRes, emailsRes]) => {
       setCaseData(caseRes.data);
       setParties(partiesRes.data);
       setDocuments(docsRes.data);
+      setCaseTasks(tasksRes.data);
+      setCaseEmails(emailsRes.data);
     }).catch(console.error)
       .finally(() => setLoading(false));
-  };
+  }, [id]);
 
   useEffect(() => { load(); }, [id]);
 
@@ -215,8 +229,10 @@ export default function CaseDetailPage() {
           <div className="flex gap-1 rounded-lg border border-border bg-card p-1 overflow-x-auto">
             {([
               { id: "overview" as const, label: "Overview", icon: Brain },
+              { id: "tasks" as const, label: `Tasks (${caseTasks.length})`, icon: ListChecks },
               { id: "docs" as const, label: t.cases.documents, icon: FileText },
               { id: "parties" as const, label: "Parties", icon: Users },
+              { id: "emails" as const, label: `Emails (${caseEmails.length})`, icon: Mail },
               { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
             ]).map(tb => (
               <button
@@ -310,6 +326,11 @@ export default function CaseDetailPage() {
             </div>
           )}
 
+          {/* Tasks Tab */}
+          {activeTab === "tasks" && (
+            <CaseTasksTab caseId={id!} tasks={caseTasks} onRefresh={load} />
+          )}
+
           {/* Documents Tab */}
           {activeTab === "docs" && (
             <div>
@@ -338,12 +359,12 @@ export default function CaseDetailPage() {
                       <DocumentSigningPanel
                         documentId={d.id}
                         fileName={d.sourceFileName}
-                        requiresSignature={(d as Record<string, unknown>).requiresSignature as boolean | undefined}
-                        isSigned={(d as Record<string, unknown>).isSigned as boolean | undefined}
+                        requiresSignature={(d as unknown as Record<string, unknown>).requiresSignature as boolean | undefined}
+                        isSigned={(d as unknown as Record<string, unknown>).isSigned as boolean | undefined}
                       />
                     </div>
                   ))
-        )}
+     )}
               </div>
             </div>
           )}
@@ -356,7 +377,7 @@ export default function CaseDetailPage() {
                   <Users className="h-3.5 w-3.5" /> Parties ({parties.length})
                 </h2>
               </div>
-              <div className="rounded-xl border border-border bg-card divide-y divide-border">
+              <div className="rounded-xl border border-bordered bg-card divide-y divide-border">
                 {parties.length === 0 ? (
                   <p className="px-4 py-6 text-center text-sm text-muted-foreground">No parties added yet.</p>
                 ) : (
@@ -377,9 +398,14 @@ export default function CaseDetailPage() {
                       )}
                     </div>
                   ))
-        )}
+    )}
               </div>
             </div>
+          )}
+
+          {/* Emails Tab */}
+          {activeTab === "emails" && (
+            <CaseEmailsTab caseId={id!} emails={caseEmails} onRefresh={load} />
           )}
 
           {/* Calendar Tab */}
@@ -424,7 +450,7 @@ function CalendarTab({ caseId }: { caseId: string }) {
             <CalendarDays className={`h-4 w-4 shrink-0 ${(e.eventType as string) === "Meeting" ? "text-primary" : "text-muted-foreground"}`} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-foreground truncate">{e.title as string}</p>
-              {e.location && <p className="text-[10px] text-muted-foreground">{e.location as string}</p>}
+              {!!e.location && <p className="text-[10px] text-muted-foreground">{String(e.location)}</p>}
             </div>
             <Badge variant="outline" className="text-[10px] shrink-0">{e.eventType as string}</Badge>
             <span className="text-[10px] text-muted-foreground shrink-0">

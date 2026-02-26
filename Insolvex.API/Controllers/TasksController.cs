@@ -1,12 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Insolvex.API.Authorization;
-using Insolvex.API.Data;
 using Insolvex.Core.Abstractions;
-using Insolvex.Core.DTOs;
-using Insolvex.Core.Mapping;
-using Insolvex.Domain.Entities;
 using Insolvex.Domain.Enums;
 
 namespace Insolvex.API.Controllers;
@@ -17,104 +12,63 @@ namespace Insolvex.API.Controllers;
 [RequirePermission(Permission.TaskView)]
 public class TasksController : ControllerBase
 {
-    private readonly ApplicationDbContext _db;
-    private readonly ICurrentUserService _currentUser;
-    private readonly IAuditService _audit;
+    private readonly ITaskService _tasks;
 
-    public TasksController(ApplicationDbContext db, ICurrentUserService currentUser, IAuditService audit)
-    {
-    _db = db;
-     _currentUser = currentUser;
- _audit = audit;
-   }
+    public TasksController(ITaskService tasks) => _tasks = tasks;
 
     [HttpGet]
- public async Task<IActionResult> GetAll([FromQuery] Guid? companyId = null, [FromQuery] bool? myTasks = null)
+    public async Task<IActionResult> GetAll([FromQuery] Guid? companyId, [FromQuery] bool? myTasks, CancellationToken ct)
+        => Ok(await _tasks.GetAllAsync(companyId, myTasks, ct));
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
- var query = _db.CompanyTasks
- .Include(t => t.Company)
-    .Include(t => t.AssignedTo)
-         .AsQueryable();
-
-        if (companyId.HasValue)
-        query = query.Where(t => t.CompanyId == companyId);
-
-   if (myTasks == true && _currentUser.UserId.HasValue)
-    query = query.Where(t => t.AssignedToUserId == _currentUser.UserId);
-
-   var tasks = await query
-       .OrderBy(t => t.Deadline)
-      .Select(t => t.ToDto())
-        .ToListAsync();
-
-  return Ok(tasks);
-    }
-
-   [HttpGet("{id:guid}")]
-    public async Task<IActionResult> GetById(Guid id)
-    {
-   var task = await _db.CompanyTasks
-      .Include(t => t.Company)
-      .Include(t => t.AssignedTo)
-       .FirstOrDefaultAsync(t => t.Id == id);
-        if (task == null) return NotFound();
-  return Ok(task.ToDto());
+     var dto = await _tasks.GetByIdAsync(id, ct);
+     return dto is null ? NotFound() : Ok(dto);
     }
 
     [HttpPost]
     [RequirePermission(Permission.TaskCreate)]
-    public async Task<IActionResult> Create([FromBody] CreateTaskRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateTaskBody body, CancellationToken ct)
     {
-      var companyExists = await _db.Companies.AnyAsync(c => c.Id == request.CompanyId);
-   if (!companyExists) return BadRequest("Company not found");
-
-     var task = new CompanyTask
-      {
-   Id = Guid.NewGuid(),
- CompanyId = request.CompanyId,
-    Title = request.Title,
- Description = request.Description,
-    Labels = request.Labels,
-     Deadline = request.Deadline,
-     Status = Domain.Enums.TaskStatus.Open,
-          AssignedToUserId = request.AssignedToUserId ?? _currentUser.UserId
-  };
-
-        _db.CompanyTasks.Add(task);
-   await _db.SaveChangesAsync();
-        await _audit.LogAsync("Task.Created", task.Id);
-     return CreatedAtAction(nameof(GetById), new { id = task.Id }, task.ToDto());
+        var dto = await _tasks.CreateAsync(new CreateTaskCommand
+        {
+            CompanyId = body.CompanyId, CaseId = body.CaseId, Title = body.Title,
+     Description = body.Description, Labels = body.Labels, Category = body.Category,
+            Deadline = body.Deadline, DeadlineSource = body.DeadlineSource,
+            IsCriticalDeadline = body.IsCriticalDeadline, AssignedToUserId = body.AssignedToUserId,
+        }, ct);
+   return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
     }
 
     [HttpPut("{id:guid}")]
     [RequirePermission(Permission.TaskEdit)]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTaskRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateTaskBody body, CancellationToken ct)
     {
-   var task = await _db.CompanyTasks.FirstOrDefaultAsync(t => t.Id == id);
-    if (task == null) return NotFound();
-
-  if (request.Title != null) task.Title = request.Title;
-     if (request.Description != null) task.Description = request.Description;
-        if (request.Labels != null) task.Labels = request.Labels;
-      if (request.Deadline.HasValue) task.Deadline = request.Deadline;
-    if (request.Status.HasValue) task.Status = request.Status.Value;
-    if (request.AssignedToUserId.HasValue) task.AssignedToUserId = request.AssignedToUserId;
-
-      await _db.SaveChangesAsync();
-  await _audit.LogAsync("Task.Updated", task.Id);
-        return Ok(task.ToDto());
+var dto = await _tasks.UpdateAsync(id, new UpdateTaskCommand
+        {
+     Title = body.Title, Description = body.Description, Labels = body.Labels,
+            Category = body.Category, Deadline = body.Deadline, Status = body.Status,
+            AssignedToUserId = body.AssignedToUserId,
+  }, ct);
+        return Ok(dto);
     }
 
     [HttpDelete("{id:guid}")]
     [RequirePermission(Permission.TaskDelete)]
-public async Task<IActionResult> Delete(Guid id)
-    {
-    var task = await _db.CompanyTasks.FirstOrDefaultAsync(t => t.Id == id);
-      if (task == null) return NotFound();
-
-        _db.CompanyTasks.Remove(task);
-   await _db.SaveChangesAsync();
-        await _audit.LogAsync("Task.Deleted", id);
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+  {
+        await _tasks.DeleteAsync(id, ct);
         return NoContent();
     }
 }
+
+public record CreateTaskBody(
+    Guid CompanyId, string Title, Guid? CaseId = null, string? Description = null,
+    string? Labels = null, string? Category = null, DateTime? Deadline = null,
+    string? DeadlineSource = null, bool IsCriticalDeadline = false, Guid? AssignedToUserId = null);
+
+public record UpdateTaskBody(
+    string? Title = null, string? Description = null, string? Labels = null,
+    string? Category = null, DateTime? Deadline = null, Domain.Enums.TaskStatus? Status = null,
+    Guid? AssignedToUserId = null);

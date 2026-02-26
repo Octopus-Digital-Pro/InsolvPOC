@@ -1,3 +1,5 @@
+using Insolvex.Domain.Enums;
+
 namespace Insolvex.Domain.Entities;
 
 public class Tenant : BaseEntity
@@ -7,6 +9,9 @@ public class Tenant : BaseEntity
     public bool IsActive { get; set; } = true;
     public DateTime? SubscriptionExpiry { get; set; }
     public string? PlanName { get; set; }
+
+    /// <summary>System region determines which national firm registries are available.</summary>
+    public SystemRegion Region { get; set; } = SystemRegion.Romania;
 
     // Navigation
     public virtual InsolvencyFirm? InsolvencyFirm { get; set; }

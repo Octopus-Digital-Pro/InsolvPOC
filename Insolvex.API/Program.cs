@@ -81,7 +81,27 @@ builder.Services.AddScoped<DeadlineEngine>();
 builder.Services.AddScoped<CreditorMeetingService>();
 builder.Services.AddScoped<IDocumentExtractionService, StubDocumentExtractionService>();
 builder.Services.AddScoped<ICaseSummaryService, StubCaseSummaryService>();
+
+// New services per InsolvencyAppRules
+builder.Services.AddScoped<CaseCreationService>();
+builder.Services.AddScoped<TemplateGenerationService>();
+builder.Services.AddScoped<TaskEscalationService>();
+builder.Services.AddScoped<SummaryRefreshService>();
+builder.Services.AddScoped<IDocumentUploadService, DocumentUploadService>();
+
+// DDD service layer
+builder.Services.AddScoped<ICaseService, CaseService>();
+builder.Services.AddScoped<ICompanyService, CompanyService>();
+builder.Services.AddScoped<ITaskService, TaskService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<ICaseEmailService, CaseEmailService>();
+builder.Services.AddScoped<IBulkEmailService, BulkEmailService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+
+// Background services
 builder.Services.AddHostedService<Insolvex.API.BackgroundServices.DeadlineReminderService>();
+builder.Services.AddHostedService<Insolvex.API.BackgroundServices.TemplateEnforcementService>();
 
 // Email service
 builder.Services.Configure<Insolvex.API.Services.SmtpSettings>(builder.Configuration.GetSection("Smtp"));
