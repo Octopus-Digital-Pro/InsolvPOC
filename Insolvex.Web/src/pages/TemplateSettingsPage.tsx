@@ -1077,7 +1077,8 @@ export default function TemplateSettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">{t.templateSettings.pageTitle}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{t.templateSettings.pageDesc}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+{t.templateSettings.pageDesc}</p>
         </div>
         <Button onClick={() => { setShowNewForm(true); setTab("custom"); }}>
           <Plus className="h-4 w-4 mr-1.5" />
