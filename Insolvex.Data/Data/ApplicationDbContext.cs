@@ -365,6 +365,10 @@ e.HasIndex(s => new { s.CaseId, s.GeneratedAt });
           e.Property(t => t.ScheduleHours).HasMaxLength(256);
           e.Property(t => t.Notes).HasMaxLength(2000);
           e.HasIndex(t => new { t.TenantId, t.Name });
+          e.HasOne(t => t.Parent)
+              .WithMany(t => t.Children)
+              .HasForeignKey(t => t.ParentId)
+              .OnDelete(DeleteBehavior.Restrict);
         });
 
     // LocalGovernment
@@ -430,7 +434,7 @@ e.HasIndex(t => new { t.TenantId, t.Name });
         e.HasIndex(o => new { o.CaseId, o.DeadlineKey });
       });
 
-    // ONRCFirmRecord (not tenant-scoped � system-wide per region)
+    // ONRCFirmRecord (not tenant-scoped — system-wide per region)
     modelBuilder.Entity<ONRCFirmRecord>(e =>
   {
     e.HasKey(f => f.Id);
@@ -593,7 +597,7 @@ e.HasIndex(t => new { t.TenantId, t.Name });
       var tenantIdValue = Expression.Property(tenantIdAccessor, "Value");
       var tenantMatch = Expression.Equal(tenantIdProperty, tenantIdValue);
 
-      // No IsGlobalAdmin bypass � every user, including GlobalAdmin, is filtered by their resolved TenantId
+      // No IsGlobalAdmin bypass — every user, including GlobalAdmin, is filtered by their resolved TenantId
       var body = Expression.OrElse(
         nullCheck,
              Expression.OrElse(tenantIdNull, tenantMatch));

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { auditLogsApi, casesApi, companiesApi } from "@/services/api";
+import { auditLogsApi, casesApi, companiesApi, financeApi, tribunalsApi, localGovApi, usersApi } from "@/services/api";
+import type { AuthorityRecord } from "@/services/api/authorities";
 import { onrcApi } from "@/services/api/onrc";
 import type { ONRCFirmResult } from "@/services/api/onrc";
 import { workflowApi } from "@/services/api/workflow";
@@ -8,7 +9,7 @@ import { documentTemplatesApi } from "@/services/api/documentTemplatesApi";
 import { caseEmailsApi } from "@/services/api/caseWorkspace";
 import { tasksApi } from "@/services/api/tasks";
 import { useTranslation } from "@/contexts/LanguageContext";
-import type { CaseDto, CasePartyDto, DocumentDto, TaskDto, CompanyDto } from "@/services/api/types";
+import type { CaseDto, CasePartyDto, DocumentDto, TaskDto, CompanyDto, UserDto } from "@/services/api/types";
 import type { CaseEmailDto } from "@/services/api/caseWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,12 +19,13 @@ import DocumentSigningPanel from "@/components/DocumentSigningPanel";
 import CaseTasksTab from "@/components/CaseTasksTab";
 import CaseEmailsTab from "@/components/CaseEmailsTab";
 import CaseWorkflowPanel from "@/components/CaseWorkflowPanel";
+import CaseAssetsTab from "@/components/CaseAssetsTab";
 import { downloadAuthFile } from "@/utils/downloadAuthFile";
 import {
   Loader2, FileText, Upload, Users,
   Brain, CalendarDays, RefreshCw, Layers,
   ListChecks, Mail, Download, FileOutput,
-  History, Plus, Search, X, Building2,
+  History, Plus, Search, X, Building2, Package,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -53,12 +55,14 @@ export default function CaseDetailPage() {
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "workflow" | "tasks" | "docs" | "parties" | "emails" | "calendar" | "templates" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "workflow" | "tasks" | "docs" | "parties" | "assets" | "emails" | "calendar" | "templates" | "activity">("overview");
   const [caseTasks, setCaseTasks] = useState<TaskDto[]>([]);
   const [caseEmails, setCaseEmails] = useState<CaseEmailDto[]>([]);
   const [docUploading, setDocUploading] = useState(false);
   const docUploadRef = useRef<HTMLInputElement>(null);
   const [addPartyOpen, setAddPartyOpen] = useState(false);
+  const [users, setUsers] = useState<UserDto[]>([]);
+  const [assigningCase, setAssigningCase] = useState(false);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -81,6 +85,10 @@ export default function CaseDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [id]);
+
+  useEffect(() => {
+    usersApi.getAll().then(r => setUsers(r.data)).catch(console.error);
+  }, []);
 
   const loadSummary = async () => {
     if (!id) return;
@@ -161,7 +169,26 @@ export default function CaseDetailPage() {
           <InfoRow label={t.cases.practitioner} value={caseData.practitionerName} />
           <InfoRow label={t.cases.practitionerRole} value={caseData.practitionerRole} />
           <InfoRow label={t.cases.company} value={caseData.companyName} />
-          <InfoRow label={t.cases.assignedTo} value={caseData.assignedToName} />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.cases.assignedTo}</p>
+            <select
+              value={caseData.assignedToUserId ?? ""}
+              onChange={async (e) => {
+                const val = e.target.value;
+                setAssigningCase(true);
+                try {
+                  await casesApi.update(id!, { assignedToUserId: val || null } as Partial<CaseDto>);
+                  load();
+                } catch (err) { console.error(err); }
+                finally { setAssigningCase(false); }
+              }}
+              disabled={assigningCase}
+              className="text-sm text-foreground bg-transparent border-b border-dashed border-border/60 hover:border-primary/50 focus:outline-none focus:border-primary cursor-pointer transition-colors w-full"
+            >
+              <option value="">{t.common.unassigned}</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+            </select>
+          </div>
           {caseData.openingDate && <InfoRow label={t.cases.openingDate} value={format(new Date(caseData.openingDate), "dd MMM yyyy")} />}
           {caseData.nextHearingDate && <InfoRow label={t.cases.nextHearing} value={format(new Date(caseData.nextHearingDate), "dd MMM yyyy")} />}
           {caseData.claimsDeadline && <InfoRow label={t.cases.claimsDeadline} value={format(new Date(caseData.claimsDeadline), "dd MMM yyyy")} />}
@@ -207,6 +234,7 @@ export default function CaseDetailPage() {
               { id: "tasks" as const, label: `Tasks (${caseTasks.length})`, icon: ListChecks },
               { id: "docs" as const, label: t.cases.documents, icon: FileText },
               { id: "parties" as const, label: "Parties", icon: Users },
+              { id: "assets" as const, label: "Assets", icon: Package },
               { id: "emails" as const, label: `Emails (${caseEmails.length})`, icon: Mail },
               { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
               { id: "templates" as const, label: "Templates", icon: FileOutput },
@@ -349,6 +377,11 @@ export default function CaseDetailPage() {
     )}
               </div>
             </div>
+          )}
+
+          {/* Assets Tab */}
+          {activeTab === "assets" && (
+            <CaseAssetsTab caseId={id!} parties={parties} />
           )}
 
           {/* Emails Tab */}
@@ -636,6 +669,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
   const [onrcResults, setOnrcResults] = useState<ONRCFirmResult[]>([]);
   const [onrcLoading, setOnrcLoading] = useState(false);
   const [onrcSearched, setOnrcSearched] = useState(false);
+  const [authorityResults, setAuthorityResults] = useState<(AuthorityRecord & { source: string })[]>([]);
   const [selected, setSelected] = useState<CompanyDto | null>(null);
   const { t } = useTranslation();
   const [role, setRole] = useState("UnsecuredCreditor");
@@ -658,6 +692,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
       noLocal: "No local company found. Click ONRC to search the national registry.",
       noAny: "No company found locally or in ONRC.",
       localCompanies: "Local companies",
+      authorities: "ANAF / Tribunals / Local Gov",
       onrcRegistry: "ONRC Registry",
       noCui: "No CUI",
       save: "Add Party",
@@ -682,6 +717,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
       noLocal: "Nicio companie locală găsită. Apasă ONRC pentru a căuta în registrul național.",
       noAny: "Nicio companie găsită nici local, nici în ONRC.",
       localCompanies: "Companii locale",
+      authorities: "ANAF / Tribunale / Primării",
       onrcRegistry: "Registrul ONRC",
       noCui: "Fără CUI",
       save: "Adaugă Parte",
@@ -706,6 +742,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
       noLocal: "Nem található helyi cég. Kattints az ONRC-re az országos kereséshez.",
       noAny: "Nem található cég sem helyben, sem az ONRC-ben.",
       localCompanies: "Helyi cégek",
+      authorities: "ANAF / Bíróságok / Önkormányzatok",
       onrcRegistry: "ONRC nyilvántartás",
       noCui: "Nincs CUI",
       save: "Fél hozzáadása",
@@ -732,15 +769,37 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
   useEffect(() => {
     if (!query.trim() || query.trim().length < 2) {
       setCompanies([]);
+      setAuthorityResults([]);
       setOnrcResults([]);
       setOnrcSearched(false);
       return;
     }
     const timer = setTimeout(() => {
       setLoadingCompanies(true);
-      companiesApi.search(query.trim(), 10)
+      const q = query.trim();
+
+      // Search companies
+      const companySearch = companiesApi.search(q, 10)
         .then(r => setCompanies(r.data))
-        .catch(console.error)
+        .catch(console.error);
+
+      // Search authorities (ANAF, Tribunals, Local Government) in parallel
+      const authoritySearch = Promise.all([
+        financeApi.getAll().then(r => r.data.map(a => ({ ...a, source: "ANAF" }))).catch(() => []),
+        tribunalsApi.getAll().then(r => r.data.map(a => ({ ...a, source: "Tribunal" }))).catch(() => []),
+        localGovApi.getAll().then(r => r.data.map(a => ({ ...a, source: "Primărie" }))).catch(() => []),
+      ]).then(([anaf, trib, gov]) => {
+        const all = [...anaf, ...trib, ...gov];
+        const lower = q.toLowerCase();
+        const filtered = all.filter(a =>
+          a.name.toLowerCase().includes(lower) ||
+          (a.county && a.county.toLowerCase().includes(lower)) ||
+          (a.locality && a.locality.toLowerCase().includes(lower))
+        );
+        setAuthorityResults(filtered.slice(0, 15));
+      });
+
+      Promise.all([companySearch, authoritySearch])
         .finally(() => setLoadingCompanies(false));
     }, 300);
     return () => clearTimeout(timer);
@@ -798,6 +857,34 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
       setQuery("");
       setCompanies([]);
       setOnrcResults([]);
+      setAuthorityResults([]);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? uiText.createFromOnrcError);
+    } finally { setSaving(false); }
+  };
+
+  // Select an authority (ANAF/Tribunal/Local Gov) — create company locally, then select
+  const selectAuthority = async (auth: AuthorityRecord & { source: string }) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const r = await companiesApi.create({
+        name: auth.name,
+        companyType: "Institution",
+        address: auth.address ?? undefined,
+        locality: auth.locality ?? undefined,
+        county: auth.county ?? undefined,
+        postalCode: auth.postalCode ?? undefined,
+        phone: auth.phone ?? undefined,
+        email: auth.email ?? undefined,
+        contactPerson: auth.contactPerson ?? undefined,
+      } as Partial<CompanyDto>);
+      setSelected(r.data);
+      setQuery("");
+      setCompanies([]);
+      setOnrcResults([]);
+      setAuthorityResults([]);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg ?? uiText.createFromOnrcError);
@@ -833,7 +920,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
                   <p className="text-sm font-medium text-foreground">{selected.name}</p>
                   {selected.cuiRo && <p className="text-[10px] text-muted-foreground">CUI: {selected.cuiRo}</p>}
                 </div>
-                <button onClick={() => { setSelected(null); setQuery(""); }} className="rounded p-0.5 hover:bg-muted">
+                <button onClick={() => { setSelected(null); setQuery(""); setAuthorityResults([]); }} className="rounded p-0.5 hover:bg-muted">
                   <X className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               </div>
@@ -846,7 +933,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
                       <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <input
                         value={query}
-                        onChange={e => { setQuery(e.target.value); setOnrcResults([]); setOnrcSearched(false); }}
+                        onChange={e => { setQuery(e.target.value); setOnrcResults([]); setOnrcSearched(false); setAuthorityResults([]); }}
                         onKeyDown={e => e.key === "Enter" && (e.preventDefault(), searchOnrc())}
                         placeholder={uiText.searchPlaceholder}
                         className="flex-1 py-1.5 text-sm bg-transparent focus:outline-none"
@@ -870,7 +957,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
                 </div>
 
                 {/* Results dropdown */}
-                {(companies.length > 0 || onrcResults.length > 0) && (
+                {(companies.length > 0 || authorityResults.length > 0 || onrcResults.length > 0) && (
                   <div className="rounded-md border border-border bg-card shadow-lg max-h-56 overflow-y-auto">
                     {/* Local results */}
                     {companies.length > 0 && (
@@ -882,7 +969,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
                           <button
                             key={c.id}
                             className="w-full text-left px-3 py-2 hover:bg-muted transition-colors flex items-start gap-2"
-                            onClick={() => { setSelected(c); setQuery(""); setCompanies([]); setOnrcResults([]); }}
+                            onClick={() => { setSelected(c); setQuery(""); setCompanies([]); setOnrcResults([]); setAuthorityResults([]); }}
                           >
                             <Building2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />
                             <div className="min-w-0 flex-1">
@@ -894,6 +981,37 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
                             </div>
                             <span className="ml-auto shrink-0 self-center text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400">
                               local
+                            </span>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    {/* Authority results (ANAF / Tribunals / Local Gov) */}
+                    {authorityResults.length > 0 && (
+                      <>
+                        <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 sticky top-0 z-10">
+                          {uiText.authorities}
+                        </p>
+                        {authorityResults.map(a => (
+                          <button
+                            key={`${a.source}-${a.id}`}
+                            className="w-full text-left px-3 py-2 hover:bg-muted transition-colors flex items-start gap-2"
+                            onClick={() => selectAuthority(a)}
+                          >
+                            <Building2 className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground">{a.name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {a.county ?? ""}{a.locality ? ` · ${a.locality}` : ""}
+                                {a.phone ? ` · ${a.phone}` : ""}
+                              </p>
+                            </div>
+                            <span className={`ml-auto shrink-0 self-center text-[10px] px-1.5 py-0.5 rounded ${
+                              a.source === "ANAF" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" :
+                              a.source === "Tribunal" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400" :
+                              "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400"
+                            }`}>
+                              {a.source}
                             </span>
                           </button>
                         ))}
@@ -931,12 +1049,12 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
                 )}
 
                 {/* No results message */}
-                {query.trim().length >= 2 && !loadingCompanies && companies.length === 0 && !onrcSearched && (
+                {query.trim().length >= 2 && !loadingCompanies && companies.length === 0 && authorityResults.length === 0 && !onrcSearched && (
                   <p className="text-xs text-muted-foreground px-1">
                     {uiText.noLocal}
                   </p>
                 )}
-                {query.trim().length >= 2 && onrcSearched && companies.length === 0 && onrcResults.length === 0 && (
+                {query.trim().length >= 2 && onrcSearched && companies.length === 0 && authorityResults.length === 0 && onrcResults.length === 0 && (
                   <p className="text-xs text-muted-foreground px-1">
                     {uiText.noAny}
                   </p>

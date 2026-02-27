@@ -157,7 +157,7 @@ const [canSign, setCanSign] = useState(false);
         <div key={s.id} className="text-[10px] text-muted-foreground flex items-center gap-1">
         <CheckCircle2 className="h-2.5 w-2.5 text-green-500 shrink-0" />
              <span className="truncate">{s.certificateSubject}</span>
-             <span className="shrink-0">� {format(new Date(s.signedAt), "dd MMM yyyy HH:mm")}</span>
+             <span className="shrink-0">— {format(new Date(s.signedAt), "dd MMM yyyy HH:mm")}</span>
               </div>
       ))}
       </div>

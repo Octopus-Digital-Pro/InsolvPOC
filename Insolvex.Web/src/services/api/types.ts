@@ -106,6 +106,22 @@ export interface CasePartyDto {
   notes: string | null;
 }
 
+export interface AssetDto {
+  id: string;
+  caseId: string;
+  assetType: string;
+  description: string;
+  estimatedValue: number | null;
+  encumbranceDetails: string | null;
+  securedCreditorPartyId: string | null;
+  securedCreditorName: string | null;
+  status: string;
+  saleProceeds: number | null;
+  disposedAt: string | null;
+  notes: string | null;
+  createdOn: string;
+}
+
 export interface InsolvencyFirmDto {
   id: string;
   tenantId: string;

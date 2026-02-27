@@ -27,9 +27,9 @@ interface Props {
 
 /**
  * Reusable CSV upload modal.
- * � Shows the expected CSV format (columns + examples)
- * � Lets user download an empty template CSV
- * � Handles file pick + upload + result display
+ * • Shows the expected CSV format (columns + examples)
+ * • Lets user download an empty template CSV
+ * • Handles file pick + upload + result display
  */
 export default function CsvUploadModal({
   title,
@@ -145,9 +145,9 @@ className="w-full max-w-xl bg-card border border-border rounded-xl shadow-2xl fl
     <span className="ml-1 text-destructive text-[10px]">*</span>
              )}
             </td>
-    <td className="px-3 py-2 text-muted-foreground">{col.description ?? "�"}</td>
+    <td className="px-3 py-2 text-muted-foreground">{col.description ?? "—"}</td>
         <td className="px-3 py-2 text-muted-foreground font-mono truncate max-w-[120px]">
-     {col.example ?? "�"}
+     {col.example ?? "—"}
      </td>
          </tr>
       ))}
@@ -180,7 +180,7 @@ className="w-full max-w-xl bg-card border border-border rounded-xl shadow-2xl fl
  <div className="space-y-1">
       <p className="text-sm font-medium text-foreground">{file.name}</p>
   <p className="text-xs text-muted-foreground">
-  {(file.size / 1024).toFixed(1)} KB � Click to change
+  {(file.size / 1024).toFixed(1)} KB — Click to change
    </p>
      </div>
          ) : (
@@ -240,7 +240,7 @@ ref={fileRef}
    <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
     <Check className="h-4 w-4" />
            <span className="text-sm font-medium">
-     Import complete � {result.imported} records imported
+     Import complete — {result.imported} records imported
    </span>
          </div>
         {result.errors.length > 0 && (

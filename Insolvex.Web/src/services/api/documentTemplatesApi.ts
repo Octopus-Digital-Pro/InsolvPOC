@@ -99,6 +99,50 @@ export const INCOMING_DOCUMENT_DESC: Record<IncomingDocumentType, string> = {
     "încărcate de practicieni ca notificare de deschidere a procedurii.",
 };
 
+type UiLocale = "en" | "ro" | "hu";
+
+const INCOMING_DOCUMENT_LABELS_BY_LOCALE: Record<UiLocale, Record<IncomingDocumentType, string>> = {
+  en: {
+    CourtOpeningDecision: "Court opening decision",
+  },
+  ro: {
+    CourtOpeningDecision: "Sentință / Hotărâre deschidere procedură",
+  },
+  hu: {
+    CourtOpeningDecision: "Eljárásmegnyitó bírósági határozat",
+  },
+};
+
+const INCOMING_DOCUMENT_DESC_BY_LOCALE: Record<UiLocale, Record<IncomingDocumentType, string>> = {
+  en: {
+    CourtOpeningDecision:
+      "Court-issued document that opens the insolvency procedure. " +
+      "Upload one sample PDF and AI will learn to auto-recognize and classify similar documents uploaded later.",
+  },
+  ro: {
+    CourtOpeningDecision:
+      "Document emis de instanță care deschide procedura de insolvență. " +
+      "Încarcă un exemplu PDF și AI-ul va recunoaște și clasifica automat documentele similare încărcate ulterior.",
+  },
+  hu: {
+    CourtOpeningDecision:
+      "A bíróság által kibocsátott dokumentum, amely megnyitja a fizetésképtelenségi eljárást. " +
+      "Töltsön fel egy mint PDF-et, és az AI később automatikusan felismeri és osztályozza a hasonló dokumentumokat.",
+  },
+};
+
+export const getIncomingDocumentLabel = (type: IncomingDocumentType, locale: UiLocale): string => {
+  return INCOMING_DOCUMENT_LABELS_BY_LOCALE[locale]?.[type]
+    ?? INCOMING_DOCUMENT_LABELS_BY_LOCALE.en[type]
+    ?? type;
+};
+
+export const getIncomingDocumentDescription = (type: IncomingDocumentType, locale: UiLocale): string => {
+  return INCOMING_DOCUMENT_DESC_BY_LOCALE[locale]?.[type]
+    ?? INCOMING_DOCUMENT_DESC_BY_LOCALE.en[type]
+    ?? "";
+};
+
 export const SYSTEM_TEMPLATE_STAGE: Record<string, string> = {
   CreditorNotificationBpi: "Deschidere procedură",
   ReportArt97: "Observație",

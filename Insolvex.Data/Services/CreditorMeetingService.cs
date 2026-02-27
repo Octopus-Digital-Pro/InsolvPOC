@@ -47,7 +47,7 @@ public class CreditorMeetingService
     {
       TenantId = tenantId,
       CaseId = request.CaseId,
-      Title = $"Creditor Meeting � {caseEntity.CaseNumber}",
+      Title = $"Creditor Meeting — {caseEntity.CaseNumber}",
       Description = request.Agenda,
       Start = request.MeetingDate,
       End = request.MeetingDate.AddHours(request.DurationHours ?? 2),
@@ -74,7 +74,7 @@ caseEntity.Parties
          new()
             {
    TenantId = tenantId, CompanyId = companyId, CaseId = request.CaseId,
-        Title = $"Generate meeting notice pack � {caseEntity.DebtorName}",
+        Title = $"Generate meeting notice pack — {caseEntity.DebtorName}",
                 Category = "Meeting",
     Deadline = noticeSendDeadline, DeadlineSource = "CompanyDefault",
                 IsCriticalDeadline = true, AssignedToUserId = userId, CreatedByUserId = userId,
@@ -82,7 +82,7 @@ caseEntity.Parties
        new()
        {
      TenantId = tenantId, CompanyId = companyId, CaseId = request.CaseId,
-       Title = $"Send meeting invites/notices � {caseEntity.DebtorName}",
+       Title = $"Send meeting invites/notices — {caseEntity.DebtorName}",
     Category = "Email",
        Deadline = noticeSendDeadline, DeadlineSource = "CompanyDefault",
                 IsCriticalDeadline = true, AssignedToUserId = userId, CreatedByUserId = userId,
@@ -90,7 +90,7 @@ caseEntity.Parties
             new()
             {
          TenantId = tenantId, CompanyId = companyId, CaseId = request.CaseId,
-                Title = $"Prepare voting register � {caseEntity.DebtorName}",
+                Title = $"Prepare voting register — {caseEntity.DebtorName}",
     Category = "Document",
     Deadline = request.MeetingDate.AddDays(-1), DeadlineSource = "CompanyDefault",
    AssignedToUserId = userId, CreatedByUserId = userId,
@@ -98,7 +98,7 @@ caseEntity.Parties
       new()
             {
          TenantId = tenantId, CompanyId = companyId, CaseId = request.CaseId,
-                Title = $"Record attendance and votes � {caseEntity.DebtorName}",
+                Title = $"Record attendance and votes — {caseEntity.DebtorName}",
    Category = "Meeting",
 Deadline = request.MeetingDate.AddDays(1), DeadlineSource = "Manual",
      AssignedToUserId = userId, CreatedByUserId = userId,
@@ -106,7 +106,7 @@ Deadline = request.MeetingDate.AddDays(1), DeadlineSource = "Manual",
    new()
      {
         TenantId = tenantId, CompanyId = companyId, CaseId = request.CaseId,
-         Title = $"Upload minutes and resolutions � {caseEntity.DebtorName}",
+         Title = $"Upload minutes and resolutions — {caseEntity.DebtorName}",
       Category = "Document",
                 Deadline = request.MeetingDate.AddDays(3), DeadlineSource = "Manual",
         AssignedToUserId = userId, CreatedByUserId = userId,
@@ -156,7 +156,7 @@ Deadline = request.MeetingDate.AddDays(1), DeadlineSource = "Manual",
         TenantId = tenantId,
         CaseId = request.CaseId,
         To = party.Email ?? party.Company?.Email ?? "",
-        Subject = $"[{caseEntity.CaseNumber}] Creditor Meeting Notice � {request.MeetingDate:dd.MM.yyyy HH:mm}",
+        Subject = $"[{caseEntity.CaseNumber}] Creditor Meeting Notice — {request.MeetingDate:dd.MM.yyyy HH:mm}",
         Body = $"You are invited to the creditor meeting for case {caseEntity.CaseNumber} ({caseEntity.DebtorName}).\n\n" +
                   $"Date: {request.MeetingDate:dd.MM.yyyy HH:mm}\n" +
    $"Location: {request.Location ?? "TBD"}\n\n" +

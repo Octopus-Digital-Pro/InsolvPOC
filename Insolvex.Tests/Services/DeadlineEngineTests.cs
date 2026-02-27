@@ -19,7 +19,7 @@ public class DeadlineEngineTests
 
     var result = engine.ComputeDeadline(baseDate, 30);
 
-    result.Should().Be(new DateTime(2025, 4, 9)); // Wednesday � a working day
+    result.Should().Be(new DateTime(2025, 4, 9)); // Wednesday — a working day
   }
 
   [Fact]

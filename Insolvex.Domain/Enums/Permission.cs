@@ -93,6 +93,12 @@ public enum Permission
   // ?? Audit Logs ??
   AuditLogView = 990,
 
-  // ?? Dashboard ??
+  // 📊 Dashboard 📊
   DashboardView = 995,
+
+  // 🏠 Assets 🏠
+  AssetView = 1000,
+  AssetCreate = 1001,
+  AssetEdit = 1002,
+  AssetDelete = 1003,
 }

@@ -109,7 +109,7 @@ export default function CaseEmailsTab({ caseId, emails, onRefresh: _onRefresh }:
      {bulkPreview.recipients.map(r => (
        <div key={r.partyId} className="flex items-center gap-2 px-3 py-1.5 text-[11px]">
   <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${r.hasEmail ? "bg-green-500" : "bg-red-400"}`} />
-    <span className="font-medium truncate flex-1">{r.name ?? "�"}</span>
+    <span className="font-medium truncate flex-1">{r.name ?? "—"}</span>
       <Badge variant="outline" className="text-[9px]">{r.role}</Badge>
              <span className="text-muted-foreground truncate max-w-[150px]">{r.email ?? "no email"}</span>
    </div>

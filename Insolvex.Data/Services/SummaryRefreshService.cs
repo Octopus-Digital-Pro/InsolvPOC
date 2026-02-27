@@ -27,7 +27,7 @@ public class SummaryRefreshService
 
   /// <summary>
   /// Refresh the case summary if the last one is stale (older than threshold).
-  /// Fire-and-forget safe � catches all exceptions.
+  /// Fire-and-forget safe — catches all exceptions.
   /// </summary>
   public async Task RefreshIfStaleAsync(Guid caseId, Guid tenantId, string trigger, TimeSpan? staleness = null)
   {

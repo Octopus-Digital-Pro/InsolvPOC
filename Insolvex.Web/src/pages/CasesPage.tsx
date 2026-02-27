@@ -92,7 +92,7 @@ return (
       </Badge>
        </div>
     <p className="text-xs text-muted-foreground truncate">
- {c.debtorName}{c.companyName ? ` � ${c.companyName}` : ""}
+ {c.debtorName}{c.companyName ? ` — ${c.companyName}` : ""}
      </p>
        </div>
       <div className="hidden sm:flex flex-col items-end gap-0.5 shrink-0 text-right">

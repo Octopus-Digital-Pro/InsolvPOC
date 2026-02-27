@@ -93,7 +93,7 @@ public class SmtpEmailService : IEmailService
         try
         {
             using var client = CreateClient();
-            // SmtpClient doesn't have a Ping � just validate config
+            // SmtpClient doesn't have a Ping — just validate config
             return !string.IsNullOrWhiteSpace(_settings.Host) && _settings.Port > 0;
         }
         catch

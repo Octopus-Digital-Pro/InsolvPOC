@@ -10,7 +10,7 @@ namespace Insolvex.Data.Services;
 /// Fixed to Europe/Bucharest timezone.
 /// 
 /// Resolution hierarchy (per InsolvencyAppRules section 3):
-///   1. Case-level override (CaseDeadlineOverride) � highest priority
+///   1. Case-level override (CaseDeadlineOverride) — highest priority
 ///   2. Tenant-level settings (TenantDeadlineSettings)
 ///   3. Global defaults (SystemConfig "Deadlines:" keys)
 ///   4. Hardcoded fallback

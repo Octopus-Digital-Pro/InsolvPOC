@@ -21,7 +21,9 @@ public record AuthorityDto(
     string? Notes,
     Guid? OverridesGlobalId,
     bool IsGlobal,
-    bool IsTenantOverride
+    bool IsTenantOverride,
+    Guid? ParentId = null,
+    string? ParentName = null
 );
 
 /// <summary>Write model for creating or updating a finance authority record.</summary>
@@ -38,7 +40,8 @@ public record FinanceAuthorityRequest(
     string? ContactPerson,
     string? ScheduleHours,
     string? Notes,
-    Guid? OverridesGlobalId
+    Guid? OverridesGlobalId,
+    Guid? ParentId = null
 );
 
 /// <summary>Write model for creating or updating a local government record.</summary>

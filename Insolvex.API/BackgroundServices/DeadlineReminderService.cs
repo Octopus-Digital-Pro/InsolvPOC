@@ -80,10 +80,10 @@ _logger.LogInformation("DeadlineReminderService started");
 
      var urgency = days switch
            {
-         0 => "?? TODAY",
-           1 => "?? TOMORROW",
-     3 => "?? In 3 days",
-   _ => $"?? In {days} days",
+         0 => "⚠️ TODAY",
+           1 => "⚠️ TOMORROW",
+     3 => "⏰ In 3 days",
+   _ => $"⏰ In {days} days",
          };
 
             var caseName = task.Case?.CaseNumber ?? "N/A";
@@ -93,12 +93,12 @@ _logger.LogInformation("DeadlineReminderService started");
    TenantId = task.TenantId,
     CaseId = task.CaseId,
    To = user.Email,
-       Subject = $"[Insolvex] {urgency}: {task.Title} � {caseName} [{reminderKey}]",
+       Subject = $"[Insolvex] {urgency}: {task.Title} — {caseName} [{reminderKey}]",
      Body = $"Deadline reminder for task: {task.Title}\n" +
   $"Case: {caseName}\n" +
     $"Deadline: {task.Deadline:dd.MM.yyyy}\n" +
     $"Status: {task.Status}\n\n" +
-      (task.IsCriticalDeadline ? "?? This is a CRITICAL deadline." : ""),
+      (task.IsCriticalDeadline ? "🚨 This is a CRITICAL deadline." : ""),
       ScheduledFor = DateTime.UtcNow,
       Status = "Scheduled",
            RelatedTaskId = task.Id,

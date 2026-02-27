@@ -55,7 +55,7 @@ public sealed class DocumentUploadService : IDocumentUploadService
     _logger = logger;
   }
 
-  // ?? Upload + Classify ???????????????????????????????????
+  // 📤 Upload + Classify ─────────────────────────────────────
 
   /// <inheritdoc />
   public async Task<DocumentUploadResult> ClassifyAndStoreUploadAsync(
@@ -148,7 +148,7 @@ DocumentUploadRequest request, CancellationToken ct)
     return MapToResult(upload, classification.Parties);
   }
 
-  // ?? Retrieve Pending Upload ?????????????????????????????
+  // 📂 Retrieve Pending Upload ─────────────────────────────
 
   /// <inheritdoc />
   public async Task<DocumentUploadResult?> GetPendingUploadAsync(
@@ -179,9 +179,21 @@ DocumentUploadRequest request, CancellationToken ct)
     if (upload is null)
       throw new BusinessException($"Pending upload {uploadId} not found for this tenant.");
 
-    return command.Action == "filing" && command.CaseId.HasValue
-        ? await FileDocumentToExistingCaseAsync(upload, command.CaseId.Value, ct)
-: await CreateNewCaseFromUploadAsync(upload, command, ct);
+    if (string.IsNullOrWhiteSpace(command.Action))
+      throw new BusinessException("Confirm action is required.");
+
+    if (command.Action == "filing")
+    {
+      if (!command.CaseId.HasValue)
+        throw new BusinessException("CaseId is required when action is 'filing'.");
+
+      return await FileDocumentToExistingCaseAsync(upload, command.CaseId.Value, ct);
+    }
+
+    if (command.Action != "newCase")
+      throw new BusinessException($"Unsupported confirm action '{command.Action}'. Allowed values: 'newCase', 'filing'.");
+
+    return await CreateNewCaseFromUploadAsync(upload, command, ct);
   }
 
   // ?? Private: Create New Case ????????????????????????????

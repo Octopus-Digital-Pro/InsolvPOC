@@ -47,13 +47,16 @@ public sealed class FinanceAuthorityService : IFinanceAuthorityService
                 t.Website, t.ContactPerson, t.ScheduleHours, t.Notes,
                 t.OverridesGlobalId,
                 t.TenantId == null,
-                t.TenantId != null))
+                t.TenantId != null,
+                t.ParentId,
+                t.Parent != null ? t.Parent.Name : null))
             .ToListAsync(ct);
     }
 
     public async Task<AuthorityDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         var item = await _db.FinanceAuthorities.AsNoTracking().IgnoreQueryFilters()
+            .Include(t => t.Parent)
             .FirstOrDefaultAsync(t => t.Id == id, ct);
 
         if (item is null) return null;
@@ -83,6 +86,7 @@ public sealed class FinanceAuthorityService : IFinanceAuthorityService
             ScheduleHours = request.ScheduleHours,
             Notes = request.Notes,
             OverridesGlobalId = request.OverridesGlobalId,
+            ParentId = request.ParentId,
             CreatedOn = DateTime.UtcNow,
             CreatedBy = _currentUser.Email ?? "System",
         };
@@ -121,6 +125,7 @@ public sealed class FinanceAuthorityService : IFinanceAuthorityService
         item.ScheduleHours = request.ScheduleHours;
         item.Notes = request.Notes;
         item.OverridesGlobalId = request.OverridesGlobalId;
+        item.ParentId = request.ParentId;
         item.LastModifiedOn = DateTime.UtcNow;
         item.LastModifiedBy = _currentUser.Email;
 
@@ -238,9 +243,9 @@ public sealed class FinanceAuthorityService : IFinanceAuthorityService
     // ── ANAF Scraper ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Fetches the ANAF regional offices page (HTML), parses all DGRFP entries, and
-    /// upserts matching global FinanceAuthority records (create those that don't exist,
-    /// update details on those that do).
+    /// Fetches the ANAF regional offices page, parses each county-level
+    /// Administrația Județeană accordion and its sub-office table rows, then
+    /// upserts global FinanceAuthority records in a parent → child hierarchy.
     /// </summary>
     public async Task<AnafScrapeResult> ScrapeAnafAsync(string url, CancellationToken ct = default)
     {
@@ -254,56 +259,132 @@ public sealed class FinanceAuthorityService : IFinanceAuthorityService
             client.DefaultRequestHeaders.Add("User-Agent", "InsolvexBot/1.0");
             var html = await client.GetStringAsync(url, ct);
 
-            var entries = ParseAnafOffices(html);
+            var sections = ParseAnafSubOffices(html);
 
-            foreach (var entry in entries)
+            foreach (var section in sections)
             {
                 try
                 {
-                    // Match on the last word of the name (city) inside global records
-                    var nameLower = entry.Name.ToLowerInvariant().Trim();
-                    var existing = await _db.FinanceAuthorities
+                    // ── Upsert the parent record (Administrația Județeană) ──
+                    var parentNameLower = section.AdminName.ToLowerInvariant().Trim();
+                    var parentEntity = await _db.FinanceAuthorities
                         .IgnoreQueryFilters()
                         .FirstOrDefaultAsync(f =>
-                            f.TenantId == null &&
-                            f.Name.ToLower() == nameLower, ct);
+                            f.TenantId == null && f.ParentId == null &&
+                            f.Name.ToLower() == parentNameLower, ct);
 
-                    if (existing != null)
+                    // Use the first table row (usually the county admin itself) for contact info
+                    var adminRow = section.Offices.FirstOrDefault();
+
+                    if (parentEntity != null)
                     {
-                        existing.Address        = entry.Address ?? existing.Address;
-                        existing.County         = entry.County  ?? existing.County;
-                        existing.Locality       = entry.Locality ?? existing.Locality;
-                        existing.Phone          = entry.Phone   ?? existing.Phone;
-                        existing.Website        = "https://www.anaf.ro";
-                        existing.LastModifiedOn = DateTime.UtcNow;
-                        existing.LastModifiedBy = _currentUser.Email ?? "System";
+                        if (adminRow != null)
+                        {
+                            parentEntity.County         = section.County  ?? parentEntity.County;
+                            parentEntity.Locality       = adminRow.Locality ?? parentEntity.Locality;
+                            parentEntity.Address        = adminRow.Address ?? parentEntity.Address;
+                            parentEntity.PostalCode     = adminRow.PostalCode ?? parentEntity.PostalCode;
+                            parentEntity.Phone          = adminRow.Phone ?? parentEntity.Phone;
+                            parentEntity.Fax            = adminRow.Fax ?? parentEntity.Fax;
+                        }
+                        parentEntity.Website        = "https://www.anaf.ro";
+                        parentEntity.LastModifiedOn = DateTime.UtcNow;
+                        parentEntity.LastModifiedBy = _currentUser.Email ?? "System";
                         updated++;
                     }
                     else
                     {
-                        _db.FinanceAuthorities.Add(new FinanceAuthority
+                        parentEntity = new FinanceAuthority
                         {
-                            Id         = Guid.NewGuid(),
-                            TenantId   = null,  // global — visible to all tenants
-                            Name       = entry.Name,
-                            Locality   = entry.Locality,
-                            County     = entry.County,
-                            Address    = entry.Address,
-                            Phone      = entry.Phone,
-                            Website    = "https://www.anaf.ro",
-                            CreatedOn  = DateTime.UtcNow,
-                            CreatedBy  = _currentUser.Email ?? "System",
-                        });
+                            Id          = Guid.NewGuid(),
+                            TenantId    = null,
+                            ParentId    = null,
+                            Name        = section.AdminName,
+                            County      = section.County,
+                            Locality    = adminRow?.Locality,
+                            Address     = adminRow?.Address,
+                            PostalCode  = adminRow?.PostalCode,
+                            Phone       = adminRow?.Phone,
+                            Fax         = adminRow?.Fax,
+                            Website     = "https://www.anaf.ro",
+                            CreatedOn   = DateTime.UtcNow,
+                            CreatedBy   = _currentUser.Email ?? "System",
+                        };
+                        _db.FinanceAuthorities.Add(parentEntity);
                         created++;
                     }
+
+                    // Save parent first so its Id is available for children
+                    await _db.SaveChangesAsync(ct);
+
+                    // ── Upsert child offices (Unități Fiscale) ──
+                    // Skip the first row if it matches the parent name (the admin itself)
+                    var childOffices = section.Offices;
+                    if (childOffices.Count > 0 &&
+                        childOffices[0].Name.Equals(section.AdminName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        childOffices = childOffices.Skip(1).ToList();
+                    }
+
+                    foreach (var office in childOffices)
+                    {
+                        try
+                        {
+                            var officeLower = office.Name.ToLowerInvariant().Trim();
+                            var existing = await _db.FinanceAuthorities
+                                .IgnoreQueryFilters()
+                                .FirstOrDefaultAsync(f =>
+                                    f.TenantId == null &&
+                                    f.Name.ToLower() == officeLower, ct);
+
+                            if (existing != null)
+                            {
+                                existing.ParentId       = parentEntity.Id;
+                                existing.County         = office.County ?? existing.County;
+                                existing.Locality       = office.Locality ?? existing.Locality;
+                                existing.Address        = office.Address ?? existing.Address;
+                                existing.PostalCode     = office.PostalCode ?? existing.PostalCode;
+                                existing.Phone          = office.Phone ?? existing.Phone;
+                                existing.Fax            = office.Fax ?? existing.Fax;
+                                existing.Website        = "https://www.anaf.ro";
+                                existing.LastModifiedOn = DateTime.UtcNow;
+                                existing.LastModifiedBy = _currentUser.Email ?? "System";
+                                updated++;
+                            }
+                            else
+                            {
+                                _db.FinanceAuthorities.Add(new FinanceAuthority
+                                {
+                                    Id          = Guid.NewGuid(),
+                                    TenantId    = null,
+                                    ParentId    = parentEntity.Id,
+                                    Name        = office.Name,
+                                    County      = office.County,
+                                    Locality    = office.Locality,
+                                    Address     = office.Address,
+                                    PostalCode  = office.PostalCode,
+                                    Phone       = office.Phone,
+                                    Fax         = office.Fax,
+                                    Website     = "https://www.anaf.ro",
+                                    CreatedOn   = DateTime.UtcNow,
+                                    CreatedBy   = _currentUser.Email ?? "System",
+                                });
+                                created++;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add($"{office.Name}: {ex.Message}");
+                        }
+                    }
+
+                    await _db.SaveChangesAsync(ct);
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"{entry.Name}: {ex.Message}");
+                    errors.Add($"{section.AdminName}: {ex.Message}");
                 }
             }
-
-            await _db.SaveChangesAsync(ct);
 
             await _audit.LogAsync(
                 "ANAF Offices Scraped",
@@ -324,55 +405,153 @@ public sealed class FinanceAuthorityService : IFinanceAuthorityService
         string? County,
         string? Locality,
         string? Address,
-        string? Phone);
+        string? PostalCode,
+        string? Phone,
+        string? Fax);
 
-    private static List<AnafOfficeEntry> ParseAnafOffices(string html)
+    private sealed record AnafCountySection(
+        string AdminName,
+        string? County,
+        List<AnafOfficeEntry> Offices);
+
+    /// <summary>
+    /// Parses the ANAF Regiuni.htm page which contains accordion sections
+    /// for each Administrația Județeană, each with a table of sub-offices.
+    /// </summary>
+    private static List<AnafCountySection> ParseAnafSubOffices(string html)
     {
-        var results = new List<AnafOfficeEntry>();
+        var results = new List<AnafCountySection>();
 
-        // Strip script / style / comments blocks
+        // Strip script / style blocks
         html = Regex.Replace(html, @"<(script|style)[^>]*>.*?</\1>", "",
             RegexOptions.Singleline | RegexOptions.IgnoreCase);
 
-        // Split on <h3> tags that contain "Finanțelor Publice" or "Finantelor Publice" (ASCII fallback)
-        var h3Pattern = new Regex(
-            @"<h3[^>]*>(.*?)</h3>\s*(.*?)(?=<h3|</section|</div|<footer|$)",
+        // Match each accordion button (county admin) + its panel table
+        var sectionPattern = new Regex(
+            @"<button\s+class=""accordion1[^""]*""[^>]*>\s*<p\s+class=""stilCapitol"">(.*?)</p>\s*</button>\s*<div\s+class=""panel""[^>]*>\s*<table[^>]*>(.*?)</table>",
             RegexOptions.Singleline | RegexOptions.IgnoreCase);
 
-        foreach (Match m in h3Pattern.Matches(html))
+        // The page duplicates content for each DGRFP region — deduplicate
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (Match section in sectionPattern.Matches(html))
         {
-            var rawName = StripTags(m.Groups[1].Value).Trim();
-            if (!rawName.Contains("Finan", StringComparison.OrdinalIgnoreCase)) continue;
+            var adminName = NormaliseWhitespace(StripTags(section.Groups[1].Value));
+            if (!seen.Add(adminName)) continue;
 
-            var bodyHtml = m.Groups[2].Value;
-            var bodyText = NormaliseWhitespace(StripTags(bodyHtml));
+            var tableHtml = section.Groups[2].Value;
 
-            // Extract county: "Jud. Brașov"
-            var judMatch = Regex.Match(bodyText, @"Jud\.\s*([A-ZĂÂÎȘȚ][a-zăâîșțA-ZĂÂÎȘȚ\-\s]+?)(?:,|\bTel\b|$)");
-            var county = judMatch.Success ? judMatch.Groups[1].Value.Trim() : null;
+            // Extract county from name: "Administrația Județeană a Finanțelor Publice ALBA" → "ALBA"
+            var countyMatch = Regex.Match(adminName,
+                @"(?:Finan[țt]elor|Finantelor)\s+Publice\s+(.+)$", RegexOptions.IgnoreCase);
+            var county = countyMatch.Success ? countyMatch.Groups[1].Value.Trim() : null;
 
-            // Extract city from office name (last word after last space before possible comma)
-            var nameParts = rawName.Split(' ');
-            var locality  = nameParts.Length > 0 ? nameParts[^1].Trim() : null;
+            var offices = new List<AnafOfficeEntry>();
 
-            // Extract address: text up to (but not including) "Tel."
-            var telIndex = bodyText.IndexOf("Tel.", StringComparison.OrdinalIgnoreCase);
-            var addressRaw = telIndex > 0 ? bodyText[..telIndex].Trim() : null;
-            var address = addressRaw != null ? NormaliseWhitespace(addressRaw).TrimEnd(',') : null;
+            // Parse data rows (skip header rows that contain <th>)
+            var rowPattern = new Regex(
+                @"<tr>\s*<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>\s*</tr>",
+                RegexOptions.Singleline | RegexOptions.IgnoreCase);
 
-            // Extract phone: after "Tel." up to first semicolon or "Asistență"
-            string? phone = null;
-            if (telIndex >= 0)
+            foreach (Match row in rowPattern.Matches(tableHtml))
             {
-                var afterTel = bodyText[(telIndex + 4)..];
-                var phoneMatch = Regex.Match(afterTel, @"([\d\.\s,]+?)(?:;|Asistență|\)|\n|$)");
-                phone = phoneMatch.Success ? phoneMatch.Groups[1].Value.Trim().TrimEnd(',') : null;
+                var cellHtml = row.Groups[1].Value;
+                if (cellHtml.Contains("<th", StringComparison.OrdinalIgnoreCase)) continue;
+
+                var office = ParseOfficeCell(cellHtml, county);
+                if (office != null)
+                    offices.Add(office);
             }
 
-            results.Add(new AnafOfficeEntry(rawName, county, locality, address, phone));
+            if (offices.Count > 0)
+                results.Add(new AnafCountySection(adminName, county, offices));
         }
 
         return results;
+    }
+
+    /// <summary>Parses a single table cell containing office name, address, and phone.</summary>
+    private static AnafOfficeEntry? ParseOfficeCell(string cellHtml, string? county)
+    {
+        // Extract name from <strong>
+        var nameMatch = Regex.Match(cellHtml, @"<strong>(.*?)</strong>", RegexOptions.Singleline);
+        if (!nameMatch.Success) return null;
+        var name = NormaliseWhitespace(StripTags(nameMatch.Groups[1].Value));
+
+        // Only keep text before <hr> (the assistance section comes after)
+        var hrIdx = cellHtml.IndexOf("<hr", StringComparison.OrdinalIgnoreCase);
+        if (hrIdx > 0) cellHtml = cellHtml[..hrIdx];
+
+        // Get the text after </strong>
+        var afterStrong = cellHtml[(nameMatch.Index + nameMatch.Length)..];
+        var text = NormaliseWhitespace(StripTags(afterStrong));
+
+        // Split on "Tel." to separate address from phone
+        var telIdx = text.IndexOf("Tel.", StringComparison.OrdinalIgnoreCase);
+        var faxIdx = text.IndexOf("Fax", StringComparison.OrdinalIgnoreCase);
+        var cutoff = telIdx >= 0 ? telIdx : (faxIdx >= 0 ? faxIdx : text.Length);
+        var address = text[..cutoff].Trim().TrimEnd(',', ' ');
+
+        // Extract postal code: "C.P. 510110" or "CP 510110"
+        var cpMatch = Regex.Match(address, @"C\.?P\.?\s*(\d+)");
+        var postalCode = cpMatch.Success ? cpMatch.Groups[1].Value : null;
+
+        // ── Extract locality ──
+        string? locality = null;
+
+        // Pattern 1: City at the start before "Str." / "Piața" / "Calea" / "B-dul"
+        var cityStart = Regex.Match(address,
+            @"^([A-ZĂÂÎȘȚ\u00C0-\u024F][a-zăâîșțA-ZĂÂÎȘȚ\u00C0-\u024F\s\-]+?)\s*,\s*(?:Str\.|Pia[țt]a|Calea|B-dul|Bd\.)",
+            RegexOptions.None);
+        if (cityStart.Success)
+        {
+            locality = cityStart.Groups[1].Value.Trim();
+        }
+        else
+        {
+            // Pattern 2: City between "nr. XX," and "C.P."
+            var cityMid = Regex.Match(address,
+                @"nr\.?\s*[\d\w\-\s]+?,\s*([A-ZĂÂÎȘȚ\u00C0-\u024F][a-zăâîșțA-ZĂÂÎȘȚ\u00C0-\u024F\s\-]+?)\s*,\s*C\.?P\.?",
+                RegexOptions.None);
+            if (cityMid.Success)
+            {
+                var candidate = cityMid.Groups[1].Value.Trim();
+                if (!candidate.StartsWith("sector", StringComparison.OrdinalIgnoreCase))
+                    locality = candidate;
+            }
+        }
+
+        // Fallback: extract city from office name
+        if (string.IsNullOrWhiteSpace(locality))
+        {
+            // "Unitatea Fiscală Municipală Făgăraș" → "Făgăraș"
+            // "Unitatea Fiscală Orășenească Câmpeni" → "Câmpeni"
+            var nameLoc = Regex.Match(name,
+                @"(?:Municipal[ăa]|Or[ăa][șs]eneasc[ăa])\s+(.+)$",
+                RegexOptions.IgnoreCase);
+            if (nameLoc.Success)
+                locality = nameLoc.Groups[1].Value.Trim();
+        }
+
+        // Extract phone after "Tel."
+        string? phone = null;
+        if (telIdx >= 0)
+        {
+            var afterTel = text[(telIdx + 4)..];
+            var phoneMatch = Regex.Match(afterTel, @"([\d\.\s,;/]+?)(?:Asisten|Fax|$)");
+            phone = phoneMatch.Success ? phoneMatch.Groups[1].Value.Trim().TrimEnd(',', ';', ' ') : null;
+        }
+
+        // Extract fax after "Fax." or "Fax "
+        string? fax = null;
+        if (faxIdx >= 0)
+        {
+            var afterFax = text[(faxIdx + 3)..].TrimStart('.', ' ');
+            var faxMatch = Regex.Match(afterFax, @"([\d\.\s,;/]+?)(?:Asisten|Tel|\)|$)");
+            fax = faxMatch.Success ? faxMatch.Groups[1].Value.Trim().TrimEnd(',', ';', ' ') : null;
+        }
+
+        return new AnafOfficeEntry(name, county, locality, address, postalCode, phone, fax);
     }
 
     private static string StripTags(string html) =>
@@ -389,5 +568,7 @@ public sealed class FinanceAuthorityService : IFinanceAuthorityService
         t.Website, t.ContactPerson, t.ScheduleHours, t.Notes,
         t.OverridesGlobalId,
         IsGlobal: t.TenantId == null,
-        IsTenantOverride: t.TenantId != null);
+        IsTenantOverride: t.TenantId != null,
+        ParentId: t.ParentId,
+        ParentName: t.Parent?.Name);
 }

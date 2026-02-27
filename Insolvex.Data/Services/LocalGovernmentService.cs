@@ -43,7 +43,8 @@ public sealed class LocalGovernmentService : ILocalGovernmentService
                 t.Website, t.ContactPerson, t.ScheduleHours, t.Notes,
                 t.OverridesGlobalId,
                 t.TenantId == null,
-                t.TenantId != null))
+                t.TenantId != null,
+                null, null))
             .ToListAsync(ct);
     }
 

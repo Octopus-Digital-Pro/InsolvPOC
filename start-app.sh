@@ -114,7 +114,7 @@ while true; do
      break
     fi
 
-    # Method 2: fallback � direct sqlcmd probe
+    # Method 2: fallback — direct sqlcmd probe
     if docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd \
         -S localhost -U sa -P "InsolvexDev2025#Strong" \
         -Q "SELECT 1" -C -b &>/dev/null; then
@@ -122,7 +122,7 @@ while true; do
         break
     fi
 
-    # Method 2: fallback � direct sqlcmd probe
+    # Method 2: fallback — direct sqlcmd probe
     if docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd \
         -S localhost -U sa -P "InsolvexDev2025#Strong" \
         -Q "SELECT 1" -C -b &>/dev/null 2>&1; then
@@ -195,5 +195,5 @@ osascript \
 
 echo ""
 success "Both servers are starting in separate Terminal windows."
-echo "  This launcher window can be closed � the servers will keep running."
+echo "  This launcher window can be closed — the servers will keep running."
 echo ""

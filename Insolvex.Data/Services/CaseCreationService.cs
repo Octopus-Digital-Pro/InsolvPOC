@@ -326,7 +326,7 @@ $"from an uploaded notice document dated {noticeDate:dd MMM yyyy}. " +
           }
           catch (Exception ex)
           {
-            _logger.LogWarning(ex, "ONRC lookup failed for party '{Name}' � continuing without enrichment", p.Name);
+            _logger.LogWarning(ex, "ONRC lookup failed for party '{Name}' — continuing without enrichment", p.Name);
           }
         }
 
@@ -354,61 +354,61 @@ $"from an uploaded notice document dated {noticeDate:dd MMM yyyy}. " +
 
     // Intake verification
     tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-      $"Confirmare data notificare ?i tip procedura � {cas.DebtorName}",
-      "Verifica?i ca data notificarii extrase este corecta ?i tipul procedurii este clasificat corect.",
+      $"Confirmare dată notificare și tip procedură — {cas.DebtorName}",
+      "Verificați că data notificării extrase este corectă și tipul procedurii este clasificat corect.",
       "Review", noticeDate.AddDays(1), "Notice", true, userId));
 
     tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-      $"Verificare identitate debitor � {cas.DebtorName}",
-      $"Confirma?i CUI/CIF, nr. Registrul Comer?ului ?i datele oficiale ale debitorului {cas.DebtorName}.",
+      $"Verificare identitate debitor — {cas.DebtorName}",
+      $"Confirmați CUI/CIF, nr. Registrul Comerțului și datele oficiale ale debitorului {cas.DebtorName}.",
       "Review", noticeDate.AddDays(2), "CompanyDefault", false, userId));
 
     tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-      $"Atribuire responsabil dosar � {cas.DebtorName}",
-      "Asigura?i ca un practician responsabil este desemnat ca titular al dosarului.",
+      $"Atribuire responsabil dosar — {cas.DebtorName}",
+      "Asigurați că un practician responsabil este desemnat ca titular al dosarului.",
       "Compliance", noticeDate.AddDays(1), "CompanyDefault", false, userId));
 
     tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-      $"Verificare conta ONRC � {cas.DebtorName}",
-      $"Verifica?i datele companiei {cas.DebtorName} (CUI: {cas.DebtorCui}) �n registrul ONRC ?i actualiza?i fi?a.",
+      $"Verificare cont ONRC — {cas.DebtorName}",
+      $"Verificați datele companiei {cas.DebtorName} (CUI: {cas.DebtorCui}) în registrul ONRC și actualizați fișa.",
       "Review", noticeDate.AddDays(2), "CompanyDefault", false, userId));
 
     // Notifications
     if (deadlines.TryGetValue("initialNoticeSendBy", out var noticeSendBy))
     {
       tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-        $"Generare notificari ini?iale (Templates-Ro) � {cas.DebtorName}",
-        "Genera?i notificarea catre creditori ?i anun?ul de publicare BPI din ?abloane.",
+        $"Generare notificări inițiale (Templates-Ro) — {cas.DebtorName}",
+        "Generați notificarea către creditori și anunțul de publicare BPI din șabloane.",
         "Document", noticeSendBy, "CompanyDefault", true, userId));
     }
 
     tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-      $"Notificare deschidere procedura � {cas.DebtorName}",
-      $"Publicare �n BPI ?i notificare ONRC pentru dosarul {cas.CaseNumber}.",
+      $"Notificare deschidere procedură — {cas.DebtorName}",
+      $"Publicare în BPI și notificare ONRC pentru dosarul {cas.CaseNumber}.",
       "Email", noticeDate.AddDays(3), "CompanyDefault", true, userId));
 
     tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-      $"Notificare creditori cunoscu?i � {cas.DebtorName}",
-      "Trimite?i notificari catre to?i creditorii identifica?i din documentele primite.",
+      $"Notificare creditori cunoscuți — {cas.DebtorName}",
+      "Trimiteți notificări către toți creditorii identificați din documentele primite.",
       "Email", noticeDate.AddDays(5), "CompanyDefault", false, userId));
 
     tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-      $"Notificare ANAF ?i autorita?i fiscale � {cas.DebtorName}",
-      $"Transmite?i notificarea de deschidere catre ANAF ?i autorita?ile locale pentru dosarul {cas.CaseNumber}.",
+      $"Notificare ANAF și autorități fiscale — {cas.DebtorName}",
+      $"Transmiteți notificarea de deschidere către ANAF și autoritățile locale pentru dosarul {cas.CaseNumber}.",
       "Email", noticeDate.AddDays(4), "CompanyDefault", true, userId));
 
     // Causes report
     tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-      $"Raport Art. 97 Legea 85/2014 � {cas.DebtorName}",
-      $"�ntocmire raport privind cauzele ?i �mprejurarile care au dus la apari?ia starii de insolven?a � dosar {cas.CaseNumber}.",
+      $"Raport Art. 97 Legea 85/2014 — {cas.DebtorName}",
+      $"Întocmire raport privind cauzele și împrejurările care au dus la apariția stării de insolvență — dosar {cas.CaseNumber}.",
       "Report", noticeDate.AddDays(40), "CompanyDefault", false, userId));
 
     // Claims table
     if (deadlines.TryGetValue("claimDeadline", out var claimDl))
     {
       tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-        $"Verificare ?i �ntocmire tabel preliminar crean?e � {cas.DebtorName}",
-        $"Termen crean?e: {claimDl:dd.MM.yyyy}. Verifica?i declara?iile de crean?a primite ?i �ntocmi?i tabelul preliminar.",
+        $"Verificare și întocmire tabel preliminar creanțe — {cas.DebtorName}",
+        $"Termen creanțe: {claimDl:dd.MM.yyyy}. Verificați declarațiile de creanță primite și întocmiți tabelul preliminar.",
         "Document", claimDl.AddDays(5), "CompanyDefault", true, userId));
     }
 
@@ -416,8 +416,8 @@ $"from an uploaded notice document dated {noticeDate:dd MMM yyyy}. " +
     if (nextHearing.HasValue)
     {
       tasks.Add(CreateTask(tenantId, companyId, cas.Id,
-        $"Pregatire termen de judecata � {cas.DebtorName}",
-        $"Termen: {nextHearing.Value:dd.MM.yyyy} la {cas.CourtName}. Pregati?i rapoartele ?i documentele necesare.",
+        $"Pregătire termen de judecată — {cas.DebtorName}",
+        $"Termen: {nextHearing.Value:dd.MM.yyyy} la {cas.CourtName}. Pregătiți rapoartele și documentele necesare.",
         "Filing", nextHearing.Value.AddDays(-2), "Notice", false, userId));
     }
 
@@ -483,21 +483,21 @@ $"from an uploaded notice document dated {noticeDate:dd MMM yyyy}. " +
     }
     // Claims deadline reminders
     AddReminder(claimsDeadline, 7,
-      $"[Insolvex] Termen creante �n 7 zile � {cas.DebtorName} ({cas.CaseNumber})",
-      $"Termenul limita pentru depunerea creantelor �n dosarul {cas.CaseNumber} ({cas.DebtorName}) este {claimsDeadline?.ToString("dd.MM.yyyy")}.\n\nMai aveti 7 zile.");
+      $"[Insolvex] Termen creanțe în 7 zile — {cas.DebtorName} ({cas.CaseNumber})",
+      $"Termenul limită pentru depunerea creanțelor în dosarul {cas.CaseNumber} ({cas.DebtorName}) este {claimsDeadline?.ToString("dd.MM.yyyy")}.\n\nMai aveți 7 zile.");
 
     AddReminder(claimsDeadline, 1,
-      $"[Insolvex] URGENT: Termen creante M�INE � {cas.DebtorName}",
-      $"ATENTIE: Termenul pentru creante �n dosarul {cas.CaseNumber} expira M�INE {claimsDeadline?.ToString("dd.MM.yyyy")}. ");
+      $"[Insolvex] URGENT: Termen creanțe MÎINE — {cas.DebtorName}",
+      $"ATENȚIE: Termenul pentru creanțe în dosarul {cas.CaseNumber} expiră MÎINE {claimsDeadline?.ToString("dd.MM.yyyy")}. ");
 
     // Hearing reminder
     AddReminder(nextHearing, 2,
-      $"[Insolvex] Termen de judecata �n 2 zile � {cas.DebtorName}",
-      $"Dosarul {cas.CaseNumber}: termen la {cas.CourtName} pe {nextHearing?.ToString("dd.MM.yyyy")}.\n\nPregatiti documentele.");
+      $"[Insolvex] Termen de judecată în 2 zile — {cas.DebtorName}",
+      $"Dosarul {cas.CaseNumber}: termen la {cas.CourtName} pe {nextHearing?.ToString("dd.MM.yyyy")}.\n\nPregătiți documentele.");
 
     // Contestations reminder
     AddReminder(contestationsDeadline, 3,
-      $"[Insolvex] Termen contestatii �n 3 zile � {cas.DebtorName}",
+      $"[Insolvex] Termen contestații în 3 zile — {cas.DebtorName}",
       $"Termenul pentru contestatii tabel creante: {contestationsDeadline?.ToString("dd.MM.yyyy")}. ");
 
             return emails;

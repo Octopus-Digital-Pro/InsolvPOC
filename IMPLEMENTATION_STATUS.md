@@ -1,4 +1,4 @@
-# Insolvex Implementation Status � Complete Report
+# Insolvex Implementation Status — Complete Report
 
 ## ? COMPLETED FEATURES
 
@@ -70,7 +70,7 @@
 
 #### TenantContext
 
-- **Tenant Switch**: Forces full page reload (nuclear option � zero leakage)
+- **Tenant Switch**: Forces full page reload (nuclear option — zero leakage)
 - **Persistence**: Saves `selectedTenantId` to localStorage
 - **Auto-Select**: On load, picks localStorage > current > first tenant
 
@@ -185,7 +185,7 @@
 
 #### New Keys Added
 
-- `nav.tenants`: "Tenants" / "Chiria?i" / "B�rl?k"
+- `nav.tenants`: "Tenants" / "Chiriași" / "Bérlők"
 - `settings.editUser`, `adminResetPassword`, `passwordResetSuccess`
 - `settings.pfxFile`, `certificatePassword`, `keyUploaded`, `yourSigningKeys`, `recentSignatures`
 - `tenants.title`, `createTenant`, `editTenant`, `name`, `domain`, `plan`, `noAccess`
@@ -488,4 +488,4 @@ Currently descriptions are in English. To support Romanian:
 ---
 
 _Document generated: 2025-01-XX_  
-_Insolvex v1.0 � Multi-Tenant Insolvency Case Management Platform_
+_Insolvex v1.0 — Multi-Tenant Insolvency Case Management Platform_

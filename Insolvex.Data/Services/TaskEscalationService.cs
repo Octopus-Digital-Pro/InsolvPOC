@@ -62,7 +62,7 @@ public class TaskEscalationService
 
          if (hoursUntilDeadline <= 0)
          {
-            // Deadline passed � escalate to admin
+            // Deadline passed — escalate to admin
             await EscalateToAdminAsync(task, "OVERDUE", ct);
 
             // Auto-assign backup if configured
@@ -77,7 +77,7 @@ public class TaskEscalationService
          }
          else if (hoursUntilDeadline <= urgentThresholdHours)
          {
-            // Within urgent window � escalate to team lead
+            // Within urgent window — escalate to team lead
             await EscalateToTeamLeadAsync(task, hoursUntilDeadline, ct);
          }
       }
@@ -115,7 +115,7 @@ public class TaskEscalationService
             TenantId = task.TenantId,
             CaseId = task.CaseId,
             To = admin.Email,
-            Subject = $"[Insolvex] ESCALATION {urgencyLevel}: {task.Title} � {caseName} [{escalationKey}]",
+            Subject = $"[Insolvex] ESCALATION {urgencyLevel}: {task.Title} — {caseName} [{escalationKey}]",
             Body = $"<h3>Critical Deadline Escalation</h3>" +
 $"<p><strong>Task:</strong> {task.Title}</p>" +
    $"<p><strong>Case:</strong> {caseName}</p>" +
@@ -130,7 +130,7 @@ $"<p style='color:red'><strong>This is a critical deadline that has been {urgenc
          });
       }
 
-      _logger.LogWarning("Escalated critical task {TaskId} ({Title}) to {Count} admins � {Level}",
+      _logger.LogWarning("Escalated critical task {TaskId} ({Title}) to {Count} admins — {Level}",
      task.Id, task.Title, admins.Count, urgencyLevel);
    }
 
@@ -162,7 +162,7 @@ $"<p style='color:red'><strong>This is a critical deadline that has been {urgenc
             TenantId = task.TenantId,
             CaseId = task.CaseId,
             To = lead.Email,
-            Subject = $"[Insolvex] URGENT: {task.Title} � {caseName} ({hoursRemaining:F0}h remaining) [{escalationKey}]",
+            Subject = $"[Insolvex] URGENT: {task.Title} — {caseName} ({hoursRemaining:F0}h remaining) [{escalationKey}]",
             Body = $"<h3>Urgent Deadline Warning</h3>" +
         $"<p><strong>Task:</strong> {task.Title}</p>" +
       $"<p><strong>Case:</strong> {caseName}</p>" +

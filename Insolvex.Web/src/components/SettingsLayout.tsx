@@ -52,7 +52,7 @@ const { isGlobalAdmin } = useAuth();
       <div className="mb-1 px-3 pt-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
             {t.settings.general}
           </div>
-          {/* Organisation now includes firm details � no separate Firm Details tab */}
+          {/* Organisation now includes firm details — no separate Firm Details tab */}
        <SettingsNavItem to="/settings" icon={Building2} label={t.settings.organization} />
    <SettingsNavItem to="/settings/users" icon={Users} label={t.settings.teamUsers} />
         <SettingsNavItem to="/settings/signing" icon={KeyRound} label={t.settings.eSigning} />

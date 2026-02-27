@@ -1255,7 +1255,8 @@ finally { setLoading(false); }
       <div key={item.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors">
           <div className="min-w-0 flex-1">
  <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
-      <p className="text-xs text-muted-foreground truncate">
+ <p className="text-xs text-muted-foreground truncate">
+   {item.parentName && <span className="text-primary font-medium">{item.parentName} › </span>}
    {item.county && `${item.county}`}{item.locality && ` · ${item.locality}`}
           {item.phone && ` · ${item.phone}`}{item.email && ` · ${item.email}`}
     {item.registryPhone && ` · ${item.registryPhone}`}

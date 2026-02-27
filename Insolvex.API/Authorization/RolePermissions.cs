@@ -23,7 +23,7 @@ public static class RolePermissions
 
       [UserRole.Practitioner] = new(new[]
         {
-          // Cases � full CRUD
+          // Cases — full CRUD
      Permission.CaseView, Permission.CaseCreate, Permission.CaseEdit, Permission.CaseExport,
             // Parties
             Permission.PartyView, Permission.PartyCreate, Permission.PartyEdit, Permission.PartyDelete,
@@ -44,11 +44,13 @@ public static class RolePermissions
             Permission.TemplateView, Permission.TemplateGenerate,
  // Summaries
           Permission.SummaryView, Permission.SummaryGenerate,
-            // Settings � view tenant info, firm info, deadline config
+            // Assets — full CRUD
+            Permission.AssetView, Permission.AssetCreate, Permission.AssetEdit, Permission.AssetDelete,
+            // Settings — view tenant info, firm info, deadline config
 Permission.SettingsView,
     // Emails
          Permission.EmailView, Permission.EmailCreate,
-            // Error logs � view
+            // Error logs — view
           Permission.ErrorLogView,
       // Dashboard
  Permission.DashboardView,
@@ -56,28 +58,30 @@ Permission.SettingsView,
 
         [UserRole.Secretary] = new(new[]
         {
-       // Cases � view + create (no delete)
+       // Cases — view + create (no delete)
             Permission.CaseView, Permission.CaseCreate, Permission.CaseEdit, Permission.CaseExport,
-   // Parties � view + create
+   // Parties — view + create
          Permission.PartyView, Permission.PartyCreate, Permission.PartyEdit,
-     // Phases � view only
+     // Phases — view only
             Permission.PhaseView,
    Permission.StageView,
-     // Documents � view, upload, download (no delete)
+     // Documents — view, upload, download (no delete)
         Permission.DocumentView, Permission.DocumentUpload, Permission.DocumentDownload,
-            // Signing � can manage own keys and sign
+            // Signing — can manage own keys and sign
          Permission.SigningKeyManage, Permission.DocumentSign, Permission.SignatureVerify,
-    // Tasks � view + create + edit (no delete)
+    // Tasks — view + create + edit (no delete)
        Permission.TaskView, Permission.TaskCreate, Permission.TaskEdit,
-        // Companies � view + create
+        // Companies — view + create
     Permission.CompanyView, Permission.CompanyCreate,
-            // Meetings � view only
+            // Meetings — view only
    Permission.MeetingView,
-   // Templates � view + generate (no manage)
+   // Templates — view + generate (no manage)
             Permission.TemplateView, Permission.TemplateGenerate,
-            // Summaries � view only
+            // Summaries — view only
         Permission.SummaryView,
-          // Settings � view tenant info, firm info, deadline config
+            // Assets — view + create (no delete)
+            Permission.AssetView, Permission.AssetCreate, Permission.AssetEdit,
+          // Settings — view tenant info, firm info, deadline config
             Permission.SettingsView,
    // Emails
             Permission.EmailView, Permission.EmailCreate,

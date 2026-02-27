@@ -33,6 +33,19 @@ export const casesApi = {
   removeParty: (caseId: string, partyId: string) =>
     client.delete(`/cases/${caseId}/parties/${partyId}`),
 
+  // Assets
+  getAssets: (caseId: string) =>
+    client.get<import("./types").AssetDto[]>(`/cases/${caseId}/assets`),
+
+  createAsset: (caseId: string, data: Record<string, unknown>) =>
+    client.post<import("./types").AssetDto>(`/cases/${caseId}/assets`, data),
+
+  updateAsset: (caseId: string, assetId: string, data: Record<string, unknown>) =>
+    client.put<import("./types").AssetDto>(`/cases/${caseId}/assets/${assetId}`, data),
+
+  deleteAsset: (caseId: string, assetId: string) =>
+    client.delete(`/cases/${caseId}/assets/${assetId}`),
+
   // Export helpers (use raw fetch with auth for file downloads)
   exportCsvUrl: "/cases/export-csv",
   downloadZipUrl: (caseId: string) => `/cases/${caseId}/documents/download-zip`,

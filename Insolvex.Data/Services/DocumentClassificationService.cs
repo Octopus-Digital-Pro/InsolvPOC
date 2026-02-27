@@ -273,7 +273,7 @@ public class DocumentClassificationService
         if (extracted.Length > 50)
           return extracted;
 
-        // Scanned/image PDF � generate synthetic text from filename
+        // Scanned/image PDF — generate synthetic text from filename
         return GenerateSyntheticTextFromFilename(originalFileName, pdf.NumberOfPages);
       }
       catch
@@ -311,11 +311,11 @@ public class DocumentClassificationService
     var docKeywords = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
       ["sentinta"] = "court_decision",
-      ["sentin?a"] = "court_decision",
+      ["sentința"] = "court_decision",
       ["hotarare"] = "court_decision",
-      ["hotar�re"] = "court_decision",
+      ["hotărâre"] = "court_decision",
       ["incheierea"] = "court_decision",
-      ["�ncheiere"] = "court_decision",
+      ["încheiere"] = "court_decision",
       ["notificare"] = "notification",
       ["tabel"] = "claims_table",
       ["raport"] = "report",
@@ -341,7 +341,7 @@ public class DocumentClassificationService
 
     if (companyPart == null)
     {
-      // No keyword found � treat entire name as potential company
+      // No keyword found — treat entire name as potential company
       companyPart = cleaned;
     }
 
@@ -368,15 +368,15 @@ public class DocumentClassificationService
       {
         // Simulate court decision content
         sb.AppendLine("Tribunalul Specializat Cluj");
-        sb.AppendLine("Sec?ia a II-a Civila");
+        sb.AppendLine("Secția a II-a Civilă");
         sb.AppendLine("Judecator Sindic: Pop Maria");
-        sb.AppendLine("Sentin?a civila nr. 999/2025");
+        sb.AppendLine("Sentința civilă nr. 999/2025");
         sb.AppendLine("procedura simplificata de faliment");
         sb.AppendLine("Legea 85/2014");
         sb.AppendLine("Se dispune deschiderea procedurii simplificate de faliment");
-        sb.AppendLine($"Termen depunere crean?e: 45 zile");
-        sb.AppendLine($"Termen contesta?ii: 5 zile de la publicare");
-        sb.AppendLine("Data pronun?arii: " + DateTime.UtcNow.AddDays(-5).ToString("dd.MM.yyyy"));
+        sb.AppendLine($"Termen depunere creanțe: 45 zile");
+        sb.AppendLine($"Termen contestații: 5 zile de la publicare");
+        sb.AppendLine("Data pronunțării: " + DateTime.UtcNow.AddDays(-5).ToString("dd.MM.yyyy"));
         sb.AppendLine("Urmatorul termen de judecata: " + DateTime.UtcNow.AddDays(30).ToString("dd.MM.yyyy"));
       }
       else if (lower.Contains("notificar"))
@@ -393,13 +393,13 @@ public class DocumentClassificationService
   {
     var lower = (fileName + " " + text).ToLowerInvariant();
 
-    if (lower.Contains("hotarare") || lower.Contains("hotar�re") || lower.Contains("sentinta") || lower.Contains("sentin?a") || lower.Contains("�ncheiere") || lower.Contains("incheierea"))
+    if (lower.Contains("hotarare") || lower.Contains("hotărâre") || lower.Contains("sentinta") || lower.Contains("sentința") || lower.Contains("încheiere") || lower.Contains("incheierea"))
       return "court_decision";
     if (lower.Contains("raport") || lower.Contains("report"))
       return "report";
     if (lower.Contains("cerere") || lower.Contains("application") || lower.Contains("petition"))
       return "petition";
-    if (lower.Contains("tabel") || lower.Contains("creante") || lower.Contains("crean?e"))
+    if (lower.Contains("tabel") || lower.Contains("creante") || lower.Contains("creanțe"))
       return "claims_table";
     if (lower.Contains("notificare") || lower.Contains("notification"))
       return "notification";
@@ -465,7 +465,7 @@ RegexOptions.IgnoreCase);
       return ProcedureType.ConcordatPreventiv;
     if (lower.Contains("mandat ad-hoc") || lower.Contains("mandat ad hoc"))
       return ProcedureType.MandatAdHoc;
-    if (lower.Contains("insolven?a") || lower.Contains("insolventa") || lower.Contains("insolven"))
+    if (lower.Contains("insolvență") || lower.Contains("insolventa") || lower.Contains("insolven"))
       return ProcedureType.Insolventa;
 
     return ProcedureType.Other;
@@ -523,7 +523,7 @@ text.Contains("fiscal", StringComparison.OrdinalIgnoreCase))
       parties.Add(new ClassificationExtractedParty
       {
         Role = "BudgetaryCreditor",
-        Name = "ANAF - Administra?ia Jude?eana a Finan?elor Publice",
+        Name = "ANAF - Administrația Județeană a Finanțelor Publice",
       });
     }
 
@@ -539,9 +539,9 @@ text.Contains("fiscal", StringComparison.OrdinalIgnoreCase))
 
     // Romanian date patterns: dd.MM.yyyy or dd/MM/yyyy
 
-    // Opening date / "data pronun?arii"
+    // Opening date / "data pronunțării"
     var openingMatch = Regex.Match(text,
-      @"(?:pronun?arii|pronuntarii|deschiderii|deschiderea)[:\s]*.*?(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4})",
+      @"(?:pronunțării|pronuntarii|deschiderii|deschiderea)[:\s]*.*?(\d{1,2}[\./]\d{1,2}[\./]\d{4})",
      RegexOptions.IgnoreCase);
     if (openingMatch.Success)
       dates.OpeningDate = ParseRomanianDate(openingMatch.Groups[1].Value);
@@ -553,9 +553,9 @@ RegexOptions.IgnoreCase);
     if (hearingMatch.Success)
       dates.NextHearingDate = ParseRomanianDate(hearingMatch.Groups[1].Value);
 
-    // Claims deadline � often "45 zile" or explicit date
+    // Claims deadline — often "45 zile" or explicit date
     var claimsMatch = Regex.Match(text,
-        @"(?:crean?e|creante|depunere)[:\s]*.*?(\d{1,2}[\.\/]\d{1,2}[\.\/]\d{4})",
+        @"(?:creanțe|creante|depunere)[:\s]*.*?(\d{1,2}[\./]\d{1,2}[\./]\d{4})",
 RegexOptions.IgnoreCase);
     if (claimsMatch.Success)
     {
@@ -563,9 +563,9 @@ RegexOptions.IgnoreCase);
     }
     else
     {
-      // "termen depunere crean?e: 45 zile"
+      // "termen depunere creanțe: 45 zile"
       var daysMatch = Regex.Match(text,
-          @"(?:crean?e|creante)[:\s]*(\d+)\s*zile",
+          @"(?:creanțe|creante)[:\s]*(\d+)\s*zile",
   RegexOptions.IgnoreCase);
       if (daysMatch.Success && dates.OpeningDate.HasValue)
       {
@@ -579,7 +579,7 @@ RegexOptions.IgnoreCase);
 
     // Contestations deadline
     var contestMatch = Regex.Match(text,
-        @"(?:contesta?ii|contestatii|contestare)[:\s]*(\d+)\s*zile",
+        @"(?:contestații|contestatii|contestare)[:\s]*(\d+)\s*zile",
       RegexOptions.IgnoreCase);
     if (contestMatch.Success && dates.ClaimsDeadline.HasValue)
     {
@@ -595,7 +595,7 @@ RegexOptions.IgnoreCase);
 
     // Court section
     var sectionMatch = Regex.Match(text,
-   @"(Sec?ia\s+.+?)(?:\n|$)",
+   @"(Secția\s+.+?)(?:\n|$)",
         RegexOptions.IgnoreCase);
     if (sectionMatch.Success)
       dates.CourtSection = sectionMatch.Groups[1].Value.Trim();

@@ -62,7 +62,7 @@ public class LocalFileStorageService : IFileStorageService
 
     public string GetPresignedUrl(string key, TimeSpan expiry)
     {
-        // Local storage doesn't support presigned URLs � return relative path
+        // Local storage doesn't support presigned URLs — return relative path
         return $"/api/documents/download/{key}";
     }
 }

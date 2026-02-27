@@ -34,7 +34,7 @@ public class TaskEscalationServiceTests
     );
   }
 
-  // ?? Overdue task ? admin escalation ?????????????????????
+  // ⚠️ Overdue task → admin escalation ─────────────────────
 
   [Fact]
   public async Task ProcessEscalations_OverdueTask_EscalatesToAdmins()
@@ -89,7 +89,7 @@ public class TaskEscalationServiceTests
     task.Status.Should().Be(TaskStatus.Overdue);
   }
 
-  // ?? Urgent window ? team lead escalation ????????????????
+  // ⏰ Urgent window → team lead escalation ────────────────
 
   [Fact]
   public async Task ProcessEscalations_WithinUrgentWindow_EscalatesToTeamLead()
@@ -118,7 +118,7 @@ public class TaskEscalationServiceTests
     urgentEmails.Should().Contain(e => e.To == "partner@test.local");
   }
 
-  // ?? Auto-reassign backup ????????????????????????????????
+  // 🔄 Auto-reassign backup ────────────────────────────────
 
   [Fact]
   public async Task ProcessEscalations_AutoAssignsBackup_WhenConfigured()

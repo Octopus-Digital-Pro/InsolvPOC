@@ -131,7 +131,7 @@ function AuditRow({ log, t }: { log: AuditLogDto; t: any }) {
         )}
           {!log.description && log.entityType && (
   <p className="text-[10px] text-muted-foreground mt-0.5">
-{log.entityType}{log.entityId ? ` � ${log.entityId.slice(0, 8)}�` : ""}
+{log.entityType}{log.entityId ? ` — ${log.entityId.slice(0, 8)}…` : ""}
       </p>
   )}
      </div>

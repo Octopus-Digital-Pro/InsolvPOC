@@ -61,7 +61,7 @@ function ProtectedLayout() {
           />
         )}
 
-        {/* Sidebar � hidden on mobile, visible on md+ */}
+        {/* Sidebar — hidden on mobile, visible on md+ */}
         <div
           className={`
           fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0
@@ -138,7 +138,7 @@ function AppRoutes() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/documents/:id/review" element={<DocumentReviewPage />} />
 
-        {/* Settings � sidebar takeover layout */}
+        {/* Settings — sidebar takeover layout */}
         <Route path="/settings" element={<SettingsLayout />}>
           <Route index element={<OrganisationSettingsPage />} />
           <Route path="users" element={<SettingsPage tab="users" />} />

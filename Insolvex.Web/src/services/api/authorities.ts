@@ -25,6 +25,9 @@ interface AuthorityRecord {
   registryHours?: string;
   // FinanceAuthority/LocalGov-specific
   scheduleHours?: string;
+  // Parent hierarchy (for ANAF sub-offices)
+  parentId?: string;
+  parentName?: string;
 }
 
 const buildCrud = (basePath: string) => ({

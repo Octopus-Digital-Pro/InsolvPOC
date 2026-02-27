@@ -194,6 +194,22 @@ log.Id,
       p.Notes
   );
 
+  public static AssetDto ToDto(this Asset a) => new(
+      a.Id,
+      a.CaseId,
+      a.AssetType,
+      a.Description,
+      a.EstimatedValue,
+      a.EncumbranceDetails,
+      a.SecuredCreditorPartyId,
+      a.SecuredCreditorParty?.Name ?? a.SecuredCreditorParty?.Company?.Name,
+      a.Status,
+      a.SaleProceeds,
+      a.DisposedAt,
+      a.Notes,
+      a.CreatedOn
+  );
+
   public static InsolvencyFirmDto ToDto(this InsolvencyFirm f) => new(
 f.Id,
 f.TenantId,

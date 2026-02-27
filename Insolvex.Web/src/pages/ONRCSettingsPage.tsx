@@ -116,7 +116,7 @@ export default function ONRCSettingsPage() {
             <div>
           <span className="text-muted-foreground">{t.settings.onrcLastImport}</span>
            <p className="font-medium text-foreground">
-    {stats.lastImportedAt ? format(new Date(stats.lastImportedAt), "dd MMM yyyy HH:mm") : "�"}
+    {stats.lastImportedAt ? format(new Date(stats.lastImportedAt), "dd MMM yyyy HH:mm") : "—"}
        </p>
      </div>
      </div>
@@ -125,7 +125,7 @@ export default function ONRCSettingsPage() {
         )}
       </div>
 
-      {/* CSV Import � now triggers modal */}
+      {/* CSV Import — now triggers modal */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -175,8 +175,8 @@ export default function ONRCSettingsPage() {
       <p className="text-sm font-medium text-foreground truncate">{firm.name}</p>
         <p className="text-xs text-muted-foreground truncate">
                   CUI: {firm.cui}
-    {firm.tradeRegisterNo && ` � ${firm.tradeRegisterNo}`}
-         {firm.county && ` � ${firm.county}`}
+    {firm.tradeRegisterNo && ` — ${firm.tradeRegisterNo}`}
+         {firm.county && ` — ${firm.county}`}
             {firm.locality && `, ${firm.locality}`}
       </p>
        </div>

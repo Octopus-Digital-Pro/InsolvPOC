@@ -61,7 +61,7 @@ public class MailMergeService
     ["final_report_art_167"] = DocumentTemplateType.FinalReportArt167,
   };
 
-  /// <summary>Template types that are critical per stage � deadlines must never be missed.</summary>
+  /// <summary>Template types that are critical per stage — deadlines must never be missed.</summary>
   public static readonly HashSet<DocumentTemplateType> CriticalTemplateTypes = new()
   {
     DocumentTemplateType.CreditorNotificationBpi,
@@ -377,7 +377,7 @@ public class MailMergeService
     return await GenerateKeyDocumentsForCaseAsync(cas, cas.Company, firm, detectedDocType, ct);
   }
 
-  // ?? Private helpers ?????????????????????????????????????
+  // 🔧 Private helpers ─────────────────────────────────────
 
   private GeneratedLetter CreateGeneratedLetter(InsolvencyCase cas, DocumentTemplateType templateType, Guid? dbTemplateId)
   {
@@ -405,7 +405,7 @@ public class MailMergeService
 
     if (alreadyExists) return;
 
-    var title = $"Fix merge fields: {templateType} � {cas.CaseNumber}";
+    var title = $"Fix merge fields: {templateType} — {cas.CaseNumber}";
     var description = $"Cannot generate {templateType}: missing required fields: {string.Join(", ", missingFields)}. " +
 $"Please complete the case data and retry template generation.";
     var summaries = LocalizedSummaryBuilder.BuildTaskSummaryByLanguage(

@@ -175,6 +175,37 @@ export interface Translations {
     thirdParty: string;
   };
 
+  // Assets
+  assets: {
+    title: string;
+    addAsset: string;
+    editAsset: string;
+    noAssets: string;
+    type: string;
+    description: string;
+    estimatedValue: string;
+    saleProceeds: string;
+    status: string;
+    encumbrance: string;
+    securedCreditor: string;
+    notes: string;
+    estimatedTotal: string;
+    items: string;
+    vehicle: string;
+    realEstate: string;
+    receivable: string;
+    inventory: string;
+    equipment: string;
+    ip: string;
+    cash: string;
+    other: string;
+    identified: string;
+    valued: string;
+    forSale: string;
+    sold: string;
+    unrecoverable: string;
+  };
+
   // Firms
   firm: {
     title: string;

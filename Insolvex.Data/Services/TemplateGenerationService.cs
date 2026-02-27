@@ -221,7 +221,7 @@ string templatePath,
 
     var ext = Path.GetExtension(templatePath).ToLowerInvariant();
 
-    // For .doc files (legacy binary format), copy as-is � real merge requires conversion
+    // For .doc files (legacy binary format), copy as-is — real merge requires conversion
     // TODO: Integrate LibreOffice headless or Aspose for .doc support
     if (ext == ".doc")
     {

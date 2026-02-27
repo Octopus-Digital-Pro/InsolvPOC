@@ -133,6 +133,7 @@ builder.Services.AddScoped<IFirmLookupService, FirmLookupService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<ICasePartyService, CasePartyService>();
+builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
 builder.Services.AddScoped<IErrorLogService, ErrorLogService>();
 builder.Services.AddScoped<ICaseCalendarService, CaseCalendarService>();

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { tasksApi } from "@/services/api/tasks";
-import type { TaskDto } from "@/services/api/types";
+import { usersApi } from "@/services/api";
+import type { TaskDto, UserDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,11 +28,28 @@ const STATUS_COLUMNS = [
 export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Props) {
   const [view, setView] = useState<ViewMode>("list");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserDto[]>([]);
+
+  useEffect(() => {
+    usersApi.getAll().then(r => setUsers(r.data)).catch(console.error);
+  }, []);
 
   const handleStatusChange = async (taskId: string, newStatus: string) => {
     setUpdatingId(taskId);
     try {
       await tasksApi.update(taskId, { status: newStatus });
+      onRefresh();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleAssign = async (taskId: string, userId: string | null) => {
+    setUpdatingId(taskId);
+    try {
+      await tasksApi.update(taskId, { assignedToUserId: userId });
       onRefresh();
     } catch (e) {
       console.error(e);
@@ -79,7 +97,7 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Prop
       </div>
 
       {/* List View */}
-      {view === "list" && <ListView tasks={tasks} onStatusChange={handleStatusChange} updatingId={updatingId} />}
+      {view === "list" && <ListView tasks={tasks} onStatusChange={handleStatusChange} onAssign={handleAssign} updatingId={updatingId} users={users} />}
 
       {/* Kanban View */}
     {view === "kanban" && <KanbanView tasks={tasks} onStatusChange={handleStatusChange} updatingId={updatingId} />}
@@ -91,10 +109,12 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Prop
 }
 
 /* ?? List View ???????????????????????????????????????? */
-function ListView({ tasks, onStatusChange, updatingId }: {
+function ListView({ tasks, onStatusChange, onAssign, updatingId, users }: {
   tasks: TaskDto[];
   onStatusChange: (id: string, status: string) => void;
+  onAssign: (id: string, userId: string | null) => void;
   updatingId: string | null;
+  users: UserDto[];
 }) {
   const sorted = [...tasks].sort((a, b) => {
     if (a.status === "done" && b.status !== "done") return 1;
@@ -115,16 +135,18 @@ function ListView({ tasks, onStatusChange, updatingId }: {
   return (
     <div className="rounded-xl border border-border bg-card divide-y divide-border">
       {sorted.map(task => (
-    <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} updating={updatingId === task.id} />
- ))}
-  </div>
+        <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} onAssign={onAssign} updating={updatingId === task.id} users={users} />
+      ))}
+    </div>
   );
 }
 
-function TaskRow({ task, onStatusChange, updating }: {
+function TaskRow({ task, onStatusChange, onAssign, updating, users }: {
   task: TaskDto;
   onStatusChange: (id: string, status: string) => void;
+  onAssign: (id: string, userId: string | null) => void;
   updating: boolean;
+  users: UserDto[];
 }) {
   const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== "done";
   const isDueToday = task.deadline && isToday(new Date(task.deadline));
@@ -166,11 +188,16 @@ function TaskRow({ task, onStatusChange, updating }: {
       )}
 
     {/* Assignee */}
-      {task.assignedToName && (
-        <span className="hidden md:block text-[10px] text-muted-foreground truncate max-w-[100px]">
-{task.assignedToName}
-        </span>
-      )}
+      <select
+        value={task.assignedToUserId ?? ""}
+        onChange={e => onAssign(task.id, e.target.value || null)}
+        disabled={updating}
+        onClick={e => e.stopPropagation()}
+        className="hidden md:block text-[10px] text-muted-foreground bg-transparent border-b border-dashed border-border/40 hover:border-primary/50 focus:outline-none focus:border-primary cursor-pointer transition-colors max-w-[110px] truncate"
+      >
+        <option value="">— unassigned —</option>
+        {users.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+      </select>
 
       {/* Deadline */}
       {task.deadline && (
@@ -271,13 +298,13 @@ function CalendarView({ tasks }: { tasks: TaskDto[] }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(w => w - 1)}>? Prev</Button>
+        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(w => w - 1)}>← Prev</Button>
         <span className="text-xs font-medium text-muted-foreground">
-       {format(weekStart, "dd MMM")} � {format(weekEnd, "dd MMM yyyy")}
+       {format(weekStart, "dd MMM")} — {format(weekEnd, "dd MMM yyyy")}
         </span>
         <div className="flex gap-1">
           <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(0)}>Today</Button>
-        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(w => w + 1)}>Next ?</Button>
+        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(w => w + 1)}>Next →</Button>
       </div>
       </div>
 

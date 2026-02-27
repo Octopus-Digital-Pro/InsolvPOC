@@ -11,7 +11,7 @@ export const tasksApi = {
   create: (data: { companyId: string; title: string; description?: string; labels?: string; deadline?: string; assignedToUserId?: string }) =>
   client.post<TaskDto>("/tasks", data),
 
-  update: (id: string, data: Partial<{ title: string; description: string; labels: string; deadline: string; status: string; assignedToUserId: string }>) =>
+  update: (id: string, data: Partial<{ title: string; description: string; labels: string; deadline: string; status: string; assignedToUserId: string | null }>) =>
     client.put<TaskDto>(`/tasks/${id}`, data),
 
   delete: (id: string) =>

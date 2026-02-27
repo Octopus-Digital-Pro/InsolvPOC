@@ -3,7 +3,7 @@ namespace Insolvex.Domain.Entities;
 /// <summary>
 /// Audit log entry. Uses BaseEntity (not TenantScopedEntity) because audit entries
 /// can be created for unauthenticated/system-level events with no tenant context.
-/// TenantId is nullable � null means system-level or pre-authentication event.
+/// TenantId is nullable — null means system-level or pre-authentication event.
 /// </summary>
 public class AuditLog : BaseEntity
 {
@@ -17,7 +17,7 @@ public class AuditLog : BaseEntity
    public string Action { get; set; } = string.Empty;
 
    /// <summary>Human-readable description of what happened, suitable for legal/compliance review.
-   /// Example: "Practician Ioan Popescu a modificat dosarul nr. 123/2025: stadiu schimbat din 'Deschis' �n 'Lichidare'."</summary>
+   /// Example: "Practician Ioan Popescu a modificat dosarul nr. 123/2025: stadiu schimbat din 'Deschis' în 'Lichidare'."</summary>
    public string Description { get; set; } = string.Empty;
 
    public Guid? UserId { get; set; }
