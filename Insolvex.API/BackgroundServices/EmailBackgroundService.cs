@@ -72,6 +72,7 @@ public class EmailBackgroundService : BackgroundService
 
     email.IsSent = true;
   email.SentAt = DateTime.UtcNow;
+  email.Status = "Sent";
    email.ErrorMessage = null;
 
              _logger.LogInformation("Email {Id} sent to {To}: {Subject}", email.Id, email.To, email.Subject);
@@ -80,6 +81,8 @@ public class EmailBackgroundService : BackgroundService
 {
                 email.RetryCount++;
       email.ErrorMessage = ex.Message;
+      if (email.RetryCount >= MaxRetries)
+          email.Status = "Failed";
 
          _logger.LogError(ex, "Failed to send email {Id} to {To} (attempt {Attempt}/{Max})",
          email.Id, email.To, email.RetryCount, MaxRetries);

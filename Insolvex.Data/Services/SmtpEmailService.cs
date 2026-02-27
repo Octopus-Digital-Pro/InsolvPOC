@@ -34,8 +34,8 @@ public class SmtpEmailService : IEmailService
     {
         if (!_settings.Enabled)
         {
-            _logger.LogWarning("SMTP not enabled. Skipping email to {To}: {Subject}", to, subject);
-            return;
+            _logger.LogWarning("SMTP not enabled — configure Smtp:Enabled=true in appsettings. Email to {To}: {Subject}", to, subject);
+            throw new InvalidOperationException("SMTP is not configured. Set Smtp:Enabled=true and provide host/credentials.");
         }
 
         using var message = new MailMessage
@@ -60,8 +60,8 @@ public class SmtpEmailService : IEmailService
     {
         if (!_settings.Enabled)
         {
-            _logger.LogWarning("SMTP not enabled. Skipping email to {To}: {Subject}", to, subject);
-            return;
+            _logger.LogWarning("SMTP not enabled — configure Smtp:Enabled=true in appsettings. Email to {To}: {Subject}", to, subject);
+            throw new InvalidOperationException("SMTP is not configured. Set Smtp:Enabled=true and provide host/credentials.");
         }
 
         using var message = new MailMessage

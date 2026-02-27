@@ -128,7 +128,9 @@ public sealed class UserService : IUserService
 
     public async Task RevokeInvitationAsync(Guid id, CancellationToken ct = default)
     {
-        var invitation = await _db.UserInvitations.FirstOrDefaultAsync(i => i.Id == id, ct)
+        var tenantId = _currentUser.TenantId ?? throw new BusinessException("No tenant context");
+        var invitation = await _db.UserInvitations.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantId, ct)
             ?? throw new NotFoundException("UserInvitation", id);
         if (invitation.IsAccepted)
             throw new BusinessException("Cannot revoke an invitation that has already been accepted.");

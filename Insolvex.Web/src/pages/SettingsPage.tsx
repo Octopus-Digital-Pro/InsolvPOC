@@ -124,6 +124,7 @@ function UsersTab() {
     const { t } = useTranslation();
     const [users, setUsers] = useState<Array<Record<string, unknown>>>([]);
     const [invitations, setInvitations] = useState<Array<Record<string, unknown>>>([]);
+    const [revokingId, setRevokingId] = useState<string | null>(null);
     const [roles, setRoles] = useState<Array<{ value: string; label: string }>>([]);
     const [loading, setLoading] = useState(true);
     // Invite form
@@ -333,6 +334,9 @@ setResetMsg(t.settings.passwordResetSuccess ?? "Password reset successfully");
          try {
            await client.delete(`/users/invitations/${inv.id as string}`);
            setInvitations(prev => prev.filter(i => i.id !== inv.id));
+         } catch (err) {
+           const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+           window.alert(msg ?? "Nu s-a putut revoca invitația.");
          } finally {
            setRevokingId(null);
          }
