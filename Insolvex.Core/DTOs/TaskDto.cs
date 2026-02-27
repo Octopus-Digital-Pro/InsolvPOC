@@ -16,6 +16,7 @@ public record TaskDto(
     string? DeadlineSource,
     bool IsCriticalDeadline,
     Domain.Enums.TaskStatus Status,
+    string? BlockReason,
     Guid? AssignedToUserId,
     string? AssignedToName,
     Guid? CreatedByUserId,

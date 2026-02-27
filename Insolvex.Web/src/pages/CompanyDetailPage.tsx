@@ -6,7 +6,7 @@ import type { CompanyDto, CaseDto, TaskDto, DocumentDto } from "@/services/api/t
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
-import { Loader2, Plus, Briefcase, ListChecks, Pencil, Phone, FileText } from "lucide-react";
+import { Loader2, Plus, Briefcase, ListChecks, Pencil, Phone, FileText, X } from "lucide-react";
 import { format } from "date-fns";
 
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
@@ -29,6 +29,10 @@ export default function CompanyDetailPage() {
   const [docs, setDocs] = useState<DocumentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDocPanel, setShowDocPanel] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDeadline, setNewTaskDeadline] = useState("");
+  const [savingTask, setSavingTask] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -45,6 +49,25 @@ export default function CompanyDetailPage() {
     }).catch(console.error)
     .finally(() => setLoading(false));
   }, [id]);
+
+  const reloadTasks = () => {
+    if (!id) return;
+    tasksApi.getAll({ companyId: id }).then(r => setTasks(r.data)).catch(console.error);
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id || !newTaskTitle.trim()) return;
+    setSavingTask(true);
+    try {
+      await tasksApi.create({ companyId: id, title: newTaskTitle.trim(), deadline: newTaskDeadline || undefined });
+      setNewTaskTitle("");
+      setNewTaskDeadline("");
+      setShowCreateTask(false);
+      reloadTasks();
+    } catch (err) { console.error(err); }
+    finally { setSavingTask(false); }
+  };
 
   const statusLabel = (s: string): string =>
     (t.statuses as Record<string, string>)?.[s] ?? s;
@@ -133,14 +156,47 @@ export default function CompanyDetailPage() {
     </div>
         </div>
 
-    {/* Tasks */}
+        {/* Tasks */}
         <div>
       <div className="mb-2 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <ListChecks className="h-3.5 w-3.5" /> {t.tasks.title} ({tasks.length})
             </h2>
-            <Button variant="ghost" size="sm" className="text-xs gap-1 text-primary"><Plus className="h-3.5 w-3.5" />{t.companies.createTask}</Button>
-    </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs gap-1 text-primary"
+              onClick={() => setShowCreateTask(v => !v)}
+            >
+              {showCreateTask ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+              {showCreateTask ? t.common.cancel : t.tasks.createTask}
+            </Button>
+          </div>
+
+          {/* Inline create form */}
+          {showCreateTask && (
+            <form onSubmit={handleCreateTask} className="mb-3 rounded-xl border border-primary/30 bg-primary/5 p-3 flex flex-col sm:flex-row gap-2">
+              <input
+                autoFocus
+                value={newTaskTitle}
+                onChange={e => setNewTaskTitle(e.target.value)}
+                placeholder={t.tasks.taskTitlePlaceholder}
+                required
+                className="flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <input
+                type="date"
+                value={newTaskDeadline}
+                onChange={e => setNewTaskDeadline(e.target.value)}
+                className="rounded-lg border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <Button type="submit" size="sm" disabled={savingTask || !newTaskTitle.trim()} className="text-xs shrink-0">
+                {savingTask ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                {t.tasks.createTask}
+              </Button>
+            </form>
+          )}
+
           <div className="rounded-xl border border-border bg-card divide-y divide-border">
             {tasks.length === 0 ? (
        <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t.tasks.noTasks}</p>
@@ -151,7 +207,7 @@ export default function CompanyDetailPage() {
     <p className="text-sm font-medium text-foreground truncate">{tk.title}</p>
         {tk.description && <p className="text-xs text-muted-foreground truncate">{tk.description}</p>}
             </div>
-     <Badge variant={tk.status === "done" ? "success" : tk.status === "blocked" ? "warning" : "default"} className="shrink-0 text-[10px]">{tk.status}</Badge>
+     <Badge variant={tk.status === "done" ? "success" : tk.status === "blocked" ? "destructive" : tk.status === "inProgress" ? "warning" : "default"} className="shrink-0 text-[10px]">{tk.status}</Badge>
               {tk.deadline && <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(tk.deadline), "dd MMM")}</span>}
         </div>
  ))

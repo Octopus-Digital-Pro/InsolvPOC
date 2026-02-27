@@ -59,6 +59,7 @@ public class TasksController : ControllerBase
             Category = body.Category,
             Deadline = body.Deadline,
             Status = body.Status,
+            BlockReason = body.BlockReason,
             AssignedToUserId = body.AssignedToUserId,
         }, ct);
         return Ok(dto);
@@ -81,4 +82,4 @@ public record CreateTaskBody(
 public record UpdateTaskBody(
     string? Title = null, string? Description = null, string? Labels = null,
     string? Category = null, DateTime? Deadline = null, Domain.Enums.TaskStatus? Status = null,
-    Guid? AssignedToUserId = null);
+    string? BlockReason = null, Guid? AssignedToUserId = null);

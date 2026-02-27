@@ -167,7 +167,8 @@ export interface TaskDto {
   description: string | null;
   labels: string | null;
   deadline: string | null;
-  status: "open" | "blocked" | "done";
+  status: "open" | "inProgress" | "blocked" | "done";
+  blockReason: string | null;
   assignedToUserId: string | null;
   assignedToName: string | null;
   createdOn: string;

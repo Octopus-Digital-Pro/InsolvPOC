@@ -97,7 +97,11 @@ public sealed class TaskService : ITaskService
             task.Status = cmd.Status.Value;
             if (cmd.Status.Value == TaskStatus.Done && !task.CompletedAt.HasValue)
                 task.CompletedAt = DateTime.UtcNow;
+            // Clear block reason if no longer blocked
+            if (cmd.Status.Value != TaskStatus.Blocked)
+                task.BlockReason = null;
         }
+        if (cmd.BlockReason != null) task.BlockReason = cmd.BlockReason;
         if (cmd.AssignedToUserId.HasValue) task.AssignedToUserId = cmd.AssignedToUserId;
 
         var summaries = LocalizedSummaryBuilder.BuildTaskSummaryByLanguage(

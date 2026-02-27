@@ -270,8 +270,17 @@ export interface Translations {
     deadline: string;
     status: string;
     open: string;
+    inProgress: string;
     blocked: string;
     done: string;
+    blockReasonLabel: string;
+    blockReasonPlaceholder: string;
+    blockedTasks: string;
+    inProgressTasks: string;
+    noBlockedTasks: string;
+    noInProgressTasks: string;
+    createTask: string;
+    taskTitlePlaceholder: string;
   };
 
   // Document review

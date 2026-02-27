@@ -45,6 +45,7 @@ public class UpdateTaskCommand
     public string? Category { get; init; }
     public DateTime? Deadline { get; init; }
     public Domain.Enums.TaskStatus? Status { get; init; }
+    public string? BlockReason { get; init; }
     public Guid? AssignedToUserId { get; init; }
 }
 

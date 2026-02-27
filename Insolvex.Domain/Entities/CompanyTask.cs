@@ -35,6 +35,9 @@ public class CompanyTask : TenantScopedEntity
 
     public Enums.TaskStatus Status { get; set; } = Enums.TaskStatus.Open;
 
+    /// <summary>Reason for blocking this task (required when status is Blocked).</summary>
+    public string? BlockReason { get; set; }
+
     /// <summary>Default assignee = uploader unless workflow says otherwise.</summary>
     public Guid? AssignedToUserId { get; set; }
     public virtual User? AssignedTo { get; set; }
