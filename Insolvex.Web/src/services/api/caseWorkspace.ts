@@ -15,6 +15,13 @@ export interface CaseEmailDto {
   isHtml: boolean;
   attachmentsJson: string | null;
   relatedTaskId: string | null;
+  // threading + sender
+  threadId: string | null;
+  inReplyToId: string | null;
+  direction: "Outbound" | "Inbound";
+  fromName: string | null;
+  caseEmailAddress: string | null;
+  relatedDocumentIdsJson: string | null;
 }
 
 export interface CaseCalendarEventDto {
@@ -69,6 +76,11 @@ export const caseEmailsApi = {
 
   schedule: (caseId: string, data: { to: string; subject: string; body: string; scheduledFor?: string; cc?: string; bcc?: string }) =>
     client.post<CaseEmailDto>(`/cases/${caseId}/emails`, data),
+
+  compose: (caseId: string, formData: FormData) =>
+    client.post<CaseEmailDto>(`/cases/${caseId}/emails/compose`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
 
   bulkSend: (caseId: string, data: BulkEmailRequest) =>
     client.post(`/cases/${caseId}/bulk-email/creditor-cohort`, data),

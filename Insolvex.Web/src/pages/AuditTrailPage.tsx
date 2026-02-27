@@ -173,7 +173,7 @@ export default function AuditTrailPage() {
 const [search, setSearch] = useState("");
   const [severity, setSeverity] = useState("");
   const [category, setCategory] = useState("");
-  const [fromDate, setFromDate] = useState("");
+  const [fromDate, setFromDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(0);
   const [pageSize] = useState(50);
@@ -262,10 +262,6 @@ const [search, setSearch] = useState("");
       {/* Stats */}
       {stats && (
      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-lg border border-border bg-card p-3">
-     <p className="text-[10px] uppercase text-muted-foreground font-semibold">{t.audit.totalEvents ?? "Total Events"}</p>
-        <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-          </div>
       {stats.bySeverity.map(s => {
             const cfg = SEVERITY_CONFIG[s.severity] ?? SEVERITY_CONFIG.Info;
    const Icon = cfg.icon;

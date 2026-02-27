@@ -21,6 +21,12 @@ public interface ITaskService
         Domain.Enums.TaskStatus? status = null, string? category = null, CancellationToken ct = default);
     Task<CaseTaskSummaryResult> GetCaseTaskSummaryAsync(Guid caseId, CancellationToken ct = default);
     Task<TaskDto> CreateForCaseAsync(Guid caseId, CreateTaskCommand command, CancellationToken ct = default);
+
+    // Notes / activity
+    Task<List<TaskNoteDto>> GetNotesAsync(Guid taskId, CancellationToken ct = default);
+    Task<TaskNoteDto> AddNoteAsync(Guid taskId, string content, CancellationToken ct = default);
+    Task<TaskNoteDto> UpdateNoteAsync(Guid noteId, string content, CancellationToken ct = default);
+    Task DeleteNoteAsync(Guid noteId, CancellationToken ct = default);
 }
 
 public class CreateTaskCommand

@@ -1,5 +1,5 @@
 import client from "./client";
-import type { TaskDto } from "./types";
+import type { TaskDto, TaskNoteDto } from "./types";
 
 export const tasksApi = {
   getAll: (params?: { companyId?: string; myTasks?: boolean }) =>
@@ -16,4 +16,17 @@ export const tasksApi = {
 
   delete: (id: string) =>
     client.delete(`/tasks/${id}`),
+
+  // Notes
+  getNotes: (taskId: string) =>
+    client.get<TaskNoteDto[]>(`/tasks/${taskId}/notes`),
+
+  addNote: (taskId: string, content: string) =>
+    client.post<TaskNoteDto>(`/tasks/${taskId}/notes`, { content }),
+
+  updateNote: (taskId: string, noteId: string, content: string) =>
+    client.put<TaskNoteDto>(`/tasks/${taskId}/notes/${noteId}`, { content }),
+
+  deleteNote: (taskId: string, noteId: string) =>
+    client.delete(`/tasks/${taskId}/notes/${noteId}`),
 };

@@ -17,7 +17,12 @@ public record CaseWorkflowStageDto(
     DateTime? StartedAt,
     DateTime? CompletedAt,
     string? CompletedBy,
-    ValidationResultDto? Validation
+    ValidationResultDto? Validation,
+    DateTime? DeadlineDate,
+    string? Notes,
+    string? DeadlineOverrideNote,
+    string? DeadlineOverriddenBy,
+    DateTime? DeadlineOverriddenAt
 );
 
 /// <summary>
@@ -30,4 +35,17 @@ public record ValidationResultDto(
     List<string> MissingDocTypes,
     List<string> MissingTasks,
     List<string> Messages
+);
+
+/// <summary>Readiness info for closing a case.</summary>
+public record CaseCloseabilityDto(
+    bool CanClose,
+    List<StageReadinessItem> PendingStages
+);
+
+/// <summary>A stage that is not yet complete or skipped.</summary>
+public record StageReadinessItem(
+    string StageKey,
+    string Name,
+    string Status
 );

@@ -12,6 +12,7 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import SidebarNav from "./components/SidebarNav";
 import SettingsLayout from "./components/SettingsLayout";
 import LoginPage from "./pages/LoginPage";
+import AcceptInvitationPage from "./pages/AcceptInvitationPage";
 import DashboardPage from "./pages/DashboardPage";
 import CasesPage from "./pages/CasesPage";
 import CaseDetailPage from "./pages/CaseDetailPage";
@@ -123,6 +124,9 @@ function AppRoutes() {
       <Route element={<PublicRoute />}>
         <Route path="/login" element={<LoginPage />} />
       </Route>
+
+      {/* Standalone public — no auth redirect */}
+      <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
 
       {/* Protected */}
       <Route element={<ProtectedLayout />}>

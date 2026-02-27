@@ -33,6 +33,10 @@ public enum DocumentTemplateType
     /// </summary>
     CreditorNotificationHtml,
 
+    /// <summary>Periodic mandatory report (Art. 59 / Art. 97) sent to creditors and court
+    /// at intervals defined in TenantDeadlineSettings.ReportEveryNDays.</summary>
+    MandatoryReport = 8,
+
     /// <summary>User-created custom template (not tied to a mandatory procedure step).</summary>
     Custom = 99,
 }

@@ -67,6 +67,7 @@ export interface CaseDto {
   practitionerRole: string | null;
   practitionerFiscalId: string | null;
   practitionerDecisionNo: string | null;
+  noticeDate: string | null;
   openingDate: string | null;
   nextHearingDate: string | null;
   claimsDeadline: string | null;
@@ -98,6 +99,7 @@ export interface CasePartyDto {
   caseId: string;
   companyId: string;
   companyName: string | null;
+  email: string | null;
   role: string;
   roleDescription: string | null;
   claimAmountRon: number | null;
@@ -163,9 +165,12 @@ export interface TaskDto {
   id: string;
   companyId: string;
   companyName: string | null;
+  caseId: string | null;
+  caseNumber: string | null;
   title: string;
   description: string | null;
   labels: string | null;
+  category: string | null;
   deadline: string | null;
   status: "open" | "inProgress" | "blocked" | "done";
   blockReason: string | null;
@@ -173,6 +178,31 @@ export interface TaskDto {
   assignedToName: string | null;
   createdOn: string;
 }
+
+export interface TaskNoteDto {
+  id: string;
+  taskId: string;
+  content: string;
+  createdByName: string;
+  createdOn: string;
+  updatedOn: string | null;
+}
+
+export interface CompanyCasePartyDto {
+  id: string;
+  caseId: string;
+  caseNumber: string | null;
+  debtorName: string | null;
+  companyId: string;
+  companyName: string | null;
+  role: string;
+  roleDescription: string | null;
+  claimAmountRon: number | null;
+  claimAccepted: boolean | null;
+  joinedDate: string | null;
+  notes: string | null;
+}
+
 
 export interface DashboardDto {
   totalCases: number;

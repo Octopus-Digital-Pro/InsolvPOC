@@ -38,4 +38,21 @@ public interface ICaseWorkflowService
     /// Reopen a completed or skipped stage back to InProgress.
     /// </summary>
     Task<CaseWorkflowStageDto> ReopenStageAsync(Guid caseId, string stageKey, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns whether all stages are Completed or Skipped, and which ones are still pending.
+    /// </summary>
+    Task<CaseCloseabilityDto> GetCloseabilityAsync(Guid caseId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Close the case. All stages must be Completed or Skipped unless overridePendingStages=true.
+    /// When overriding, explanation is mandatory (min 20 chars). An audit log is written.
+    /// </summary>
+    Task CloseCaseAsync(Guid caseId, string? explanation, bool overridePendingStages, CancellationToken ct = default);
+
+    /// <summary>
+    /// Override the deadline date for a workflow stage. Tenant admin only.
+    /// Requires a mandatory note. Creates an audit log entry.
+    /// </summary>
+    Task<CaseWorkflowStageDto> SetStageDeadlineAsync(Guid caseId, string stageKey, DateTime newDate, string note, CancellationToken ct = default);
 }

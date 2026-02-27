@@ -255,6 +255,14 @@ export interface Translations {
     contactPerson: string;
     iban: string;
     bankName: string;
+    // Parties
+    partiesSection: string;
+    noParties: string;
+    partyCaseNumber: string;
+    partyRole: string;
+    partyClaimAmount: string;
+    partyClaimAccepted: string;
+    partiesViewCase: string;
   };
 
   // Tasks
@@ -281,6 +289,20 @@ export interface Translations {
     noInProgressTasks: string;
     createTask: string;
     taskTitlePlaceholder: string;
+    notes: string;
+    addNote: string;
+    editNote: string;
+    deleteNote: string;
+    noNotes: string;
+    notePlaceholder: string;
+    goToCase: string;
+    goToCompany: string;
+    setStatus: string;
+    category: string;
+    assignedTo: string;
+    createdBy: string;
+    saveNote: string;
+    saveChanges: string;
   };
 
   // Document review
@@ -470,6 +492,90 @@ export interface Translations {
     noAccess: string;
   };
 
+  // Workflow / Case Phases
+  workflow: {
+    progressTitle: string;
+    stages: string;
+    notStarted: string;
+    inProgress: string;
+    completed: string;
+    skipped: string;
+    requirementsMet: string;
+    requirementsNotMet: string;
+    missingFields: string;
+    missingPartyRoles: string;
+    missingDocuments: string;
+    incompleteTasks: string;
+    gatedMessage: string;
+    skipStagePrompt: string;
+    skipReason: string;
+    confirmSkip: string;
+    startStage: string;
+    complete: string;
+    skip: string;
+    reopen: string;
+    startedLabel: string;
+    completedLabel: string;
+    skippedLabel: string;
+    byLabel: string;
+    noStages: string;
+  };
+
+  // Deadline Settings
+  deadlines: {
+    title: string;
+    description: string;
+    deadlinePeriods: string;
+    calculationOptions: string;
+    escalationRules: string;
+    preview: string;
+    previewDescription: string;
+    claimDeadline: string;
+    claimDeadlineDesc: string;
+    objectionDeadline: string;
+    objectionDeadlineDesc: string;
+    initialNotice: string;
+    initialNoticeDesc: string;
+    meetingNotice: string;
+    meetingNoticeDesc: string;
+    reportFrequency: string;
+    reportFrequencyDesc: string;
+    useBusinessDays: string;
+    useBusinessDaysDesc: string;
+    adjustToWorkingDay: string;
+    adjustToWorkingDayDesc: string;
+    reminderSchedule: string;
+    reminderScheduleDesc: string;
+    urgentThreshold: string;
+    urgentThresholdDesc: string;
+    autoAssignBackup: string;
+    autoAssignBackupDesc: string;
+    noticeDate: string;
+    compute: string;
+    claimDeadlineResult: string;
+    objectionDeadlineResult: string;
+    noticeSendBy: string;
+    firstReport: string;
+    days: string;
+    hours: string;
+    failedToLoad: string;
+    saved: string;
+    backToSettings: string;
+  };
+
+  // Case-level Template Generation (Templates tab on case)
+  caseTemplates: {
+    title: string;
+    description: string;
+    noTemplates: string;
+    savePdf: string;
+    downloadPdf: string;
+    saving: string;
+    generating: string;
+    savedBadge: string;
+    noContent: string;
+  };
+
   // Authorities
   authorities: {
     tribunals: string;
@@ -484,5 +590,164 @@ export interface Translations {
     global: string;
     override: string;
     csvImportDesc: string;
+  };
+
+  // Workflow Stages admin page
+  workflowStages: {
+    pageTitle: string;
+    pageDesc: string;
+    newStage: string;
+    loading: string;
+    noStages: string;
+    stagesCount: string;
+    overridesCount: string;
+    inactiveCount: string;
+    inactive: string;
+    overrideTenant: string;
+    globalBadge: string;
+    revertToGlobal: string;
+    saveGlobal: string;
+    saveOverride: string;
+    savedOk: string;
+    revertConfirm: string;
+    stageName: string;
+    sortOrder: string;
+    procedureTypes: string;
+    description: string;
+    activeStage: string;
+    linkedTemplates: string;
+    addTemplate: string;
+    allTemplatesLinked: string;
+    noTemplatesLinked: string;
+    advancedConfig: string;
+    requiredFields: string;
+    requiredPartyRoles: string;
+    requiredDocTypes: string;
+    requiredTaskTemplates: string;
+    validationRules: string;
+    outputDocTypes: string;
+    allowedTransitions: string;
+    defaultTasks: string;
+    addTask: string;
+    noDefaultTasks: string;
+    taskTitlePlaceholder: string;
+    deadlineDaysPlaceholder: string;
+    categoryPlaceholder: string;
+    descriptionPlaceholder: string;
+    newStageFormTitle: string;
+    stageKeyPlaceholder: string;
+    stageNamePlaceholder: string;
+    sortOrderPlaceholder: string;
+    descPlaceholder: string;
+    keyAndNameRequired: string;
+    createStage: string;
+    required: string;
+    isRequired: string;
+    orderTitle: string;
+    removeTitle: string;
+  };
+
+  // Document Templates admin page
+  templateSettings: {
+    pageTitle: string;
+    pageDesc: string;
+    newTemplate: string;
+    tabRequired: string;
+    tabCustom: string;
+    tabIncoming: string;
+    loading: string;
+    requiredDesc: string;
+    noSystemTemplates: string;
+    customDesc: string;
+    noCustomTemplates: string;
+    createFirstTemplate: string;
+    contentDefined: string;
+    noContent: string;
+    hasContent: string;
+    empty: string;
+    active: string;
+    edit: string;
+    saved: string;
+    save: string;
+    deleteConfirm: string;
+    createAndOpen: string;
+    templateNamePlaceholder: string;
+    descOptional: string;
+    categoryOptional: string;
+    categoryPlaceholder: string;
+    availableFields: string;
+    clickToInsert: string;
+    insertFullTable: string;
+    contentShown: string;
+    prevTitle: string;
+    signaturePlaceholder: string;
+  };
+
+  // Procedure Types admin (global admin only)
+  procedureAdmin: {
+    pageTitle: string;
+    pageDesc: string;
+    newType: string;
+    loading: string;
+    noTypes: string;
+    key: string;
+    displayName: string;
+    displayNameEn: string;
+    displayNameHu: string;
+    description: string;
+    sortOrder: string;
+    active: string;
+    createType: string;
+    editType: string;
+    deleteConfirm: string;
+    saved: string;
+    keyPlaceholder: string;
+    namePlaceholder: string;
+    nameEnPlaceholder: string;
+    nameHuPlaceholder: string;
+    keyHelp: string;
+  };
+
+  // Custom Fields editor
+  customFields: {
+    pageTitle: string;
+    pageDesc: string;
+    tenantPageTitle: string;
+    tenantPageDesc: string;
+    newField: string;
+    loading: string;
+    noFields: string;
+    fieldKey: string;
+    label: string;
+    labelEn: string;
+    labelHu: string;
+    fieldType: string;
+    required: string;
+    sortOrder: string;
+    active: string;
+    options: string;
+    optionsPlaceholder: string;
+    createField: string;
+    editField: string;
+    deleteConfirm: string;
+    saved: string;
+    typeText: string;
+    typeTextarea: string;
+    typeNumber: string;
+    typeDate: string;
+    typeDropdown: string;
+    typeYesNo: string;
+    enableField: string;
+    disableField: string;
+    customLabel: string;
+    customLabelPlaceholder: string;
+    additionalFieldsTitle: string;
+    noAdditionalFields: string;
+    saveAdditionalFields: string;
+    enabled: string;
+    disabled: string;
+    appliesToTypes: string;
+    keyPlaceholder: string;
+    labelPlaceholder: string;
   };
 }

@@ -36,6 +36,18 @@ public class CaseWorkflowStage : BaseEntity
 
     /// <summary>Optional notes, e.g. reason for skipping.</summary>
     public string? Notes { get; set; }
+
+    /// <summary>Expected completion / deadline date for this phase.</summary>
+    public DateTime? DeadlineDate { get; set; }
+
+    /// <summary>Optional note added when an admin overrides the deadline date.</summary>
+    public string? DeadlineOverrideNote { get; set; }
+
+    /// <summary>Email/name of the user who overrode the deadline.</summary>
+    public string? DeadlineOverriddenBy { get; set; }
+
+    /// <summary>When the deadline was last manually overridden.</summary>
+    public DateTime? DeadlineOverriddenAt { get; set; }
 }
 
 public enum CaseWorkflowStatus

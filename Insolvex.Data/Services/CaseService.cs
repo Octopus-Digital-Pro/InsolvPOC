@@ -107,6 +107,13 @@ public sealed class CaseService : ICaseService
                StatusChangedAt = DateTime.UtcNow,
                LawReference = command.LawReference,
                CompanyId = command.CompanyId,
+               NoticeDate = command.NoticeDate,
+               OpeningDate = command.OpeningDate,
+               NextHearingDate = command.NextHearingDate,
+               ClaimsDeadline = command.ClaimsDeadline,
+               ContestationsDeadline = command.ContestationsDeadline,
+               DefinitiveTableDate = command.DefinitiveTableDate,
+               ReorganizationPlanDeadline = command.ReorganizationPlanDeadline,
                CreatedOn = DateTime.UtcNow,
                CreatedBy = _currentUser.Email ?? "System",
           };
@@ -152,6 +159,31 @@ public sealed class CaseService : ICaseService
                     _db.CompanyTasks.AddRange(tasks);
                     await _db.SaveChangesAsync(ct);
                }
+
+               // Create initial mandatory report task based on tenant deadline settings
+               var deadlineSettings = await _db.Set<Insolvex.Domain.Entities.TenantDeadlineSettings>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.TenantId == tenantId, ct);
+               var reportIntervalDays = deadlineSettings?.ReportEveryNDays ?? 30;
+               var reportTask = new Insolvex.Domain.Entities.CompanyTask
+               {
+                    Id = Guid.NewGuid(),
+                    TenantId = tenantId,
+                    CompanyId = insolvencyCase.CompanyId.Value,
+                    CaseId = insolvencyCase.Id,
+                    Title = $"Send Mandatory Report — {insolvencyCase.DebtorName}",
+                    Description = $"Generate and send the periodic mandatory report (every {reportIntervalDays} days) for case {insolvencyCase.CaseNumber}. " +
+                                  "Open the Mandatory Report template, review, save to documents, and email to relevant parties.",
+                    Category = "Report",
+                    Deadline = DateTime.UtcNow.AddDays(reportIntervalDays),
+                    DeadlineSource = "CompanyDefault",
+                    IsCriticalDeadline = true,
+                    Status = Insolvex.Domain.Enums.TaskStatus.Open,
+                    AssignedToUserId = _currentUser.UserId,
+                    CreatedByUserId = _currentUser.UserId,
+               };
+               _db.CompanyTasks.Add(reportTask);
+               await _db.SaveChangesAsync(ct);
           }
 
           return insolvencyCase.ToDto();

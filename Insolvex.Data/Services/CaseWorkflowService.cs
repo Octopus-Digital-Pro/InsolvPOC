@@ -1,9 +1,10 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.DTOs;
 using Insolvex.Core.Exceptions;
 using Insolvex.Domain.Entities;
+using Insolvex.Domain.Enums;
 
 namespace Insolvex.Data.Services;
 
@@ -11,19 +12,21 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
 {
     private readonly ApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAuditService _audit;
 
     private static readonly JsonSerializerOptions _jsonOpts = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public CaseWorkflowService(ApplicationDbContext db, ICurrentUserService currentUser)
+    public CaseWorkflowService(ApplicationDbContext db, ICurrentUserService currentUser, IAuditService audit)
     {
         _db = db;
         _currentUser = currentUser;
+        _audit = audit;
     }
 
-    // ── Public methods ──────────────────────────────────────────────────
+    // â”€â”€ Public methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public async Task<List<CaseWorkflowStageDto>> GetStagesAsync(Guid caseId, CancellationToken ct)
     {
@@ -156,11 +159,11 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
         return ToDto(stage, ValidateStageRequirements(stage.StageDefinition, caseData));
     }
 
-    // ── Internal helpers ────────────────────────────────────────────────
+    // â”€â”€ Internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>
     /// Initialize workflow stages for a case by resolving stage definitions
-    /// (tenant override → global fallback) and creating CaseWorkflowStage rows.
+    /// (tenant override â†’ global fallback) and creating CaseWorkflowStage rows.
     /// </summary>
     private async Task<List<CaseWorkflowStage>> InitializeStagesAsync(Guid caseId, CancellationToken ct)
     {
@@ -243,7 +246,7 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
             ?? throw new BusinessException($"Stage '{stageKey}' not found for case {caseId}.");
     }
 
-    // ── Validation engine ───────────────────────────────────────────────
+    // â”€â”€ Validation engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private record CaseValidationData(
         InsolvencyCase Case,
@@ -360,7 +363,7 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
         return new ValidationResultDto(canComplete, missingFields, missingRoles, missingDocs, missingTasks, messages);
     }
 
-    // ── Mapping ─────────────────────────────────────────────────────────
+    // â”€â”€ Mapping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static CaseWorkflowStageDto ToDto(CaseWorkflowStage stage, ValidationResultDto? validation)
     {
@@ -376,7 +379,12 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
             stage.StartedAt,
             stage.CompletedAt,
             stage.CompletedBy,
-            validation
+            validation,
+            stage.DeadlineDate,
+            stage.Notes,
+            stage.DeadlineOverrideNote,
+            stage.DeadlineOverriddenBy,
+            stage.DeadlineOverriddenAt
         );
     }
 
@@ -385,4 +393,104 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
         try { return JsonSerializer.Deserialize<T>(json, _jsonOpts) ?? new T(); }
         catch { return new T(); }
     }
+
+    // â”€â”€ Case close â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public async Task<CaseCloseabilityDto> GetCloseabilityAsync(Guid caseId, CancellationToken ct)
+    {
+        var stages = await _db.CaseWorkflowStages
+            .Include(s => s.StageDefinition)
+            .Where(s => s.CaseId == caseId)
+            .OrderBy(s => s.SortOrder)
+            .ToListAsync(ct);
+
+        var pending = stages
+            .Where(s => s.Status != CaseWorkflowStatus.Completed && s.Status != CaseWorkflowStatus.Skipped)
+            .Select(s => new StageReadinessItem(
+                s.StageKey,
+                s.StageDefinition?.Name ?? s.StageKey,
+                s.Status.ToString()))
+            .ToList();
+
+        return new CaseCloseabilityDto(pending.Count == 0, pending);
+    }
+
+    public async Task CloseCaseAsync(Guid caseId, string? explanation, bool overridePendingStages, CancellationToken ct)
+    {
+        var stages = await _db.CaseWorkflowStages
+            .Where(s => s.CaseId == caseId)
+            .ToListAsync(ct);
+
+        var pending = stages
+            .Where(s => s.Status != CaseWorkflowStatus.Completed && s.Status != CaseWorkflowStatus.Skipped)
+            .ToList();
+
+        if (pending.Count > 0 && !overridePendingStages)
+            throw new BusinessException(
+                $"Cannot close case: {pending.Count} stage(s) are not yet completed or skipped.");
+
+        if (overridePendingStages && string.IsNullOrWhiteSpace(explanation))
+            throw new BusinessException(
+                "An explanation is required when overriding pending stages to close the case.");
+
+        if (overridePendingStages && pending.Count > 0)
+        {
+            var overrideNote = $"Force-closed by {_currentUser.Email}: {explanation}";
+            foreach (var stage in pending)
+            {
+                stage.Status = CaseWorkflowStatus.Skipped;
+                stage.Notes = overrideNote;
+                stage.CompletedAt = DateTime.UtcNow;
+                stage.CompletedBy = _currentUser.Email;
+            }
+        }
+
+        var insolvencyCase = await _db.InsolvencyCases.FindAsync([caseId], ct)
+            ?? throw new NotFoundException($"Case {caseId} not found");
+
+        insolvencyCase.Status = "Closed";
+        insolvencyCase.ClosureDate = DateTime.UtcNow;
+        insolvencyCase.ClosureNotes = explanation;
+        insolvencyCase.StatusChangedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogWorkflowAsync(
+            "CaseClosed",
+            caseId,
+            new { explanation, overridePendingStages, overriddenStageCount = pending.Count },
+            "Warning");
+    }
+
+    // â”€â”€ Stage deadline override â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public async Task<CaseWorkflowStageDto> SetStageDeadlineAsync(
+        Guid caseId, string stageKey, DateTime newDate, string note, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(note))
+            throw new BusinessException("A note is required when overriding a stage deadline.");
+
+        var stage = await _db.CaseWorkflowStages
+            .Include(s => s.StageDefinition)
+            .Where(s => s.CaseId == caseId && s.StageKey == stageKey)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException($"Stage '{stageKey}' not found on case {caseId}");
+
+        var previousDate = stage.DeadlineDate;
+        stage.DeadlineDate = newDate.ToUniversalTime();
+        stage.DeadlineOverrideNote = note;
+        stage.DeadlineOverriddenBy = _currentUser.Email;
+        stage.DeadlineOverriddenAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogWorkflowAsync(
+            "StageDeadlineOverridden",
+            caseId,
+            new { stageKey, previousDate, newDate, note, overriddenBy = _currentUser.Email },
+            "Warning");
+
+        return ToDto(stage, null);
+    }
 }
+

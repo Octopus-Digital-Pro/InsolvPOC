@@ -17,6 +17,7 @@ import {
   documentTemplatesApi,
   type DocumentTemplateDto,
 } from "@/services/api/documentTemplatesApi";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -35,6 +36,7 @@ function StageCard({
   onClick: () => void;
 }) {
   const isGlobal = stage.tenantId === null;
+  const { t } = useTranslation();
 
   return (
     <button
@@ -58,12 +60,12 @@ function StageCard({
           {isGlobal ? (
             <Badge variant="outline" className="text-[10px] gap-1">
               <Globe className="h-2.5 w-2.5" />
-              Global
+              {t.workflowStages.globalBadge}
             </Badge>
           ) : (
             <Badge className="text-[10px] gap-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0">
               <Building2 className="h-2.5 w-2.5" />
-              Override
+              {t.workflowStages.overrideTenant}
             </Badge>
           )}
           {stage.templateCount > 0 && (
@@ -73,7 +75,7 @@ function StageCard({
             </Badge>
           )}
           {!stage.isActive && (
-            <Badge variant="secondary" className="text-[10px]">Inactiv</Badge>
+            <Badge variant="secondary" className="text-[10px] stageinactive-badge">{t.workflowStages.inactive}</Badge>
           )}
         </div>
         {stage.description && (
@@ -105,6 +107,7 @@ function TemplateLinkRow({
   onChange: (updated: TemplateLink) => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
       <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -116,20 +119,20 @@ function TemplateLinkRow({
           onChange={(e) => onChange({ ...link, isRequired: e.target.checked })}
           className="rounded"
         />
-        Obligatoriu
+        {t.workflowStages.isRequired}
       </label>
       <input
         type="number"
         value={link.sortOrder}
         onChange={(e) => onChange({ ...link, sortOrder: parseInt(e.target.value) || 0 })}
         className="w-14 rounded border border-input bg-background px-2 py-1 text-xs text-center outline-none"
-        title="Ordine"
+        title={t.workflowStages.orderTitle}
       />
       <button
         type="button"
         onClick={onRemove}
         className="rounded p-1 hover:bg-destructive/10 text-destructive"
-        title="Elimină"
+        title={t.workflowStages.removeTitle}
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>
@@ -183,6 +186,147 @@ function JsonFieldEditor({
   );
 }
 
+// ── Checkbox JSON editor ──────────────────────────────────────────────────────
+
+function CheckboxJsonEditor({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  const selected: string[] = (() => {
+    try { return value.trim() ? JSON.parse(value) : []; } catch { return []; }
+  })();
+
+  const toggle = (opt: string) => {
+    const next = selected.includes(opt)
+      ? selected.filter(v => v !== opt)
+      : [...selected, opt];
+    onChange(next.length ? JSON.stringify(next) : "");
+  };
+
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <div className="flex flex-wrap gap-2">
+        {options.map(o => (
+          <label key={o.value} className="flex items-center gap-1.5 cursor-pointer select-none text-xs rounded-md border border-border px-2.5 py-1 hover:bg-accent transition-colors"
+            style={{ background: selected.includes(o.value) ? "hsl(var(--primary)/0.1)" : undefined, borderColor: selected.includes(o.value) ? "hsl(var(--primary)/0.4)" : undefined }}>
+            <input type="checkbox" checked={selected.includes(o.value)} onChange={() => toggle(o.value)} className="rounded h-3 w-3 accent-primary" />
+            {o.label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const REQUIRED_FIELDS_OPTIONS = [
+  { value: "CaseNumber", label: "CaseNumber" },
+  { value: "DebtorName", label: "DebtorName" },
+  { value: "CourtName", label: "CourtName" },
+  { value: "CourtSection", label: "CourtSection" },
+  { value: "JudgeSyndic", label: "JudgeSyndic" },
+  { value: "ProcedureType", label: "ProcedureType" },
+  { value: "LawReference", label: "LawReference" },
+  { value: "NoticeDate", label: "NoticeDate" },
+  { value: "OpeningDate", label: "OpeningDate" },
+  { value: "ClaimsDeadline", label: "ClaimsDeadline" },
+  { value: "ContestationsDeadline", label: "ContestationsDeadline" },
+  { value: "BpiPublicationNo", label: "BpiPublicationNo" },
+  { value: "OpeningDecisionNo", label: "OpeningDecisionNo" },
+  { value: "PractitionerName", label: "PractitionerName" },
+  { value: "PractitionerRole", label: "PractitionerRole" },
+  { value: "DebtorCui", label: "DebtorCui" },
+  { value: "DebtorAddress", label: "DebtorAddress" },
+  { value: "DebtorTradeRegisterNo", label: "DebtorTradeRegisterNo" },
+];
+
+const PARTY_ROLE_OPTIONS = [
+  { value: "Debtor", label: "Debtor" },
+  { value: "InsolvencyPractitioner", label: "InsolvencyPractitioner" },
+  { value: "SecuredCreditor", label: "SecuredCreditor" },
+  { value: "UnsecuredCreditor", label: "UnsecuredCreditor" },
+  { value: "BudgetaryCreditor", label: "BudgetaryCreditor" },
+  { value: "EmployeeCreditor", label: "EmployeeCreditor" },
+];
+
+const DOC_TYPE_OPTIONS = [
+  { value: "CreditorNotificationBpi", label: "CreditorNotificationBpi" },
+  { value: "ReportArt97", label: "ReportArt97" },
+  { value: "PreliminaryClaimsTable", label: "PreliminaryClaimsTable" },
+  { value: "CreditorsMeetingMinutes", label: "CreditorsMeetingMinutes" },
+  { value: "DefinitiveClaimsTable", label: "DefinitiveClaimsTable" },
+  { value: "FinalReportArt167", label: "FinalReportArt167" },
+  { value: "CreditorNotificationHtml", label: "CreditorNotificationHtml" },
+];
+
+// ── Task template editor row ──────────────────────────────────────────────────
+
+interface OutputTaskTemplate {
+  title: string;
+  description?: string;
+  deadlineDays?: number;
+  category?: string;
+}
+
+function TaskTemplateRow({
+  template,
+  onChange,
+  onRemove,
+}: {
+  template: OutputTaskTemplate;
+  onChange: (t: OutputTaskTemplate) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useTranslation();
+  const CATEGORIES = ["Document", "Email", "Filing", "Meeting", "Call", "Review", "Payment", "Report", "Compliance"];
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <input
+          value={template.title}
+          onChange={e => onChange({ ...template, title: e.target.value })}
+          placeholder={t.workflowStages.taskTitlePlaceholder}
+          className="flex-1 text-sm rounded border border-input bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+        />
+        <input
+          type="number"
+          value={template.deadlineDays ?? ""}
+          onChange={e => onChange({ ...template, deadlineDays: e.target.value ? parseInt(e.target.value) : undefined })}
+          placeholder={t.workflowStages.deadlineDaysPlaceholder}
+          title="Deadline in days from stage start"
+          className="w-16 text-xs text-center rounded border border-input bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+        />
+        <select
+          value={template.category ?? ""}
+          onChange={e => onChange({ ...template, category: e.target.value || undefined })}
+          className="text-xs rounded border border-input bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">{t.workflowStages.categoryPlaceholder}</option>
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <button type="button" onClick={onRemove} className="rounded p-1 hover:bg-destructive/10 text-destructive">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <textarea
+        value={template.description ?? ""}
+        onChange={e => onChange({ ...template, description: e.target.value || undefined })}
+        placeholder={t.workflowStages.descriptionPlaceholder}
+        rows={1}
+        className="w-full text-xs rounded border border-input bg-background px-2 py-1 outline-none resize-none focus:ring-1 focus:ring-primary"
+      />
+    </div>
+  );
+}
+
+
 // ── Stage detail editor ───────────────────────────────────────────────────────
 
 function StageEditor({
@@ -208,11 +352,18 @@ function StageEditor({
   const [requiredFieldsJson, setRequiredFieldsJson] = useState(stage.requiredFieldsJson ?? "");
   const [requiredPartyRolesJson, setRequiredPartyRolesJson] = useState(stage.requiredPartyRolesJson ?? "");
   const [requiredDocTypesJson, setRequiredDocTypesJson] = useState(stage.requiredDocTypesJson ?? "");
-  const [requiredTaskTemplatesJson, setRequiredTaskTemplatesJson] = useState(stage.requiredTaskTemplatesJson ?? "");
+  const [requiredTaskTemplates, setRequiredTaskTemplates] = useState<OutputTaskTemplate[]>(() => {
+    try { return stage.requiredTaskTemplatesJson ? JSON.parse(stage.requiredTaskTemplatesJson) : []; } catch { return []; }
+  });
   const [validationRulesJson, setValidationRulesJson] = useState(stage.validationRulesJson ?? "");
   const [outputDocTypesJson, setOutputDocTypesJson] = useState(stage.outputDocTypesJson ?? "");
-  const [outputTasksJson, setOutputTasksJson] = useState(stage.outputTasksJson ?? "");
   const [allowedTransitionsJson, setAllowedTransitionsJson] = useState(stage.allowedTransitionsJson ?? "");
+
+  // Task templates (outputTasksJson parsed)
+  const [outputTaskTemplates, setOutputTaskTemplates] = useState<OutputTaskTemplate[]>(() => {
+    try { return stage.outputTasksJson ? JSON.parse(stage.outputTasksJson) : []; } catch { return []; }
+  });
+  const outputTasksJson = outputTaskTemplates.length > 0 ? JSON.stringify(outputTaskTemplates) : "";
 
   // Template links
   const [templateLinks, setTemplateLinks] = useState<TemplateLink[]>(
@@ -225,6 +376,7 @@ function StageEditor({
     }))
   );
 
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
   const [reverting, setReverting] = useState(false);
@@ -244,7 +396,7 @@ function StageEditor({
     requiredFieldsJson: requiredFieldsJson.trim() || null,
     requiredPartyRolesJson: requiredPartyRolesJson.trim() || null,
     requiredDocTypesJson: requiredDocTypesJson.trim() || null,
-    requiredTaskTemplatesJson: requiredTaskTemplatesJson.trim() || null,
+    requiredTaskTemplatesJson: requiredTaskTemplates.length > 0 ? JSON.stringify(requiredTaskTemplates) : null,
     validationRulesJson: validationRulesJson.trim() || null,
     outputDocTypesJson: outputDocTypesJson.trim() || null,
     outputTasksJson: outputTasksJson.trim() || null,
@@ -270,7 +422,7 @@ function StageEditor({
   };
 
   const handleRevert = async () => {
-    if (!window.confirm("Revii la definiția globală? Override-ul va fi șters.")) return;
+    if (!window.confirm(t.workflowStages.revertConfirm)) return;
     setReverting(true);
     try {
       await onRevertToGlobal();
@@ -311,12 +463,12 @@ function StageEditor({
             {isOverride ? (
               <Badge className="text-[10px] gap-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0">
                 <Building2 className="h-2.5 w-2.5" />
-                Override tenant
-              </Badge>
+              {t.workflowStages.overrideTenant}
+            </Badge>
             ) : (
               <Badge variant="outline" className="text-[10px] gap-1">
                 <Globe className="h-2.5 w-2.5" />
-                Global
+                {t.workflowStages.globalBadge}
               </Badge>
             )}
           </div>
@@ -335,7 +487,7 @@ function StageEditor({
               ) : (
                 <RotateCcw className="h-3.5 w-3.5 mr-1" />
               )}
-              Revert la global
+              {t.workflowStages.revertToGlobal}
             </Button>
           )}
 
@@ -345,7 +497,7 @@ function StageEditor({
             variant="outline"
             onClick={() => handleSave(false)}
             disabled={saving}
-            title="Salvează ca definiție globală"
+            title={t.workflowStages.saveGlobal}
           >
             {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
@@ -354,7 +506,7 @@ function StageEditor({
             ) : (
               <Globe className="h-3.5 w-3.5 mr-1" />
             )}
-            Salvează global
+            {t.workflowStages.saveGlobal}
           </Button>
 
           {/* Save as tenant override */}
@@ -371,7 +523,7 @@ function StageEditor({
             ) : (
               <Save className="h-3.5 w-3.5 mr-1" />
             )}
-            {savedOk ? "Salvat!" : "Salvează override"}
+            {savedOk ? t.workflowStages.savedOk : t.workflowStages.saveOverride}
           </Button>
         </div>
       </div>
@@ -381,35 +533,50 @@ function StageEditor({
         {/* Basic fields */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Denumire</label>
+            <label className="text-xs font-medium text-muted-foreground">{t.workflowStages.stageName}</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Ordine</label>
-              <input
-                type="number"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Tipuri procedură</label>
-              <input
-                value={applicableTypes}
-                onChange={(e) => setApplicableTypes(e.target.value)}
-                placeholder="Toate"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
-              />
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">{t.workflowStages.sortOrder}</label>
+            <input
+              type="number"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">{t.workflowStages.procedureTypes}</label>
+            <div className="flex flex-wrap gap-1.5">
+              {(["FalimentSimplificat", "Faliment", "Insolventa", "Reorganizare", "ConcordatPreventiv", "MandatAdHoc", "Other"] as const).map((type) => {
+                const active = applicableTypes.split(",").map((s) => s.trim()).filter(Boolean).includes(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      const current = applicableTypes.split(",").map((s) => s.trim()).filter(Boolean);
+                      const next = current.includes(type) ? current.filter((v) => v !== type) : [...current, type];
+                      setApplicableTypes(next.join(","));
+                    }}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                      active
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                    }`}
+                  >
+                    {type}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="md:col-span-2 space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Descriere</label>
+            <label className="text-xs font-medium text-muted-foreground">{t.workflowStages.description}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -425,7 +592,7 @@ function StageEditor({
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="rounded"
               />
-              Etapă activă
+              {t.workflowStages.activeStage}
             </label>
           </div>
         </div>
@@ -433,14 +600,14 @@ function StageEditor({
         {/* Linked templates */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Șabloane asociate</h3>
+            <h3 className="text-sm font-semibold">{t.workflowStages.linkedTemplates}</h3>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowAddTemplate(!showAddTemplate)}
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
-              Adaugă template
+              {t.workflowStages.addTemplate}
             </Button>
           </div>
 
@@ -448,7 +615,7 @@ function StageEditor({
             <div className="rounded-lg border border-border bg-card p-3 space-y-2 max-h-48 overflow-y-auto">
               {availableTemplates.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-2">
-                  Toate templateurile sunt deja asociate.
+                  {t.workflowStages.allTemplatesLinked}
                 </p>
               ) : (
                 availableTemplates.map((t) => (
@@ -473,7 +640,7 @@ function StageEditor({
             <div className="rounded-lg border border-dashed border-border p-6 text-center">
               <FileText className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
               <p className="text-xs text-muted-foreground">
-                Niciun template asociat acestei etape.
+                {t.workflowStages.noTemplatesLinked}
               </p>
             </div>
           ) : (
@@ -504,59 +671,109 @@ function StageEditor({
             <ChevronRight
               className={`h-4 w-4 transition-transform ${showConfigs ? "rotate-90" : ""}`}
             />
-            Configurare avansată (JSON)
+            {t.workflowStages.advancedConfig}
           </button>
 
           {showConfigs && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6 border-l-2 border-border">
-              <JsonFieldEditor
-                label="Câmpuri obligatorii (Required Fields)"
+            <div className="grid grid-cols-1 gap-5 pl-6 border-l-2 border-border">
+              <CheckboxJsonEditor
+                label={t.workflowStages.requiredFields}
                 value={requiredFieldsJson}
                 onChange={setRequiredFieldsJson}
-                placeholder='["caseNumber", "debtor.cui"]'
+                options={REQUIRED_FIELDS_OPTIONS}
               />
-              <JsonFieldEditor
-                label="Roluri părți obligatorii (Required Party Roles)"
+              <CheckboxJsonEditor
+                label={t.workflowStages.requiredPartyRoles}
                 value={requiredPartyRolesJson}
                 onChange={setRequiredPartyRolesJson}
-                placeholder='["Debtor", "SecuredCreditor"]'
+                options={PARTY_ROLE_OPTIONS}
               />
-              <JsonFieldEditor
-                label="Tipuri documente obligatorii (Required Doc Types)"
+              <CheckboxJsonEditor
+                label={t.workflowStages.requiredDocTypes}
                 value={requiredDocTypesJson}
                 onChange={setRequiredDocTypesJson}
-                placeholder='["CreditorNotificationBpi"]'
+                options={DOC_TYPE_OPTIONS}
               />
               <JsonFieldEditor
-                label="Template-uri task-uri obligatorii"
-                value={requiredTaskTemplatesJson}
-                onChange={setRequiredTaskTemplatesJson}
-                placeholder='["notify_creditors", "publish_bpi"]'
-              />
-              <JsonFieldEditor
-                label="Reguli de validare"
+                label={t.workflowStages.validationRules}
                 value={validationRulesJson}
                 onChange={setValidationRulesJson}
                 placeholder='{"minCreditors": 1}'
               />
               <JsonFieldEditor
-                label="Documente generate (Output Doc Types)"
+                label={t.workflowStages.outputDocTypes}
                 value={outputDocTypesJson}
                 onChange={setOutputDocTypesJson}
                 placeholder='["PreliminaryClaimsTable"]'
               />
               <JsonFieldEditor
-                label="Task-uri generate (Output Tasks)"
-                value={outputTasksJson}
-                onChange={setOutputTasksJson}
-                placeholder='["send_notification_emails"]'
-              />
-              <JsonFieldEditor
-                label="Tranziții permise (Allowed Transitions)"
+                label={t.workflowStages.allowedTransitions}
                 value={allowedTransitionsJson}
                 onChange={setAllowedTransitionsJson}
                 placeholder='["claims_collection", "creditors_meeting"]'
               />
+            </div>
+          )}
+        </div>
+
+        {/* Required task templates */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">{t.workflowStages.requiredTaskTemplates}</h3>
+            <Button variant="outline" size="sm" onClick={() => setRequiredTaskTemplates(prev => [...prev, { title: "", deadlineDays: 7, category: "Document" }])}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> {t.workflowStages.addTask}
+            </Button>
+          </div>
+          {requiredTaskTemplates.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-6 text-center">
+              <p className="text-xs text-muted-foreground">No required task templates. Add tasks that must be completed for this stage.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                <span className="col-span-1">{t.workflowStages.taskTitlePlaceholder}</span>
+                <span className="text-center">{t.workflowStages.deadlineDaysPlaceholder}</span>
+                <span className="text-center">{t.workflowStages.categoryPlaceholder}</span>
+              </div>
+              {requiredTaskTemplates.map((tt, idx) => (
+                <TaskTemplateRow
+                  key={idx}
+                  template={tt}
+                  onChange={updated => setRequiredTaskTemplates(prev => prev.map((t, i) => i === idx ? updated : t))}
+                  onRemove={() => setRequiredTaskTemplates(prev => prev.filter((_, i) => i !== idx))}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Task templates (outputTasksJson) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">{t.workflowStages.defaultTasks}</h3>
+            <Button variant="outline" size="sm" onClick={() => setOutputTaskTemplates(prev => [...prev, { title: "", deadlineDays: 7, category: "Document" }])}>
+              <Plus className="h-3.5 w-3.5 mr-1" /> {t.workflowStages.addTask}
+            </Button>
+          </div>
+          {outputTaskTemplates.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-6 text-center">
+              <p className="text-xs text-muted-foreground">{t.workflowStages.noDefaultTasks}</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                <span className="col-span-1">{t.workflowStages.taskTitlePlaceholder}</span>
+                <span className="text-center">{t.workflowStages.deadlineDaysPlaceholder}</span>
+                <span className="text-center">{t.workflowStages.categoryPlaceholder}</span>
+              </div>
+              {outputTaskTemplates.map((tt, idx) => (
+                <TaskTemplateRow
+                  key={idx}
+                  template={tt}
+                  onChange={updated => setOutputTaskTemplates(prev => prev.map((t, i) => i === idx ? updated : t))}
+                  onRemove={() => setOutputTaskTemplates(prev => prev.filter((_, i) => i !== idx))}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -578,12 +795,13 @@ function NewStageForm({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [sortOrder, setSortOrder] = useState(99);
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const handleCreate = async () => {
     if (!stageKey.trim() || !name.trim()) {
-      setError("Cheia și denumirea sunt obligatorii.");
+      setError(t.workflowStages.keyAndNameRequired);
       return;
     }
     setSaving(true);
@@ -599,39 +817,39 @@ function NewStageForm({
       onCreated();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? "Eroare la creare. Verifică cheia unică.");
+      setError(msg ?? t.workflowStages.keyAndNameRequired);
       setSaving(false);
     }
   };
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-      <p className="text-sm font-semibold">Etapă nouă</p>
+      <p className="text-sm font-semibold">{t.workflowStages.newStageFormTitle}</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <input
           autoFocus
           value={stageKey}
           onChange={(e) => setStageKey(e.target.value)}
-          placeholder="Cheie unică (ex: asset_liquidation) *"
+          placeholder={t.workflowStages.stageKeyPlaceholder}
           className="rounded-md border border-input bg-background px-3 py-2 text-sm font-mono outline-none focus:ring-1 focus:ring-primary"
         />
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Denumire (ex: Lichidare active) *"
+          placeholder={t.workflowStages.stageNamePlaceholder}
           className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
         />
         <input
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Descriere (opțional)"
+          placeholder={t.workflowStages.descPlaceholder}
           className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
         />
         <input
           type="number"
           value={sortOrder}
           onChange={(e) => setSortOrder(parseInt(e.target.value) || 0)}
-          placeholder="Ordine sortare"
+          placeholder={t.workflowStages.sortOrderPlaceholder}
           className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
         />
       </div>
@@ -639,9 +857,9 @@ function NewStageForm({
       <div className="flex gap-2">
         <Button size="sm" onClick={handleCreate} disabled={saving}>
           {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-          Crează etapă
+          {t.workflowStages.createStage}
         </Button>
-        <Button size="sm" variant="ghost" onClick={onCancel}>Anulează</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>{t.common.cancel}</Button>
       </div>
     </div>
   );
@@ -650,6 +868,7 @@ function NewStageForm({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function WorkflowStagesPage() {
+  const { t } = useTranslation();
   const [stages, setStages] = useState<WorkflowStageDto[]>([]);
   const [allTemplates, setAllTemplates] = useState<DocumentTemplateDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -743,15 +962,12 @@ export default function WorkflowStagesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Etape procedură</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Definește etapele procedurii de insolvență, ordinea lor și documentele asociate fiecărei etape.
-            Etapele globale pot fi suprascrise per tenant.
-          </p>
+          <h1 className="text-xl font-bold">{t.workflowStages.pageTitle}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t.workflowStages.pageDesc}</p>
         </div>
         <Button onClick={() => setShowNewForm(true)}>
           <Plus className="h-4 w-4 mr-1.5" />
-          Etapă nouă
+          {t.workflowStages.newStage}
         </Button>
       </div>
 
@@ -767,7 +983,7 @@ export default function WorkflowStagesPage() {
       {loading && (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Se încarcă etapele…
+          {t.workflowStages.loading}
         </div>
       )}
 
@@ -776,7 +992,7 @@ export default function WorkflowStagesPage() {
         <div className="rounded-lg border border-dashed border-border p-8 text-center">
           <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">
-            Nu există etape definite. Contactează administratorul pentru inițializare.
+            {t.workflowStages.noStages}
           </p>
         </div>
       ) : (
@@ -790,9 +1006,9 @@ export default function WorkflowStagesPage() {
       {/* Summary */}
       {!loading && stages.length > 0 && (
         <div className="flex items-center gap-4 text-xs text-muted-foreground border-t border-border pt-4">
-          <span>{stages.length} etape</span>
-          <span>{stages.filter((s) => s.tenantId !== null).length} override-uri tenant</span>
-          <span>{stages.filter((s) => !s.isActive).length} inactive</span>
+          <span>{stages.length} {t.workflowStages.stagesCount}</span>
+          <span>{stages.filter((s) => s.tenantId !== null).length} {t.workflowStages.overridesCount}</span>
+          <span>{stages.filter((s) => !s.isActive).length} {t.workflowStages.inactiveCount}</span>
         </div>
       )}
     </div>

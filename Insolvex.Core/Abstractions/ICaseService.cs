@@ -44,6 +44,14 @@ public class CreateCaseCommand
   public ProcedureType? ProcedureType { get; init; }
   public string? LawReference { get; init; }
   public Guid? CompanyId { get; init; }
+  // Key dates (optional on creation)
+  public DateTime? NoticeDate { get; init; }
+  public DateTime? OpeningDate { get; init; }
+  public DateTime? NextHearingDate { get; init; }
+  public DateTime? ClaimsDeadline { get; init; }
+  public DateTime? ContestationsDeadline { get; init; }
+  public DateTime? DefinitiveTableDate { get; init; }
+  public DateTime? ReorganizationPlanDeadline { get; init; }
 }
 
 public class UpdateCaseCommand

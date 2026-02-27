@@ -1,5 +1,5 @@
 import client from "./client";
-import type { CompanyDto } from "./types";
+import type { CompanyDto, CompanyCasePartyDto } from "./types";
 
 export const companiesApi = {
   getAll: (type?: string) =>
@@ -21,4 +21,7 @@ export const companiesApi = {
     client.delete(`/companies/${id}`),
 
   exportCsvUrl: "/companies/export-csv",
+
+  getPartiesByCompany: (companyId: string) =>
+    client.get<CompanyCasePartyDto[]>(`/companies/${companyId}/parties`),
 };

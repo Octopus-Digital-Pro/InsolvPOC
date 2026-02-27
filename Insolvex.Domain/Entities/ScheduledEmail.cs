@@ -47,4 +47,21 @@ public class ScheduledEmail : TenantScopedEntity
 
   /// <summary>Related generated letter ID (if this email delivers a template output).</summary>
   public Guid? RelatedGeneratedLetterId { get; set; }
+
+  // ?? Threading ??
+
+  /// <summary>Groups related emails into a conversation thread. Null = standalone.</summary>
+  public Guid? ThreadId { get; set; }
+
+  /// <summary>ID of the email this is replying to (for threaded display).</summary>
+  public Guid? InReplyToId { get; set; }
+
+  /// <summary>Direction: "Outbound" (sent by practitioner) or "Inbound" (received reply). Default Outbound.</summary>
+  public string Direction { get; set; } = "Outbound";
+
+  /// <summary>Sender display name shown in the From field.</summary>
+  public string? FromName { get; set; }
+
+  /// <summary>Per-case email address (e.g. case-12345@insolvex.ro).</summary>
+  public string? CaseEmailAddress { get; set; }
 }

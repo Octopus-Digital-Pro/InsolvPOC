@@ -11,6 +11,7 @@ public interface ICaseEmailService
   Task<List<EmailDto>> GetByCaseAsync(Guid caseId, string? status = null, bool? sentOnly = null, CancellationToken ct = default);
   Task<CaseEmailSummaryResult> GetSummaryAsync(Guid caseId, CancellationToken ct = default);
   Task<EmailDto> ScheduleAsync(Guid caseId, ScheduleEmailCommand command, CancellationToken ct = default);
+  Task<EmailDto> ComposeAsync(Guid caseId, ComposeEmailCommand command, CancellationToken ct = default);
   Task CancelAsync(Guid caseId, Guid emailId, CancellationToken ct = default);
 }
 
@@ -36,6 +37,30 @@ public class ScheduleEmailCommand
   public Guid? RelatedTaskId { get; init; }
   public string? RelatedPartyIdsJson { get; init; }
   public string? RelatedDocumentIdsJson { get; init; }
+}
+
+/// <summary>
+/// Compose an email to selected parties (by ID), resolving their email addresses.
+/// Supports attaching existing case documents and uploading new files.
+/// </summary>
+public class ComposeEmailCommand
+{
+  /// <summary>Party IDs to resolve to email addresses (To field).</summary>
+  public List<Guid> RecipientPartyIds { get; init; } = new();
+  /// <summary>Additional direct email addresses (comma-separated) for To.</summary>
+  public string? ToAddresses { get; init; }
+  public string? Cc { get; init; }
+  public string Subject { get; init; } = string.Empty;
+  public string Body { get; init; } = string.Empty;
+  public bool IsHtml { get; init; } = true;
+  public Guid? RelatedTaskId { get; init; }
+  public Guid? ReplyToEmailId { get; init; }
+  /// <summary>IDs of existing InsolvencyDocuments to attach.</summary>
+  public List<Guid> AttachedDocumentIds { get; init; } = new();
+  /// <summary>Uploaded file info already stored: [{fileName, storageKey, contentType}].</summary>
+  public string? UploadedAttachmentsJson { get; init; }
+  /// <summary>Sender display name.</summary>
+  public string? FromName { get; init; }
 }
 
 public class BulkEmailCommand

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Insolvex.Data;
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.DTOs;
@@ -14,12 +15,14 @@ public sealed class UserService : IUserService
     private readonly ApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly IAuditService _audit;
+    private readonly string _frontendUrl;
 
-    public UserService(ApplicationDbContext db, ICurrentUserService currentUser, IAuditService audit)
+    public UserService(ApplicationDbContext db, ICurrentUserService currentUser, IAuditService audit, IConfiguration config)
     {
         _db = db;
         _currentUser = currentUser;
         _audit = audit;
+        _frontendUrl = config["FrontendUrl"] ?? "http://localhost:5173";
     }
 
     public async Task<List<UserDto>> GetAllAsync(CancellationToken ct = default)
@@ -87,7 +90,30 @@ public sealed class UserService : IUserService
             InvitedByUserId = _currentUser.UserId,
         };
 
+        var inviteLink = $"{_frontendUrl}/accept-invitation?token={Uri.EscapeDataString(invitation.Token)}";
         _db.UserInvitations.Add(invitation);
+        _db.ScheduledEmails.Add(new ScheduledEmail
+        {
+            TenantId = invitation.TenantId,
+            To = invitation.Email,
+            Subject = "Ați fost invitat(ă) să utilizați Insolvex",
+            Body = $@"<html><body style=""font-family:sans-serif;background:#f4f6fb;padding:32px 0"">
+<div style=""max-width:500px;margin:0 auto;background:#fff;border-radius:10px;padding:36px 40px;border:1px solid #e2e8f0"">
+  <h2 style=""color:#1e293b;margin-top:0;font-size:22px"">Invitație Insolvex</h2>
+  <p style=""color:#334155"">Bună <strong>{invitation.FirstName} {invitation.LastName}</strong>,</p>
+  <p style=""color:#334155"">Ați fost invitat(ă) să accesați platforma <strong>Insolvex</strong> cu rolul <strong>{invitation.Role}</strong>.</p>
+  <p style=""color:#334155"">Apăsați butonul de mai jos pentru a vă crea parola și a vă activa contul:</p>
+  <p style=""text-align:center;margin:32px 0"">
+    <a href=""{inviteLink}"" style=""background:#2563eb;color:#fff;padding:13px 28px;border-radius:7px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block"">Activați contul</a>
+  </p>
+  <p style=""font-size:13px;color:#64748b"">Sau copiați link-ul: <a href=""{inviteLink}"" style=""color:#2563eb"">{inviteLink}</a></p>
+  <hr style=""border:none;border-top:1px solid #e2e8f0;margin:24px 0""/>
+  <p style=""font-size:12px;color:#94a3b8"">Link-ul este valabil <strong>7 zile</strong>. Dacă nu ați solicitat această invitație, ignorați emailul.</p>
+</div></body></html>",
+            ScheduledFor = DateTime.UtcNow,
+            Status = "Scheduled",
+            IsHtml = true,
+        });
         await _db.SaveChangesAsync(ct);
         await _audit.LogEntityAsync("User Invitation Sent", "UserInvitation", invitation.Id,
             newValues: new { invitation.Email, invitation.Role });
@@ -99,6 +125,18 @@ public sealed class UserService : IUserService
             .OrderByDescending(i => i.CreatedOn)
             .Select(i => i.ToDto())
             .ToListAsync(ct);
+
+    public async Task RevokeInvitationAsync(Guid id, CancellationToken ct = default)
+    {
+        var invitation = await _db.UserInvitations.FirstOrDefaultAsync(i => i.Id == id, ct)
+            ?? throw new NotFoundException("UserInvitation", id);
+        if (invitation.IsAccepted)
+            throw new BusinessException("Cannot revoke an invitation that has already been accepted.");
+        _db.UserInvitations.Remove(invitation);
+        await _db.SaveChangesAsync(ct);
+        await _audit.LogEntityAsync("User Invitation Revoked", "UserInvitation", invitation.Id,
+            oldValues: new { invitation.Email, invitation.Role });
+    }
 
     public async Task<UserDto> AcceptInvitationAsync(AcceptInvitationRequest request, CancellationToken ct = default)
     {

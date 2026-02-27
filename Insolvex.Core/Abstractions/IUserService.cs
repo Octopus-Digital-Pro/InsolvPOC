@@ -15,5 +15,6 @@ public interface IUserService
     Task<UserInvitationDto> InviteAsync(InviteUserRequest request, CancellationToken ct = default);
     Task<List<UserInvitationDto>> GetInvitationsAsync(CancellationToken ct = default);
     Task<UserDto> AcceptInvitationAsync(AcceptInvitationRequest request, CancellationToken ct = default);
+    Task RevokeInvitationAsync(Guid id, CancellationToken ct = default);
     Task AdminResetPasswordAsync(Guid id, AdminResetPasswordRequest request, CancellationToken ct = default);
 }

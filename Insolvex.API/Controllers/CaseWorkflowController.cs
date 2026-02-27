@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Insolvex.Core.Abstractions;
+using Insolvex.API.Authorization;
+using Insolvex.Domain.Enums;
 
 namespace Insolvex.API.Controllers;
 
@@ -45,6 +47,33 @@ public class CaseWorkflowController : ControllerBase
     [HttpPost("{stageKey}/reopen")]
     public async Task<IActionResult> ReopenStage(Guid caseId, string stageKey, CancellationToken ct)
         => Ok(await _workflow.ReopenStageAsync(caseId, stageKey, ct));
+
+    // ── Case close ──────────────────────────────────────────────────────
+
+    /// <summary>Returns whether the case can be closed and which stages are still pending.</summary>
+    [HttpGet("closeability")]
+    public async Task<IActionResult> GetCloseability(Guid caseId, CancellationToken ct)
+        => Ok(await _workflow.GetCloseabilityAsync(caseId, ct));
+
+    /// <summary>Close the case. Requires all stages completed/skipped or an override with explanation.</summary>
+    [HttpPost("close")]
+    [RequirePermission(Permission.CaseClose)]
+    public async Task<IActionResult> CloseCase(Guid caseId, [FromBody] CloseCaseBody body, CancellationToken ct)
+    {
+        await _workflow.CloseCaseAsync(caseId, body.Explanation, body.OverridePendingStages, ct);
+        return Ok(new { message = "Case closed successfully." });
+    }
+
+    // ── Stage deadline override ─────────────────────────────────────────
+
+    /// <summary>Override the deadline for a specific workflow stage. Tenant admin only.</summary>
+    [HttpPut("{stageKey}/deadline")]
+    [RequirePermission(Permission.PhaseDeadlineOverride)]
+    public async Task<IActionResult> SetStageDeadline(
+        Guid caseId, string stageKey, [FromBody] SetStageDeadlineBody body, CancellationToken ct)
+        => Ok(await _workflow.SetStageDeadlineAsync(caseId, stageKey, body.NewDate, body.Note, ct));
 }
 
 public record SkipStageBody(string? Reason = null);
+public record CloseCaseBody(string? Explanation = null, bool OverridePendingStages = false);
+public record SetStageDeadlineBody(DateTime NewDate, string Note);

@@ -48,3 +48,15 @@ public record UpdateTaskRequest(
     Domain.Enums.TaskStatus? Status,
     Guid? AssignedToUserId
 );
+
+public record TaskNoteDto(
+    Guid Id,
+    Guid TaskId,
+    string Content,
+    string CreatedByName,
+    DateTime CreatedOn,
+    DateTime? UpdatedOn
+);
+
+public record AddTaskNoteRequest(string Content);
+public record UpdateTaskNoteRequest(string Content);

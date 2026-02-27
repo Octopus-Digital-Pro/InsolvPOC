@@ -124,6 +124,93 @@ public sealed class CaseEmailService : ICaseEmailService
             Category = "EmailManagement",
         });
     }
+
+    public async Task<EmailDto> ComposeAsync(Guid caseId, ComposeEmailCommand cmd, CancellationToken ct)
+    {
+        var tenantId = _currentUser.TenantId
+            ?? throw new BusinessException("Tenant context is required.");
+
+        if (!await _db.InsolvencyCases.AnyAsync(c => c.Id == caseId && c.TenantId == tenantId, ct))
+            throw new BusinessException("Case not found.");
+
+        if (string.IsNullOrWhiteSpace(cmd.Subject))
+            throw new BusinessException("Subject is required.");
+
+        // Resolve party emails
+        var toAddresses = new List<string>();
+        if (cmd.RecipientPartyIds.Count > 0)
+        {
+            var parties = await _db.CaseParties
+                .Include(p => p.Company)
+                .Where(p => cmd.RecipientPartyIds.Contains(p.Id) && p.CaseId == caseId)
+                .ToListAsync(ct);
+            toAddresses.AddRange(parties
+                .Select(p => p.Email ?? p.Company?.Email)
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e!));
+        }
+        if (!string.IsNullOrWhiteSpace(cmd.ToAddresses))
+            toAddresses.AddRange(cmd.ToAddresses.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+        if (toAddresses.Count == 0)
+            throw new BusinessException("At least one valid recipient email address is required.");
+
+        // Handle thread ID — use InReplyTo's thread, or start a new one
+        Guid? threadId = null;
+        if (cmd.ReplyToEmailId.HasValue)
+        {
+            var parent = await _db.ScheduledEmails.FindAsync([cmd.ReplyToEmailId.Value], ct);
+            threadId = parent?.ThreadId ?? cmd.ReplyToEmailId;
+        }
+        threadId ??= Guid.NewGuid();
+
+        // Build document ID json
+        var docIdsJson = cmd.AttachedDocumentIds.Count > 0
+            ? System.Text.Json.JsonSerializer.Serialize(cmd.AttachedDocumentIds)
+            : null;
+
+        var email = new ScheduledEmail
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CaseId = caseId,
+            To = string.Join(", ", toAddresses),
+            Cc = cmd.Cc,
+            Subject = cmd.Subject,
+            Body = cmd.Body,
+            IsHtml = cmd.IsHtml,
+            ScheduledFor = DateTime.UtcNow,
+            Status = "Scheduled",
+            ThreadId = threadId,
+            InReplyToId = cmd.ReplyToEmailId,
+            Direction = "Outbound",
+            FromName = cmd.FromName ?? _currentUser.Email,
+            RelatedTaskId = cmd.RelatedTaskId,
+            RelatedPartyIdsJson = cmd.RecipientPartyIds.Count > 0
+                ? System.Text.Json.JsonSerializer.Serialize(cmd.RecipientPartyIds)
+                : null,
+            RelatedDocumentIdsJson = docIdsJson,
+            AttachmentsJson = cmd.UploadedAttachmentsJson,
+            CreatedOn = DateTime.UtcNow,
+            CreatedBy = _currentUser.Email ?? "System",
+        };
+
+        _db.ScheduledEmails.Add(email);
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(new AuditEntry
+        {
+            Action = "Email Composed and Queued",
+            Description = $"Email '{cmd.Subject}' composed to {toAddresses.Count} recipient(s) for case, queued for delivery.",
+            EntityType = "ScheduledEmail",
+            EntityId = email.Id,
+            EntityName = cmd.Subject,
+            Severity = "Info",
+            Category = "EmailManagement",
+        });
+
+        return email.ToDto();
+    }
 }
 
 public sealed class BulkEmailService : IBulkEmailService

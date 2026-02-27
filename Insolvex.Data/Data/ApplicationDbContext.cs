@@ -50,6 +50,8 @@ public class ApplicationDbContext : DbContext
   public DbSet<CreditorClaim> CreditorClaims => Set<CreditorClaim>();
   public DbSet<Asset> Assets => Set<Asset>();
   public DbSet<CaseWorkflowStage> CaseWorkflowStages => Set<CaseWorkflowStage>();
+  public DbSet<CaseDeadline> CaseDeadlines => Set<CaseDeadline>();
+  public DbSet<TaskNote> TaskNotes => Set<TaskNote>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -178,6 +180,16 @@ public class ApplicationDbContext : DbContext
             e.HasIndex(t => new { t.CaseId, t.Status });
             e.HasIndex(t => new { t.AssignedToUserId, t.Status });
             e.HasIndex(t => t.Deadline);
+          });
+
+    // TaskNote
+    modelBuilder.Entity<TaskNote>(e =>
+          {
+            e.HasKey(n => n.Id);
+            e.Property(n => n.Content).HasMaxLength(4000).IsRequired();
+            e.Property(n => n.CreatedByName).HasMaxLength(256).IsRequired();
+            e.HasOne(n => n.Task).WithMany(t => t.Notes).HasForeignKey(n => n.TaskId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(n => n.TaskId);
           });
 
     // InsolvencyFirm
@@ -555,6 +567,17 @@ e.HasIndex(t => new { t.TenantId, t.Name });
       e.HasOne(s => s.Case).WithMany(c => c.WorkflowStages).HasForeignKey(s => s.CaseId).OnDelete(DeleteBehavior.Cascade);
       e.HasOne(s => s.StageDefinition).WithMany().HasForeignKey(s => s.StageDefinitionId).OnDelete(DeleteBehavior.NoAction);
       e.HasIndex(s => new { s.CaseId, s.StageKey }).IsUnique();
+    });
+
+    modelBuilder.Entity<CaseDeadline>(e =>
+    {
+      e.HasKey(d => d.Id);
+      e.Property(d => d.Label).HasMaxLength(256).IsRequired();
+      e.Property(d => d.RelativeTo).HasMaxLength(32).IsRequired();
+      e.Property(d => d.PhaseKey).HasMaxLength(64);
+      e.Property(d => d.Notes).HasMaxLength(2000);
+      e.HasOne(d => d.Case).WithMany().HasForeignKey(d => d.CaseId).OnDelete(DeleteBehavior.Cascade);
+      e.HasIndex(d => d.CaseId);
     });
 
     // ----- Tenant query filters -----

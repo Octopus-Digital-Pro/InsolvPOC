@@ -24,6 +24,23 @@ export interface CaseWorkflowStageDto {
   completedAt: string | null;
   completedBy: string | null;
   validation: ValidationResultDto | null;
+  // Deadline
+  deadlineDate: string | null;
+  notes: string | null;
+  deadlineOverrideNote: string | null;
+  deadlineOverriddenBy: string | null;
+  deadlineOverriddenAt: string | null;
+}
+
+export interface StageReadinessItem {
+  stageKey: string;
+  name: string;
+  status: string;
+}
+
+export interface CaseCloseabilityDto {
+  canClose: boolean;
+  pendingStages: StageReadinessItem[];
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -52,4 +69,20 @@ export const caseWorkflowApi = {
   /** Reopen a completed or skipped stage. */
   reopen: (caseId: string, stageKey: string) =>
     client.post<CaseWorkflowStageDto>(`/cases/${caseId}/workflow/${stageKey}/reopen`),
+
+  // ── Case close ────────────────────────────────────────────────────────────
+
+  /** Get whether the case can be closed and which stages are still pending. */
+  getCloseability: (caseId: string) =>
+    client.get<CaseCloseabilityDto>(`/cases/${caseId}/workflow/closeability`),
+
+  /** Close the case. All stages must be complete/skipped or pass overridePendingStages=true with an explanation. */
+  closeCase: (caseId: string, body: { explanation?: string; overridePendingStages: boolean }) =>
+    client.post<{ message: string }>(`/cases/${caseId}/workflow/close`, body),
+
+  // ── Stage deadline override ───────────────────────────────────────────────
+
+  /** Override the deadline for a specific stage (tenant admin only). */
+  setDeadline: (caseId: string, stageKey: string, body: { newDate: string; note: string }) =>
+    client.put<CaseWorkflowStageDto>(`/cases/${caseId}/workflow/${stageKey}/deadline`, body),
 };

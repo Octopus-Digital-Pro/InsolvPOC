@@ -230,6 +230,15 @@ public class DocumentTemplatesController : ControllerBase
                     new { key = "HasAssets",       label = "Are active?" },
                 }
             },
+            // ── Electronic signature ─────────────────────────────────────────
+            new
+            {
+                group = "✍ Semnătură electronică",
+                fields = new[]
+                {
+                    new { key = "ElectronicSignature", label = "Bloc semnătură electronică" },
+                }
+            },
         };
 
         return Ok(groups);
@@ -437,6 +446,146 @@ public class DocumentTemplatesController : ControllerBase
         return File(pdfBytes, "application/pdf", fileName);
     }
 
+    // ── Save rendered PDF directly into the case Documents tab ───────────────
+
+    /// <summary>
+    /// Renders the template to PDF and saves it as an InsolvencyDocument on the case.
+    /// The saved document is flagged RequiresSignature = true so it appears in the
+    /// signing queue immediately.
+    /// </summary>
+    [HttpPost("{id:guid}/save-to-case")]
+    [RequirePermission(Permission.TemplateGenerate)]
+    public async Task<IActionResult> SaveToCase(
+        Guid id,
+        [FromBody] RenderTemplateRequest req,
+        CancellationToken ct)
+    {
+        if (_currentUser.TenantId is null)
+            return BadRequest(new { message = "No tenant context." });
+        var tenantId = _currentUser.TenantId.Value;
+
+        var t = await _db.DocumentTemplates
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(x => x.Id == id && (x.IsSystem || x.TenantId == tenantId), ct);
+
+        if (t == null) return NotFound();
+        if (string.IsNullOrWhiteSpace(t.BodyHtml))
+            return BadRequest(new { message = "Template has no HTML body content." });
+
+        // 1. Render HTML then convert to PDF
+        var (renderedHtml, _) = await _generator.RenderHtmlBodyAsync(t.BodyHtml, req.CaseId, req.RecipientPartyId);
+        var pdfBytes = await _htmlPdf.RenderHtmlStringToPdfBytesAsync(renderedHtml, ct);
+
+        // 2. Persist the PDF in file storage
+        var docId = Guid.NewGuid();
+        var safeName = string.Concat(t.Name.Split(Path.GetInvalidFileNameChars())).Replace(" ", "_");
+        var fileName = $"{safeName}_{DateTime.UtcNow:yyyyMMdd}.pdf";
+        var storageKey = $"cases/{req.CaseId}/generated/{docId}.pdf";
+
+        using var ms = new MemoryStream(pdfBytes);
+        await _storage.UploadAsync(storageKey, ms, "application/pdf", ct);
+
+        // 3. Create the InsolvencyDocument record
+        var doc = new InsolvencyDocument
+        {
+            Id = docId,
+            TenantId = tenantId,
+            CaseId = req.CaseId,
+            SourceFileName = fileName,
+            StorageKey = storageKey,
+            DocType = "GeneratedTemplate",
+            Purpose = "Generated",
+            RequiresSignature = true,
+            UploadedBy = _currentUser.Email ?? "System",
+            UploadedAt = DateTime.UtcNow,
+            CreatedOn = DateTime.UtcNow,
+            CreatedBy = _currentUser.Email ?? "System",
+            Summary = $"Generated from template: {t.Name}",
+        };
+
+        _db.InsolvencyDocuments.Add(doc);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { documentId = docId, fileName, storageKey, requiresSignature = true });
+    }
+
+    // ── Render raw HTML to PDF (for user-edited content from preview modal) ────
+
+    /// <summary>
+    /// Converts arbitrary HTML content to PDF and returns the file for download.
+    /// Used when the user has edited the rendered template in the preview modal.
+    /// </summary>
+    [HttpPost("render-html-to-pdf")]
+    [RequirePermission(Permission.TemplateView)]
+    public async Task<IActionResult> RenderHtmlToPdf(
+        [FromBody] RenderHtmlToPdfRequest req,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.Html))
+            return BadRequest(new { message = "HTML content is required." });
+
+        var pdfBytes = await _htmlPdf.RenderHtmlStringToPdfBytesAsync(req.Html, ct);
+        var safeName = string.Concat(
+            (req.TemplateName ?? "document").Split(Path.GetInvalidFileNameChars()))
+            .Replace(" ", "_");
+        var fileName = $"{safeName}_{DateTime.UtcNow:yyyyMMdd}.pdf";
+        return File(pdfBytes, "application/pdf", fileName);
+    }
+
+    // ── Save arbitrary HTML to case documents ────────────────────────────────
+
+    /// <summary>
+    /// Converts arbitrary HTML to PDF and saves it as an InsolvencyDocument on the case.
+    /// Used after the user reviews/edits and optionally signs the rendered template.
+    /// </summary>
+    [HttpPost("save-html-to-case")]
+    [RequirePermission(Permission.TemplateGenerate)]
+    public async Task<IActionResult> SaveHtmlToCase(
+        [FromBody] SaveHtmlToCaseRequest req,
+        CancellationToken ct)
+    {
+        if (_currentUser.TenantId is null)
+            return BadRequest(new { message = "No tenant context." });
+        var tenantId = _currentUser.TenantId.Value;
+
+        if (string.IsNullOrWhiteSpace(req.Html))
+            return BadRequest(new { message = "HTML content is required." });
+
+        var pdfBytes = await _htmlPdf.RenderHtmlStringToPdfBytesAsync(req.Html, ct);
+
+        var docId = Guid.NewGuid();
+        var safeName = string.Concat(
+            (req.TemplateName ?? "document").Split(Path.GetInvalidFileNameChars()))
+            .Replace(" ", "_");
+        var fileName = $"{safeName}_{DateTime.UtcNow:yyyyMMdd}.pdf";
+        var storageKey = $"cases/{req.CaseId}/generated/{docId}.pdf";
+
+        using var ms = new MemoryStream(pdfBytes);
+        await _storage.UploadAsync(storageKey, ms, "application/pdf", ct);
+
+        var doc = new InsolvencyDocument
+        {
+            Id = docId,
+            TenantId = tenantId,
+            CaseId = req.CaseId,
+            SourceFileName = fileName,
+            StorageKey = storageKey,
+            DocType = "GeneratedTemplate",
+            Purpose = "Generated",
+            RequiresSignature = false, // already signed / reviewed
+            UploadedBy = _currentUser.Email ?? "System",
+            UploadedAt = DateTime.UtcNow,
+            CreatedOn = DateTime.UtcNow,
+            CreatedBy = _currentUser.Email ?? "System",
+            Summary = $"Generated from template: {req.TemplateName}",
+        };
+
+        _db.InsolvencyDocuments.Add(doc);
+        await _db.SaveChangesAsync(ct);
+
+        return Ok(new { documentId = docId, fileName, storageKey, requiresSignature = false });
+    }
+
     // ── Incoming document reference samples (for AI recognition) ─────────────
 
     /// <summary>
@@ -488,3 +637,10 @@ public class DocumentTemplatesController : ControllerBase
         }
     }
 }
+// ── Additional request DTOs ───────────────────────────────────────────────────
+
+/// <summary>Render arbitrary HTML content to a PDF download.</summary>
+public record RenderHtmlToPdfRequest(string Html, string? TemplateName);
+
+/// <summary>Save arbitrary HTML (already rendered and optionally signed) as a case document.</summary>
+public record SaveHtmlToCaseRequest(string Html, Guid CaseId, string TemplateName);

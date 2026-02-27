@@ -20,12 +20,16 @@ import CaseTasksTab from "@/components/CaseTasksTab";
 import CaseEmailsTab from "@/components/CaseEmailsTab";
 import CaseWorkflowPanel from "@/components/CaseWorkflowPanel";
 import CaseAssetsTab from "@/components/CaseAssetsTab";
+import TemplatePreviewModal from "@/components/TemplatePreviewModal";
+import EmailComposeModal from "@/components/EmailComposeModal";
+import { CloseCaseModal } from "@/components/CloseCaseModal";
+import { useAuth } from "@/contexts/AuthContext";
 import { downloadAuthFile } from "@/utils/downloadAuthFile";
 import {
   Loader2, FileText, Upload, Users,
   Brain, CalendarDays, RefreshCw, Layers,
   ListChecks, Mail, Download, FileOutput,
-  History, Plus, Search, X, Building2, Package,
+  History, Plus, Search, X, Building2, Package, Eye, Trash2, Lock, ClipboardList,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -48,11 +52,13 @@ export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, locale } = useTranslation();
+  const { isTenantAdmin, isPractitioner, isGlobalAdmin } = useAuth();
   const [caseData, setCaseData] = useState<CaseDto | null>(null);
   const [parties, setParties] = useState<CasePartyDto[]>([]);
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [meetingOpen, setMeetingOpen] = useState(false);
+  const [closeCaseOpen, setCloseCaseOpen] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "workflow" | "tasks" | "docs" | "parties" | "assets" | "emails" | "calendar" | "templates" | "activity">("overview");
@@ -61,8 +67,18 @@ export default function CaseDetailPage() {
   const [docUploading, setDocUploading] = useState(false);
   const docUploadRef = useRef<HTMLInputElement>(null);
   const [addPartyOpen, setAddPartyOpen] = useState(false);
+  const [removingPartyId, setRemovingPartyId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserDto[]>([]);
   const [assigningCase, setAssigningCase] = useState(false);
+  // Email compose state
+  const [composeEmailOpen, setComposeEmailOpen] = useState(false);
+  const [composeEmailInitialSubject, setComposeEmailInitialSubject] = useState("");
+  const [composeEmailAttachedDocId, setComposeEmailAttachedDocId] = useState<string | undefined>();
+  // Mandatory report generation + preview modal (in main component)
+  const [generatingMandatoryReport, setGeneratingMandatoryReport] = useState(false);
+  const [mandatoryReportModalOpen, setMandatoryReportModalOpen] = useState(false);
+  const [mandatoryReportHtml, setMandatoryReportHtml] = useState("");
+  const [mandatoryReportPractitioner, setMandatoryReportPractitioner] = useState("Practicant insolvență");
 
   const load = useCallback(() => {
     if (!id) return;
@@ -134,6 +150,16 @@ export default function CaseDetailPage() {
     finally { setDocUploading(false); }
   };
 
+  const handleRemoveParty = async (partyId: string) => {
+    if (!id || !window.confirm("Remove this party from the case?")) return;
+    setRemovingPartyId(partyId);
+    try {
+      await casesApi.removeParty(id, partyId);
+      setParties(prev => prev.filter(p => p.id !== partyId));
+    } catch (err) { console.error(err); }
+    finally { setRemovingPartyId(null); }
+  };
+
   if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   if (!caseData) return <p className="p-8 text-muted-foreground">{t.cases.noCases}</p>;
 
@@ -156,7 +182,19 @@ export default function CaseDetailPage() {
             <h1 className="text-xl font-bold text-card-foreground">{t.cases.caseNumber} {caseData.caseNumber}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{caseData.debtorName}</p>
           </div>
-          <Badge variant="secondary">{statusLabel(caseData.status)}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{statusLabel(caseData.status)}</Badge>
+            {(isPractitioner || isTenantAdmin || isGlobalAdmin) && caseData.status !== "Closed" && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-7 gap-1 text-xs"
+                onClick={() => setCloseCaseOpen(true)}
+              >
+                <Lock className="h-3 w-3" /> Close Case
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
@@ -212,7 +250,7 @@ export default function CaseDetailPage() {
       {/* Workspace layout */}
       <div className="space-y-3">
         {/* Actions */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -222,6 +260,57 @@ export default function CaseDetailPage() {
             <Users className="h-3.5 w-3.5" />
             Call Creditor Meeting
           </Button>
+
+          {/* Generate Mandatory Report */}
+          {(isPractitioner || isTenantAdmin || isGlobalAdmin) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1 border-amber-400/50 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+              disabled={generatingMandatoryReport}
+              onClick={async () => {
+                setGeneratingMandatoryReport(true);
+                try {
+                  const res = await documentTemplatesApi.render(
+                    // find the MandatoryReport template (will use existing render-by-type logic via workflowApi)
+                    await documentTemplatesApi.getAll().then(r => {
+                      const tpl = r.data.find(t => String(t.templateType) === "MandatoryReport");
+                      return tpl?.id ?? "";
+                    }),
+                    { caseId: id! }
+                  );
+                  if (!res.data.renderedHtml) return;
+                  setMandatoryReportHtml(res.data.renderedHtml ?? "");
+                  setMandatoryReportPractitioner(res.data.mergeData?.["PractitionerName"] ?? "Practicant insolvență");
+                  setMandatoryReportModalOpen(true);
+                } catch (err) { console.error(err); }
+                finally { setGeneratingMandatoryReport(false); }
+              }}
+            >
+              {generatingMandatoryReport
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <ClipboardList className="h-3.5 w-3.5" />}
+              Generate Mandatory Report
+            </Button>
+          )}
+
+          {/* Send Email */}
+          {(isPractitioner || isTenantAdmin || isGlobalAdmin) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
+              onClick={() => {
+                setComposeEmailInitialSubject("");
+                setComposeEmailAttachedDocId(undefined);
+                setActiveTab("emails");
+                setComposeEmailOpen(true);
+              }}
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Send Email
+            </Button>
+          )}
         </div>
 
         {/* Main panel with tabs */}
@@ -358,7 +447,7 @@ export default function CaseDetailPage() {
                   <p className="px-4 py-6 text-center text-sm text-muted-foreground">No parties added yet.</p>
                 ) : (
                   parties.map(p => (
-                    <div key={p.id} className="flex items-center gap-3 px-4 py-2.5">
+                    <div key={p.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors">
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground truncate">{p.companyName}</p>
                         {p.roleDescription && <p className="text-[10px] text-muted-foreground">{p.roleDescription}</p>}
@@ -372,6 +461,17 @@ export default function CaseDetailPage() {
                           {p.claimAccepted ? "Accepted" : "Pending"}
                         </Badge>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveParty(p.id)}
+                        disabled={removingPartyId === p.id}
+                        className="ml-1 rounded p-1 hover:bg-destructive/10 text-destructive/60 hover:text-destructive transition-colors shrink-0"
+                        title="Remove party"
+                      >
+                        {removingPartyId === p.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Trash2 className="h-3.5 w-3.5" />}
+                      </button>
                     </div>
                   ))
     )}
@@ -386,7 +486,13 @@ export default function CaseDetailPage() {
 
           {/* Emails Tab */}
           {activeTab === "emails" && (
-            <CaseEmailsTab caseId={id!} emails={caseEmails} onRefresh={load} />
+            <CaseEmailsTab
+              caseId={id!}
+              caseName={caseData?.debtorName}
+              parties={parties}
+              emails={caseEmails}
+              onRefresh={load}
+            />
           )}
 
           {/* Calendar Tab */}
@@ -416,6 +522,16 @@ export default function CaseDetailPage() {
         />
       )}
 
+      {/* Close Case Modal */}
+      {closeCaseOpen && (
+        <CloseCaseModal
+          caseId={id!}
+          caseName={caseData?.caseNumber ?? ""}
+          onClosed={() => { setCloseCaseOpen(false); load(); }}
+          onCancel={() => setCloseCaseOpen(false)}
+        />
+      )}
+
       {/* Creditor Meeting Modal */}
       <CreditorMeetingModal
         caseId={id!}
@@ -423,6 +539,43 @@ export default function CaseDetailPage() {
         onClose={() => setMeetingOpen(false)}
         onCreated={load}
       />
+
+      {/* Mandatory Report Preview Modal */}
+      {mandatoryReportModalOpen && (
+        <TemplatePreviewModal
+          isOpen={mandatoryReportModalOpen}
+          templateName="Raport Periodic Obligatoriu"
+          renderedHtml={mandatoryReportHtml}
+          caseId={id!}
+          practitionerName={mandatoryReportPractitioner}
+          onClose={() => setMandatoryReportModalOpen(false)}
+          onSaved={(docId) => {
+            setMandatoryReportModalOpen(false);
+            // After saving, optionally allow to send via email
+            setComposeEmailAttachedDocId(docId);
+            setComposeEmailInitialSubject("Raport Periodic Obligatoriu");
+          }}
+          onSendEmail={(subject, docId) => {
+            setMandatoryReportModalOpen(false);
+            setComposeEmailInitialSubject(subject);
+            setComposeEmailAttachedDocId(docId);
+            setComposeEmailOpen(true);
+          }}
+        />
+      )}
+
+      {/* Compose Email Modal (global, also triggered from Send Email button) */}
+      {composeEmailOpen && (
+        <EmailComposeModal
+          caseId={id!}
+          caseName={caseData?.debtorName}
+          parties={parties}
+          initialSubject={composeEmailInitialSubject}
+          initialAttachedDocId={composeEmailAttachedDocId}
+          onSent={() => { setComposeEmailOpen(false); load(); }}
+          onCancel={() => setComposeEmailOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -539,9 +692,22 @@ function CaseAuditActivity({ caseId, caseNumber, locale }: { caseId: string; cas
 }
 /* ── Templates Tab Component ─────────────────────────── */
 function TemplatesTab({ caseId }: { caseId: string }) {
+  const { t } = useTranslation();
   const [templates, setTemplates] = useState<import("@/services/api/documentTemplatesApi").DocumentTemplateDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState<string | null>(null);
+  const [generating, setGenerating] = useState<string | null>(null);
+  const [savedDocs, setSavedDocs] = useState<Record<string, string>>({}); // templateId → documentId
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalHtml, setModalHtml] = useState("");
+  const [modalTemplateName, setModalTemplateName] = useState("");
+  const [modalPractitionerName, setModalPractitionerName] = useState("");
+  const [modalTemplateId, setModalTemplateId] = useState("");
+  // Post-save email compose
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeSubject, setComposeSubject] = useState("");
+  const [composeDocId, setComposeDocId] = useState<string | undefined>();
 
   useEffect(() => {
     documentTemplatesApi.getAll()
@@ -552,18 +718,18 @@ function TemplatesTab({ caseId }: { caseId: string }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleDownloadPdf = async (tpl: import("@/services/api/documentTemplatesApi").DocumentTemplateDto) => {
-    setDownloading(tpl.id);
+  /** Render the template against the case and open the preview/edit modal. */
+  const handleGenerate = async (tpl: import("@/services/api/documentTemplatesApi").DocumentTemplateDto) => {
+    setGenerating(tpl.id);
     try {
-      const { blob, fileName } = await documentTemplatesApi.renderPdfBlob(tpl.id, { caseId });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
+      const res = await documentTemplatesApi.render(tpl.id, { caseId });
+      setModalHtml(res.data.renderedHtml);
+      setModalTemplateName(tpl.name);
+      setModalPractitionerName(res.data.mergeData["PractitionerName"] ?? "Practicant insolvență");
+      setModalTemplateId(tpl.id);
+      setModalOpen(true);
     } catch (err) { console.error(err); }
-    finally { setDownloading(null); }
+    finally { setGenerating(null); }
   };
 
   const friendlyType = (type: string) => {
@@ -575,6 +741,7 @@ function TemplatesTab({ caseId }: { caseId: string }) {
       CreditorsMeetingMinutes: "Proces-Verbal AGC",
       DefinitiveClaimsTable: "Tabel Definitiv de Creanțe",
       FinalReportArt167: "Raport Final Art. 167",
+      MandatoryReport: "Raport Periodic Obligatoriu",
     };
     return map[type] ?? type.replace(/([A-Z])/g, " $1").trim();
   };
@@ -586,56 +753,100 @@ function TemplatesTab({ caseId }: { caseId: string }) {
   );
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h3 className="text-sm font-semibold text-foreground">Documente Insolvență</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Generează documentele dosarului din șabloanele HTML configurate. Fișierul PDF este descărcat direct.
-        </p>
+    <>
+      <div className="space-y-3">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <h3 className="text-sm font-semibold text-foreground">{t.caseTemplates.title}</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {t.caseTemplates.description}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card divide-y divide-border">
+          {templates.length === 0 && (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+              {t.caseTemplates.noTemplates}
+            </p>
+          )}
+          {templates.map(tpl => {
+            const isBusy = generating === tpl.id;
+            const savedDocId = savedDocs[tpl.id];
+            return (
+              <div key={tpl.id} className="flex items-center gap-3 px-4 py-3">
+                <FileText className={`h-4 w-4 shrink-0 ${tpl.hasContent ? "text-primary" : "text-muted-foreground/40"}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-foreground">{tpl.name}</p>
+                    {tpl.category && (
+                      <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
+                        {tpl.category}
+                      </span>
+                    )}
+                    {!tpl.hasContent && (
+                      <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                        {t.caseTemplates.noContent}
+                      </span>
+                    )}
+                    {savedDocId && (
+                      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                        {t.caseTemplates.savedBadge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">{friendlyType(tpl.templateType)}</p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5 h-7"
+                    onClick={() => handleGenerate(tpl)}
+                    disabled={!tpl.hasContent || isBusy}
+                    title="Generează documentul, previzualizează și editează înainte de descărcare"
+                  >
+                    {isBusy
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <Eye className="h-3 w-3" />}
+                    {isBusy ? t.caseTemplates.generating : "Generează & Previzualizează"}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card divide-y divide-border">
-        {templates.length === 0 && (
-          <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-            Niciun șablon activ. Accesează <strong>Setări → Șabloane Documente</strong> pentru configurare.
-          </p>
-        )}
-        {templates.map(tpl => {
-          const isBusy = downloading === tpl.id;
-          return (
-            <div key={tpl.id} className="flex items-center gap-3 px-4 py-3">
-              <FileText className={`h-4 w-4 shrink-0 ${tpl.hasContent ? "text-primary" : "text-muted-foreground/40"}`} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-foreground">{tpl.name}</p>
-                  {tpl.category && (
-                    <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">
-                      {tpl.category}
-                    </span>
-                  )}
-                  {!tpl.hasContent && (
-                    <span className="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                      Fără conținut
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] text-muted-foreground">{friendlyType(tpl.templateType)}</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-xs gap-1.5 h-7 shrink-0"
-                onClick={() => handleDownloadPdf(tpl)}
-                disabled={!tpl.hasContent || isBusy}
-              >
-                {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
-                {isBusy ? "Se generează..." : "Descarcă PDF"}
-              </Button>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+      {/* Full-screen preview/edit/sign modal */}
+      <TemplatePreviewModal
+        isOpen={modalOpen}
+        templateName={modalTemplateName}
+        renderedHtml={modalHtml}
+        caseId={caseId}
+        practitionerName={modalPractitionerName}
+        onClose={() => setModalOpen(false)}
+        onSaved={(docId) => {
+          setSavedDocs(prev => ({ ...prev, [modalTemplateId]: docId }));
+          setModalOpen(false);
+        }}
+        onSendEmail={(subject, docId) => {
+          setModalOpen(false);
+          setComposeSubject(subject);
+          setComposeDocId(docId);
+          setComposeOpen(true);
+        }}
+      />
+
+      {/* Email compose after saving a template */}
+      {composeOpen && (
+        <EmailComposeModal
+          caseId={caseId}
+          initialSubject={composeSubject}
+          initialAttachedDocId={composeDocId}
+          onSent={() => setComposeOpen(false)}
+          onCancel={() => setComposeOpen(false)}
+        />
+      )}
+    </>
   );
 }
 

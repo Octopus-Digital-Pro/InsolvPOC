@@ -45,11 +45,11 @@ export const workflowApi = {
 
   // Case summary
   generateSummary: (caseId: string, trigger?: string) =>
-    client.post(`/case-summary/${caseId}/generate`, null, { params: { trigger } }),
+    client.post(`/cases/${caseId}/generate`, null, { params: { trigger } }),
   getLatestSummary: (caseId: string) =>
-    client.get(`/case-summary/${caseId}/latest`),
+    client.get(`/cases/${caseId}/latest`),
   getSummaryHistory: (caseId: string, take?: number) =>
-    client.get(`/case-summary/${caseId}/history`, { params: { take } }),
+    client.get(`/cases/${caseId}/history`, { params: { take } }),
 
   // Mail merge / templates
   mailMerge: {

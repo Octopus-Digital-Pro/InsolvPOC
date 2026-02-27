@@ -356,34 +356,97 @@ export default function DashboardPage() {
           </div>
         </div>
 
-     {/* My Tasks */}
+        {/* My Tasks */}
         <div className="rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
-    <h3 className="text-sm font-semibold text-foreground">{t.dashboard.myTasks}</h3>
-         <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary" onClick={() => navigate("/tasks")}>{t.common.viewAll}</Button>
+            <h3 className="text-sm font-semibold text-foreground">{t.dashboard.myTasks}</h3>
+            <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary" onClick={() => navigate("/tasks")}>{t.common.viewAll}</Button>
           </div>
-   <div className="divide-y divide-border">
-          {data.recentTasks.length === 0 ? (
-  <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t.dashboard.noTasks}</p>
+          <div className="divide-y divide-border">
+            {data.recentTasks.filter(t => t.status !== "blocked" && t.status !== "inProgress").length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t.dashboard.noTasks}</p>
             ) : (
-           data.recentTasks.slice(0, 6).map(task => (
-     <div
-      key={task.id}
-       className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
- onClick={() => navigate(`/companies/${task.companyId}`)}
-         >
-     <div className="min-w-0 flex-1">
-                 <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
-    <p className="text-xs text-muted-foreground">{task.companyName ?? "�"}</p>
-    </div>
-    <Badge variant={task.status === "done" ? "success" : task.status === "blocked" ? "warning" : "default"} className="shrink-0 text-[10px]">{task.status}</Badge>
-           {task.deadline && <span className="text-xs text-muted-foreground shrink-0">{format(new Date(task.deadline), "dd MMM")}</span>}
+              data.recentTasks.filter(t => t.status !== "blocked" && t.status !== "inProgress").slice(0, 6).map(task => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/companies/${task.companyId}`)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                    <p className="text-xs text-muted-foreground">{task.companyName ?? ""}</p>
+                  </div>
+                  <Badge variant={task.status === "done" ? "success" : "default"} className="shrink-0 text-[10px]">{task.status}</Badge>
+                  {task.deadline && <span className="text-xs text-muted-foreground shrink-0">{format(new Date(task.deadline), "dd MMM")}</span>}
                 </div>
-        ))
+              ))
             )}
-  </div>
+          </div>
         </div>
-    </div>
+      </div>
+
+      {/* Blocked + In-Progress task widgets */}
+      {(() => {
+        const blocked = data.recentTasks.filter(t => t.status === "blocked");
+        const inProg = data.recentTasks.filter(t => t.status === "inProgress");
+        if (blocked.length === 0 && inProg.length === 0) return null;
+        return (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {blocked.length > 0 && (
+              <div className="rounded-xl border border-destructive/20 bg-card">
+                <div className="flex items-center gap-2 border-b border-destructive/20 px-4 py-3">
+                  <Ban className="h-4 w-4 text-destructive" />
+                  <h3 className="text-sm font-semibold text-foreground">{t.tasks.blockedTasks}</h3>
+                  <span className="ml-auto text-xs font-bold text-destructive">{blocked.length}</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {blocked.map(task => (
+                    <div
+                      key={task.id}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/companies/${task.companyId}`)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {task.companyName ?? ""}
+                          {(task as unknown as Record<string, string>).blockReason ? ` \u00b7 ${(task as unknown as Record<string, string>).blockReason}` : ""}
+                        </p>
+                      </div>
+                      {task.deadline && <span className="text-xs text-destructive shrink-0">{format(new Date(task.deadline), "dd MMM")}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {inProg.length > 0 && (
+              <div className="rounded-xl border border-amber-500/20 bg-card">
+                <div className="flex items-center gap-2 border-b border-amber-500/20 px-4 py-3">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <h3 className="text-sm font-semibold text-foreground">{t.tasks.inProgressTasks}</h3>
+                  <span className="ml-auto text-xs font-bold text-amber-500">{inProg.length}</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {inProg.map(task => (
+                    <div
+                      key={task.id}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/companies/${task.companyId}`)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{task.title}</p>
+                        <p className="text-xs text-muted-foreground">{task.companyName ?? ""}</p>
+                      </div>
+                      {task.deadline && <span className="text-xs text-amber-500 shrink-0">{format(new Date(task.deadline), "dd MMM")}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
+

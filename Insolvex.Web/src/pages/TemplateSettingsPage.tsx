@@ -207,6 +207,13 @@ function EditorToolbar({ editor }: { editor: ReturnType<typeof useEditor> }) {
       {/* ── Clear formatting ── */}
       {btn(false, "Clear formatting", <RemoveFormatting className="h-4 w-4" />,
         () => editor.chain().focus().unsetAllMarks().clearNodes().run())}
+
+      {sep()}
+
+      {/* ── Electronic signature placeholder ── */}
+      {btn(false, "Insert electronic signature placeholder ({{ElectronicSignature}})",
+        <span className="flex items-center gap-1 text-[11px] font-semibold">✍ Semn.</span>,
+        () => editor.chain().focus().insertContent("{{ElectronicSignature}}").run())}
     </div>
   );
 }
@@ -237,6 +244,7 @@ function PlaceholderSidebar({
   onInsert: (placeholder: string) => void;
 }) {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   /** Insert a full {{#each Collection}} … {{/each}} block with all fields as a table row. */
   const insertEachBlock = (collectionName: string, fields: { key: string; label: string }[]) => {
@@ -256,17 +264,17 @@ function PlaceholderSidebar({
 
   /** Insert a {{#if key}} … {{/if}} conditional block. */
   const insertIfBlock = (key: string) => {
-    onInsert(`{{#if ${key}}}\n<p>…conținut afișat dacă ${key} este adevărat…</p>\n{{/if}}`);
+    onInsert(`{{#if ${key}}}\n<p>…${t.templateSettings.contentShown.replace('{{key}}', key)}…</p>\n{{/if}}`);  
   };
 
   return (
     <div className="flex flex-col gap-0 divide-y divide-border rounded-lg border border-border overflow-hidden">
       <div className="bg-muted/60 px-3 py-2">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Câmpuri disponibile
+          {t.templateSettings.availableFields}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Clic pe un câmp pentru a-l insera în document
+          {t.templateSettings.clickToInsert}
         </p>
       </div>
       {groups.map((g) => {
@@ -295,7 +303,7 @@ function PlaceholderSidebar({
                     onClick={() => insertEachBlock(collectionName, g.fields)}
                     className="text-left rounded px-2 py-2 text-xs font-medium bg-primary/5 hover:bg-primary/15 text-primary transition-colors mb-1 border border-primary/20"
                   >
-                    ⚡ Inserează tabel complet {`{{#each ${collectionName}}}`}
+                    ⚡ {t.templateSettings.insertFullTable} {`{{#each ${collectionName}}}`}
                   </button>
                 )}
 
@@ -359,6 +367,7 @@ function TemplateEditorPanel({
   const [htmlContent, setHtmlContent] = useState(template.bodyHtml ?? "");
   const [savedOk, setSavedOk] = useState(false);
   const htmlRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useTranslation();
 
   const editor = useEditor({
     extensions: [
@@ -477,7 +486,7 @@ function TemplateEditorPanel({
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="bg-transparent text-sm font-semibold outline-none w-full"
-              placeholder="Denumire template…"
+              placeholder={t.templateSettings.templateNamePlaceholder}
             />
           )}
         </div>
@@ -498,7 +507,7 @@ function TemplateEditorPanel({
           <button
             type="button"
             onClick={() => setShowPreview(!showPreview)}
-            title={showPreview ? "Ascunde previzualizare" : "Previzualizare"}
+            title={showPreview ? t.templateSettings.prevTitle : t.templateSettings.prevTitle}
             className="rounded-md p-1.5 hover:bg-accent text-muted-foreground"
           >
             {showPreview ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -511,7 +520,7 @@ function TemplateEditorPanel({
             ) : (
               <Save className="h-3.5 w-3.5 mr-1" />
             )}
-            {savedOk ? "Salvat!" : "Salvează"}
+            {savedOk ? t.templateSettings.saved : t.templateSettings.save}
           </Button>
         </div>
       </div>
@@ -523,13 +532,13 @@ function TemplateEditorPanel({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="flex-1 bg-transparent text-xs outline-none text-muted-foreground placeholder:text-muted-foreground/50"
-            placeholder="Descriere opțională…"
+            placeholder={t.templateSettings.descOptional}
           />
           <input
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="w-40 bg-transparent text-xs outline-none text-muted-foreground placeholder:text-muted-foreground/50 border-l border-border pl-3"
-            placeholder="Categorie…"
+            placeholder={t.templateSettings.categoryPlaceholder}
           />
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground border-l border-border pl-3 cursor-pointer select-none">
             <input
@@ -538,7 +547,7 @@ function TemplateEditorPanel({
               onChange={(e) => setIsActive(e.target.checked)}
               className="rounded"
             />
-            Activ
+            {t.templateSettings.active}
           </label>
         </div>
       )}
@@ -599,6 +608,7 @@ function SystemTemplateCard({
   template: DocumentTemplateDto;
   onEdit: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const label = SYSTEM_TEMPLATE_LABELS[template.templateType] ?? template.name;
   const stage = SYSTEM_TEMPLATE_STAGE[template.templateType];
 
@@ -617,16 +627,16 @@ function SystemTemplateCard({
           {template.hasContent ? (
             <Badge className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">
               <CheckCircle2 className="h-3 w-3 mr-1" />
-              Conținut definit
+              {t.templateSettings.contentDefined}
             </Badge>
           ) : (
             <Badge variant="secondary" className="text-xs border-0 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
               <AlertTriangle className="h-3 w-3 mr-1" />
-              Fără conținut
+              {t.templateSettings.noContent}
             </Badge>
           )}
           {!template.isActive && (
-            <Badge variant="secondary" className="text-xs">Inactiv</Badge>
+            <Badge variant="secondary" className="text-xs">{t.workflowStages.inactive}</Badge>
           )}
         </div>
       </div>
@@ -638,7 +648,7 @@ function SystemTemplateCard({
         className="shrink-0"
       >
         <Pencil className="h-3.5 w-3.5 mr-1" />
-        Editează
+        {t.templateSettings.edit}
       </Button>
     </div>
   );
@@ -657,6 +667,7 @@ function CustomTemplateCard({
   onDelete: (id: string) => void;
   deleting: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-4 hover:border-primary/40 transition-colors">
       <div className="mt-0.5 rounded-md bg-muted p-2 shrink-0">
@@ -675,13 +686,13 @@ function CustomTemplateCard({
           {template.hasContent ? (
             <Badge className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">
               <CheckCircle2 className="h-3 w-3 mr-1" />
-              Are conținut
+              {t.templateSettings.hasContent}
             </Badge>
           ) : (
-            <Badge variant="secondary" className="text-xs">Gol</Badge>
+            <Badge variant="secondary" className="text-xs">{t.templateSettings.empty}</Badge>
           )}
           {!template.isActive && (
-            <Badge variant="secondary" className="text-xs">Inactiv</Badge>
+            <Badge variant="secondary" className="text-xs">{t.workflowStages.inactive}</Badge>
           )}
         </div>
       </div>
@@ -689,7 +700,7 @@ function CustomTemplateCard({
       <div className="flex gap-1 shrink-0">
         <Button variant="ghost" size="sm" onClick={() => onEdit(template.id)}>
           <Pencil className="h-3.5 w-3.5 mr-1" />
-          Editează
+          {t.templateSettings.edit}
         </Button>
         <Button
           variant="ghost"
@@ -724,7 +735,7 @@ function IncomingDocumentCard({
 
   const handleFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Doar fișiere PDF sunt acceptate.");
+      setError("Only PDF files are accepted.");
       return;
     }
     setUploading(true);
@@ -734,7 +745,7 @@ function IncomingDocumentCard({
       await documentTemplatesApi.uploadIncomingReference(type, file, (pct) => setUploadPct(pct));
       onUploaded();
     } catch {
-      setError("Eroare la încărcare. Încearcă din nou.");
+      setError("Upload error. Please try again.");
     } finally {
       setUploading(false);
       setUploadPct(null);
@@ -753,12 +764,12 @@ function IncomingDocumentCard({
             <p className="text-sm font-semibold text-foreground">{INCOMING_DOCUMENT_LABELS[type]}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-amber-400 text-amber-600 dark:text-amber-400">
-                Document primit
+                Incoming document
               </Badge>
               {status?.exists && (
                 <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-emerald-400 text-emerald-600 dark:text-emerald-400 gap-1">
                   <CheckCircle className="h-2.5 w-2.5" />
-                  Referință încărcată
+                  Reference uploaded
                 </Badge>
               )}
             </div>
@@ -800,8 +811,8 @@ function IncomingDocumentCard({
             </div>
           ) : (
             <div>
-              <p className="text-sm font-medium text-foreground">Încarcă document PDF de referință</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Click sau trage fișierul aici</p>
+              <p className="text-sm font-medium text-foreground">Upload PDF reference document</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Click or drag file here</p>
             </div>
           )}
           <input
@@ -815,7 +826,7 @@ function IncomingDocumentCard({
       ) : (
         <div className="space-y-2 py-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{uploadPct !== null && uploadPct < 100 ? `Se încarcă… ${uploadPct}%` : "Se procesează…"}</span>
+            <span>{uploadPct !== null && uploadPct < 100 ? `Uploading… ${uploadPct}%` : "Processing…"}</span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
             <div
@@ -838,7 +849,7 @@ function IncomingDocumentCard({
         <div className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3">
           <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <p className="text-xs text-emerald-700 dark:text-emerald-300">
-            Recunoaștere AI activă — documentele similare încărcate de practicieni vor fi auto-clasificate ca <strong>{INCOMING_DOCUMENT_LABELS[type]}</strong>.
+            AI recognition active — similar documents uploaded by practitioners will be auto-classified as <strong>{INCOMING_DOCUMENT_LABELS[type]}</strong>.
           </p>
         </div>
       )}
@@ -860,23 +871,24 @@ function NewTemplateForm({
   const [category, setCategory] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { t } = useTranslation();
 
   const handleCreate = async () => {
-    if (!name.trim()) { setError("Denumirea este obligatorie."); return; }
+    if (!name.trim()) { setError(t.templateSettings.templateNamePlaceholder + " is required."); return; }
     setSaving(true);
     setError("");
     try {
       const r = await documentTemplatesApi.create({ name: name.trim(), description, category });
       onCreated(r.data.id);
     } catch {
-      setError("Eroare la creare. Încearcă din nou.");
+      setError("Creation error. Please try again.");
       setSaving(false);
     }
   };
 
   return (
     <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-      <p className="text-sm font-semibold">Șablon nou</p>
+      <p className="text-sm font-semibold">{t.templateSettings.newTemplate}</p>
       <input
         autoFocus
         value={name}
@@ -888,22 +900,22 @@ function NewTemplateForm({
       <input
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        placeholder="Descriere (opțional)"
+        placeholder={t.templateSettings.descOptional}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
       />
       <input
         value={category}
         onChange={(e) => setCategory(e.target.value)}
-        placeholder="Categorie (opțional, ex: Notificări, Rapoarte)"
+        placeholder={t.templateSettings.categoryOptional}
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
       />
       {error && <p className="text-xs text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button size="sm" onClick={handleCreate} disabled={saving}>
           {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
-          Crează și deschide editorul
+          {t.templateSettings.createAndOpen}
         </Button>
-        <Button size="sm" variant="ghost" onClick={onCancel}>Anulează</Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>{t.common.cancel}</Button>
       </div>
     </div>
   );
@@ -912,7 +924,7 @@ function NewTemplateForm({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function TemplateSettingsPage() {
-  const { locale } = useTranslation();
+  const { locale, t } = useTranslation();
   const [tab, setTab] = useState<"system" | "custom" | "incoming">("system");
   const [templates, setTemplates] = useState<DocumentTemplateDto[]>([]);
   const [placeholders, setPlaceholders] = useState<PlaceholderGroup[]>([]);
@@ -1012,7 +1024,7 @@ export default function TemplateSettingsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Ștergi acest șablon? Acțiunea este ireversibilă.")) return;
+    if (!window.confirm(t.templateSettings.deleteConfirm)) return;
     setDeletingId(id);
     try {
       await documentTemplatesApi.delete(id);
@@ -1064,14 +1076,12 @@ export default function TemplateSettingsPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Șabloane documente</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Definește conținutul șabloanelor obligatorii și crează șabloane custom cu câmpuri dinamice.
-          </p>
+          <h1 className="text-xl font-bold">{t.templateSettings.pageTitle}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t.templateSettings.pageDesc}</p>
         </div>
         <Button onClick={() => { setShowNewForm(true); setTab("custom"); }}>
           <Plus className="h-4 w-4 mr-1.5" />
-          Șablon nou
+          {t.templateSettings.newTemplate}
         </Button>
       </div>
 
@@ -1088,7 +1098,7 @@ export default function TemplateSettingsPage() {
             }
           `}
         >
-          Obligatorii{" "}
+          {t.templateSettings.tabRequired}{" "}
           <span className="ml-1 text-xs text-muted-foreground">({systemTemplates.length})</span>
         </button>
         <button
@@ -1125,7 +1135,7 @@ export default function TemplateSettingsPage() {
       {loadingList && (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Se încarcă…
+          {t.templateSettings.loading}
         </div>
       )}
 
@@ -1140,7 +1150,7 @@ export default function TemplateSettingsPage() {
             <div className="rounded-lg border border-dashed border-border p-8 text-center">
               <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
-                Nu există șabloane de sistem. Contactează administratorul pentru inițializare.
+                {t.templateSettings.noSystemTemplates}
               </p>
             </div>
           ) : (
@@ -1173,11 +1183,11 @@ export default function TemplateSettingsPage() {
             <div className="rounded-lg border border-dashed border-border p-8 text-center">
               <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground mb-3">
-                Nu ai creat încă niciun șablon custom.
+                {t.templateSettings.noCustomTemplates}
               </p>
               <Button variant="outline" size="sm" onClick={() => setShowNewForm(true)}>
                 <Plus className="h-3.5 w-3.5 mr-1" />
-                Crează primul șablon
+                {t.templateSettings.createFirstTemplate}
               </Button>
             </div>
           ) : (

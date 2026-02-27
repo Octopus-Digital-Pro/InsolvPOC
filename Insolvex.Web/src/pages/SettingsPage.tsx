@@ -323,6 +323,28 @@ setResetMsg(t.settings.passwordResetSuccess ?? "Password reset successfully");
             <Badge variant="outline" className="text-[10px]">{t.common.pending}</Badge>
         )}
                  <span className="text-[10px] text-muted-foreground shrink-0">{format(new Date(inv.createdOn as string), "dd MMM HH:mm")}</span>
+   {!(inv.isAccepted as boolean) && (
+     <button
+       type="button"
+       disabled={revokingId === (inv.id as string)}
+       onClick={async () => {
+         if (!window.confirm(`Revocare invitație pentru ${inv.email as string}?`)) return;
+         setRevokingId(inv.id as string);
+         try {
+           await client.delete(`/users/invitations/${inv.id as string}`);
+           setInvitations(prev => prev.filter(i => i.id !== inv.id));
+         } finally {
+           setRevokingId(null);
+         }
+       }}
+       className="ml-1 rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-40 transition-colors"
+       title="Revocare invitație"
+     >
+       {revokingId === (inv.id as string)
+         ? <span className="h-3.5 w-3.5 inline-block animate-spin border-2 border-current border-t-transparent rounded-full" />
+         : <Trash2 className="h-3.5 w-3.5" />}
+     </button>
+   )}
    </div>
          ))}
            </div>

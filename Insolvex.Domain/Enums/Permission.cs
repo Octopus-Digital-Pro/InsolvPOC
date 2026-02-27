@@ -13,6 +13,7 @@ public enum Permission
   CaseEdit = 102,
   CaseDelete = 103,
   CaseExport = 104,
+  CaseClose = 105,
 
   // ?? Case Parties ??
   PartyView = 200,
@@ -25,6 +26,7 @@ public enum Permission
   PhaseEdit = 301,
   PhaseInitialize = 302,
   PhaseAdvance = 303,
+  PhaseDeadlineOverride = 304,
 
   // ?? Stage Transitions (Workflow Definition) ??
   StageView = 350,

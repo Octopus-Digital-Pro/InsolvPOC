@@ -41,6 +41,9 @@ public class InsolvencyCase : TenantScopedEntity
     /// <summary>When the status was last changed.</summary>
     public DateTime? StatusChangedAt { get; set; }
 
+    /// <summary>Mandatory explanation when closing a case (especially when stages are force-overridden).</summary>
+    public string? ClosureNotes { get; set; }
+
     // ?? Structured key deadlines (JSON) ??
     /// <summary>JSON object with typed deadline keys: claimDeadline, objectionDeadline, meetingDate, reportDates, etc.</summary>
     public string? KeyDeadlinesJson { get; set; }

@@ -2,7 +2,7 @@ namespace Insolvex.Core.DTOs;
 
 public record EmailDto(
     Guid Id,
- Guid? CaseId,
+    Guid? CaseId,
     string To,
     string? Cc,
     string? Bcc,
@@ -10,13 +10,22 @@ public record EmailDto(
     string Body,
     DateTime ScheduledFor,
     DateTime? SentAt,
- bool IsSent,
-  string Status,
+    bool IsSent,
+    string Status,
     int RetryCount,
     string? ErrorMessage,
     string? ProviderMessageId,
     Guid? RelatedTaskId,
-    DateTime CreatedOn
+    DateTime CreatedOn,
+    // Threading
+    Guid? ThreadId,
+    Guid? InReplyToId,
+    string Direction,
+    string? FromName,
+    string? CaseEmailAddress,
+    // Attachments
+    string? AttachmentsJson,
+    string? RelatedDocumentIdsJson
 );
 
 public record CreateEmailRequest(

@@ -13,4 +13,6 @@ public interface ICasePartyService
     Task<CasePartyDto> CreateAsync(Guid caseId, CreateCasePartyRequest request, CancellationToken ct = default);
     Task<CasePartyDto> UpdateAsync(Guid caseId, Guid partyId, UpdateCasePartyRequest request, CancellationToken ct = default);
     Task DeleteAsync(Guid caseId, Guid partyId, CancellationToken ct = default);
+
+    Task<List<CompanyCasePartyDto>> GetByCompanyAsync(Guid companyId, CancellationToken ct = default);
 }

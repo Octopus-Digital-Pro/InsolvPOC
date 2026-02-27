@@ -4,9 +4,10 @@ import { usersApi } from "@/services/api";
 import type { TaskDto, UserDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import TaskDetailModal from "@/components/TaskDetailModal";
 import {
   ListChecks, Calendar as CalendarIcon, LayoutGrid,
-  Clock, CheckCircle2, AlertTriangle, Ban,
+  Clock, CheckCircle2, AlertTriangle, Ban, X,
 } from "lucide-react";
 import { format, isPast, isToday, addDays, startOfWeek, endOfWeek } from "date-fns";
 
@@ -25,25 +26,76 @@ const STATUS_COLUMNS = [
   { key: "done", label: "Done", icon: CheckCircle2, color: "text-green-500" },
 ] as const;
 
+/* ─── Block Reason Modal ───────────────────────────────────────────────────── */
+function BlockReasonModal({ open, onConfirm, onCancel }: {
+  open: boolean;
+  onConfirm: (reason: string) => void;
+  onCancel: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">Block Reason</h3>
+          <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">Please provide a reason for blocking this task.</p>
+        <textarea
+          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+          rows={3}
+          placeholder="e.g. Waiting for court order..."
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          autoFocus
+        />
+        <div className="flex justify-end gap-2 mt-3">
+          <Button variant="outline" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button size="sm" onClick={() => { onConfirm(reason); setReason(""); }} disabled={!reason.trim()}>
+            Confirm Block
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Props) {
   const [view, setView] = useState<ViewMode>("list");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserDto[]>([]);
+  const [blockModal, setBlockModal] = useState<{ open: boolean; taskId: string }>({ open: false, taskId: "" });
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     usersApi.getAll().then(r => setUsers(r.data)).catch(console.error);
   }, []);
 
-  const handleStatusChange = async (taskId: string, newStatus: string) => {
+  const applyStatusChange = async (taskId: string, newStatus: string, blockReason?: string) => {
     setUpdatingId(taskId);
     try {
-      await tasksApi.update(taskId, { status: newStatus });
+      await tasksApi.update(taskId, { status: newStatus, ...(blockReason !== undefined ? { blockReason } : {}) });
       onRefresh();
     } catch (e) {
       console.error(e);
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const handleStatusChange = (taskId: string, newStatus: string) => {
+    if (newStatus === "blocked") {
+      setBlockModal({ open: true, taskId });
+    } else {
+      applyStatusChange(taskId, newStatus);
+    }
+  };
+
+  const handleBlockConfirm = (reason: string) => {
+    const { taskId } = blockModal;
+    setBlockModal({ open: false, taskId: "" });
+    applyStatusChange(taskId, "blocked", reason);
   };
 
   const handleAssign = async (taskId: string, userId: string | null) => {
@@ -62,6 +114,12 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Prop
 
   return (
     <div className="space-y-3">
+      <BlockReasonModal
+        open={blockModal.open}
+        onConfirm={handleBlockConfirm}
+        onCancel={() => setBlockModal({ open: false, taskId: "" })}
+      />
+      <TaskDetailModal taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} onStatusChanged={() => onRefresh()} />
   {/* Header + view toggle */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -97,10 +155,10 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Prop
       </div>
 
       {/* List View */}
-      {view === "list" && <ListView tasks={tasks} onStatusChange={handleStatusChange} onAssign={handleAssign} updatingId={updatingId} users={users} />}
+      {view === "list" && <ListView tasks={tasks} onStatusChange={handleStatusChange} onAssign={handleAssign} updatingId={updatingId} users={users} onTaskClick={setSelectedTaskId} />}
 
       {/* Kanban View */}
-    {view === "kanban" && <KanbanView tasks={tasks} onStatusChange={handleStatusChange} updatingId={updatingId} />}
+    {view === "kanban" && <KanbanView tasks={tasks} onStatusChange={handleStatusChange} updatingId={updatingId} onTaskClick={setSelectedTaskId} />}
 
  {/* Calendar View */}
       {view === "calendar" && <CalendarView tasks={tasks} />}
@@ -109,12 +167,13 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Prop
 }
 
 /* ?? List View ???????????????????????????????????????? */
-function ListView({ tasks, onStatusChange, onAssign, updatingId, users }: {
+function ListView({ tasks, onStatusChange, onAssign, updatingId, users, onTaskClick }: {
   tasks: TaskDto[];
   onStatusChange: (id: string, status: string) => void;
   onAssign: (id: string, userId: string | null) => void;
   updatingId: string | null;
   users: UserDto[];
+  onTaskClick: (id: string) => void;
 }) {
   const sorted = [...tasks].sort((a, b) => {
     if (a.status === "done" && b.status !== "done") return 1;
@@ -135,18 +194,19 @@ function ListView({ tasks, onStatusChange, onAssign, updatingId, users }: {
   return (
     <div className="rounded-xl border border-border bg-card divide-y divide-border">
       {sorted.map(task => (
-        <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} onAssign={onAssign} updating={updatingId === task.id} users={users} />
+        <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} onAssign={onAssign} updating={updatingId === task.id} users={users} onTaskClick={onTaskClick} />
       ))}
     </div>
   );
 }
 
-function TaskRow({ task, onStatusChange, onAssign, updating, users }: {
+function TaskRow({ task, onStatusChange, onAssign, updating, users, onTaskClick }: {
   task: TaskDto;
   onStatusChange: (id: string, status: string) => void;
   onAssign: (id: string, userId: string | null) => void;
   updating: boolean;
   users: UserDto[];
+  onTaskClick: (id: string) => void;
 }) {
   const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== "done";
   const isDueToday = task.deadline && isToday(new Date(task.deadline));
@@ -169,7 +229,7 @@ function TaskRow({ task, onStatusChange, onAssign, updating, users }: {
       </button>
 
       {/* Content */}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onTaskClick(task.id)}>
       <p className={`text-sm font-medium truncate ${task.status === "done" ? "line-through text-muted-foreground" : "text-foreground"}`}>
  {task.title}
         </p>
@@ -220,67 +280,91 @@ isOverdue ? "text-destructive" : isDueToday ? "text-amber-500" : "text-muted-for
   );
 }
 
-/* ?? Kanban View ?????????????????????????????????????? */
-function KanbanView({ tasks, onStatusChange, updatingId: _updatingId }: {
+/* ── Kanban View ─────────────────────────────────────────────────────────── */
+function KanbanView({ tasks, onStatusChange, updatingId: _updatingId, onTaskClick }: {
   tasks: TaskDto[];
   onStatusChange: (id: string, status: string) => void;
   updatingId: string | null;
+  onTaskClick: (id: string) => void;
 }) {
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+
+  const handleDrop = (colKey: string) => {
+    if (!draggedId) return;
+    onStatusChange(draggedId, colKey);
+    setDraggedId(null);
+  };
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       {STATUS_COLUMNS.map(col => {
         const colTasks = tasks.filter(t => t.status === col.key);
         return (
-          <div key={col.key} className="rounded-xl border border-border bg-card/50">
+          <div
+            key={col.key}
+            className="rounded-xl border border-border bg-card/50"
+            onDragOver={e => e.preventDefault()}
+            onDrop={() => handleDrop(col.key)}
+          >
             <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-           <col.icon className={`h-3.5 w-3.5 ${col.color}`} />
-      <span className="text-xs font-semibold">{col.label}</span>
-        <Badge variant="secondary" className="text-[9px] ml-auto">{colTasks.length}</Badge>
-    </div>
-     <div className="p-2 space-y-2 max-h-[400px] overflow-y-auto">
-   {colTasks.length === 0 ? (
-  <p className="text-[10px] text-muted-foreground text-center py-4">No tasks</p>
-      ) : (
+              <col.icon className={`h-3.5 w-3.5 ${col.color}`} />
+              <span className="text-xs font-semibold">{col.label}</span>
+              <Badge variant="secondary" className="text-[9px] ml-auto">{colTasks.length}</Badge>
+            </div>
+            <div className="p-2 space-y-2 max-h-[400px] overflow-y-auto">
+              {colTasks.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground text-center py-4">No tasks</p>
+              ) : (
                 colTasks.map(task => (
-          <KanbanCard
-         key={task.id}
-         task={task}
-     onStatusChange={onStatusChange}
-                    nextStatus={col.key === "open" ? "done" : col.key === "done" ? "open" : "done"}
-     />
-           ))
-    )}
-     </div>
+                  <KanbanCard
+                    key={task.id}
+                    task={task}
+                    isDragging={draggedId === task.id}
+                    onDragStart={() => setDraggedId(task.id)}
+                    onDragEnd={() => setDraggedId(null)}
+                    onTaskClick={onTaskClick}
+                  />
+                ))
+              )}
+            </div>
           </div>
-   );
+        );
       })}
     </div>
   );
 }
 
-function KanbanCard({ task, onStatusChange, nextStatus }: {
+function KanbanCard({ task, isDragging, onDragStart, onDragEnd, onTaskClick }: {
   task: TaskDto;
-  onStatusChange: (id: string, status: string) => void;
-  nextStatus: string;
+  isDragging: boolean;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onTaskClick: (id: string) => void;
 }) {
   const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== "done";
 
   return (
     <div
-      className={`rounded-lg border border-border bg-card p-2.5 cursor-pointer hover:shadow-sm transition-shadow ${isOverdue ? "border-destructive/50" : ""}`}
-      onClick={() => onStatusChange(task.id, nextStatus)}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={() => onTaskClick(task.id)}
+      className={`rounded-lg border border-border bg-card p-2.5 cursor-pointer hover:bg-accent/30 hover:shadow-sm transition-shadow ${isOverdue ? "border-destructive/50" : ""} ${isDragging ? "opacity-50" : ""}`}
     >
-   <p className="text-xs font-medium text-foreground line-clamp-2">{task.title}</p>
+      <p className="text-xs font-medium text-foreground line-clamp-2">{task.title}</p>
       <div className="mt-1.5 flex items-center gap-2">
         {task.deadline && (
-    <span className={`text-[9px] ${isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+          <span className={`text-[9px] ${isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
             {format(new Date(task.deadline), "dd MMM")}
-  </span>
- )}
-    {task.assignedToName && (
-       <span className="text-[9px] text-muted-foreground truncate">{task.assignedToName}</span>
+          </span>
+        )}
+        {task.assignedToName && (
+          <span className="text-[9px] text-muted-foreground truncate">{task.assignedToName}</span>
         )}
       </div>
+      {task.status === "blocked" && (task as unknown as Record<string, string>).blockReason && (
+        <p className="mt-1 text-[9px] text-destructive italic line-clamp-1">{(task as unknown as Record<string, string>).blockReason}</p>
+      )}
     </div>
   );
 }

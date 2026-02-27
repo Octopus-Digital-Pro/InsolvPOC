@@ -65,4 +65,7 @@ public class CompanyTask : TenantScopedEntity
 
     /// <summary>Date/time the task was completed.</summary>
     public DateTime? CompletedAt { get; set; }
+
+    /// <summary>Notes / activity log entries for this task.</summary>
+    public virtual ICollection<TaskNote> Notes { get; set; } = new List<TaskNote>();
 }

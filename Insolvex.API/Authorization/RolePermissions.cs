@@ -24,7 +24,7 @@ public static class RolePermissions
       [UserRole.Practitioner] = new(new[]
         {
           // Cases — full CRUD
-     Permission.CaseView, Permission.CaseCreate, Permission.CaseEdit, Permission.CaseExport,
+     Permission.CaseView, Permission.CaseCreate, Permission.CaseEdit, Permission.CaseExport, Permission.CaseClose,
             // Parties
             Permission.PartyView, Permission.PartyCreate, Permission.PartyEdit, Permission.PartyDelete,
        // Phases / Workflow

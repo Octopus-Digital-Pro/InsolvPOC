@@ -59,6 +59,13 @@ public class CasesController : ControllerBase
       ProcedureType = body.ProcedureType,
       LawReference = body.LawReference,
       CompanyId = body.CompanyId,
+      NoticeDate = body.NoticeDate,
+      OpeningDate = body.OpeningDate,
+      NextHearingDate = body.NextHearingDate,
+      ClaimsDeadline = body.ClaimsDeadline,
+      ContestationsDeadline = body.ContestationsDeadline,
+      DefinitiveTableDate = body.DefinitiveTableDate,
+      ReorganizationPlanDeadline = body.ReorganizationPlanDeadline,
     }, ct);
     return CreatedAtAction(nameof(GetById), new { id = dto.Id }, dto);
   }
@@ -122,7 +129,15 @@ public record CreateCaseBody(
     string? DebtorCui = null,
     ProcedureType? ProcedureType = null,
     string? LawReference = null,
-    Guid? CompanyId = null);
+    Guid? CompanyId = null,
+    // Key dates
+    DateTime? NoticeDate = null,
+    DateTime? OpeningDate = null,
+    DateTime? NextHearingDate = null,
+    DateTime? ClaimsDeadline = null,
+    DateTime? ContestationsDeadline = null,
+    DateTime? DefinitiveTableDate = null,
+    DateTime? ReorganizationPlanDeadline = null);
 
 public record UpdateCaseBody(
     string? CaseNumber = null, string? CourtName = null, string? CourtSection = null,

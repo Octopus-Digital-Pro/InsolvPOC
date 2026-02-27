@@ -68,7 +68,7 @@ checked ? "bg-primary" : "bg-muted"
 
 export default function DeadlineSettingsPage() {
   const navigate = useNavigate();
-  useTranslation(); // keep context subscription
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<TenantDeadlineSettingsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -114,20 +114,20 @@ console.error(e);
   };
 
   if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
-  if (!settings) return <p className="p-8 text-muted-foreground">Failed to load deadline settings.</p>;
+  if (!settings) return <p className="p-8 text-muted-foreground">{t.deadlines.failedToLoad}</p>;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
       <BackButton className="cursor-pointer flex items-center gap-2 mb-2 text-xs" onClick={() => navigate("/settings")}>
-      Back to Settings
+      {t.deadlines.backToSettings}
           </BackButton>
       <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Settings2 className="h-5 w-5" /> Deadline Settings
+            <Settings2 className="h-5 w-5" /> {t.deadlines.title}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-         Configure default deadline periods, reminder schedules, and escalation rules for your tenant.
+         {t.deadlines.description}
 </p>
         </div>
         <Button
@@ -136,7 +136,7 @@ console.error(e);
           className="gap-1.5"
       >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-          {saved ? "Saved!" : "Save"}
+          {saved ? t.deadlines.saved : t.common.save}
         </Button>
       </div>
 
@@ -144,24 +144,24 @@ console.error(e);
       <div className="rounded-xl border border-border bg-card">
    <div className="border-b border-border px-4 py-3">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
- <Clock className="h-3.5 w-3.5" /> Deadline Periods
+ <Clock className="h-3.5 w-3.5" /> {t.deadlines.deadlinePeriods}
           </h2>
      </div>
 <div className="px-4">
-    <SettingField label="Claim Deadline" description="Days from notice date for creditor claims filing.">
-            <NumberInput value={settings.claimDeadlineDaysFromNotice} onChange={v => update("claimDeadlineDaysFromNotice", v)} unit="days" />
+    <SettingField label={t.deadlines.claimDeadline} description={t.deadlines.claimDeadlineDesc}>
+            <NumberInput value={settings.claimDeadlineDaysFromNotice} onChange={v => update("claimDeadlineDaysFromNotice", v)} unit={t.deadlines.days} />
        </SettingField>
-          <SettingField label="Objection Deadline" description="Days from notice date for claim objections.">
-         <NumberInput value={settings.objectionDeadlineDaysFromNotice} onChange={v => update("objectionDeadlineDaysFromNotice", v)} unit="days" />
+          <SettingField label={t.deadlines.objectionDeadline} description={t.deadlines.objectionDeadlineDesc}>
+         <NumberInput value={settings.objectionDeadlineDaysFromNotice} onChange={v => update("objectionDeadlineDaysFromNotice", v)} unit={t.deadlines.days} />
    </SettingField>
-          <SettingField label="Initial Notice Send Within" description="Days to send the first creditor notification.">
-     <NumberInput value={settings.sendInitialNoticeWithinDays} onChange={v => update("sendInitialNoticeWithinDays", v)} unit="days" />
+          <SettingField label={t.deadlines.initialNotice} description={t.deadlines.initialNoticeDesc}>
+     <NumberInput value={settings.sendInitialNoticeWithinDays} onChange={v => update("sendInitialNoticeWithinDays", v)} unit={t.deadlines.days} />
           </SettingField>
-      <SettingField label="Meeting Notice Minimum" description="Minimum days before a creditor meeting to send notices.">
-         <NumberInput value={settings.meetingNoticeMinimumDays} onChange={v => update("meetingNoticeMinimumDays", v)} unit="days" />
+      <SettingField label={t.deadlines.meetingNotice} description={t.deadlines.meetingNoticeDesc}>
+         <NumberInput value={settings.meetingNoticeMinimumDays} onChange={v => update("meetingNoticeMinimumDays", v)} unit={t.deadlines.days} />
  </SettingField>
-          <SettingField label="Report Frequency" description="Days between mandatory reports.">
- <NumberInput value={settings.reportEveryNDays} onChange={v => update("reportEveryNDays", v)} unit="days" />
+          <SettingField label={t.deadlines.reportFrequency} description={t.deadlines.reportFrequencyDesc}>
+ <NumberInput value={settings.reportEveryNDays} onChange={v => update("reportEveryNDays", v)} unit={t.deadlines.days} />
           </SettingField>
         </div>
   </div>
@@ -170,17 +170,17 @@ console.error(e);
       <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border px-4 py-3">
    <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-        <CalendarDays className="h-3.5 w-3.5" /> Calculation Options
+        <CalendarDays className="h-3.5 w-3.5" /> {t.deadlines.calculationOptions}
           </h2>
         </div>
     <div className="px-4">
-      <SettingField label="Use Business Days" description="Count only working days (exclude weekends & Romanian holidays).">
+      <SettingField label={t.deadlines.useBusinessDays} description={t.deadlines.useBusinessDaysDesc}>
  <Toggle checked={settings.useBusinessDays} onChange={v => update("useBusinessDays", v)} />
 </SettingField>
-      <SettingField label="Adjust to Next Working Day" description="If deadline falls on weekend/holiday, move to next business day.">
+      <SettingField label={t.deadlines.adjustToWorkingDay} description={t.deadlines.adjustToWorkingDayDesc}>
        <Toggle checked={settings.adjustToNextWorkingDay} onChange={v => update("adjustToNextWorkingDay", v)} />
           </SettingField>
-          <SettingField label="Reminder Schedule" description="Days before deadline to send reminders (comma-separated).">
+          <SettingField label={t.deadlines.reminderSchedule} description={t.deadlines.reminderScheduleDesc}>
  <input
           type="text"
               value={settings.reminderDaysBeforeDeadline}
@@ -196,14 +196,14 @@ console.error(e);
       <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border px-4 py-3">
     <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-   <AlertTriangle className="h-3.5 w-3.5" /> Escalation Rules
+   <AlertTriangle className="h-3.5 w-3.5" /> {t.deadlines.escalationRules}
     </h2>
       </div>
         <div className="px-4">
-          <SettingField label="Urgent Queue Threshold" description="Hours before deadline to trigger urgent escalation.">
-  <NumberInput value={settings.urgentQueueHoursBeforeDeadline} onChange={v => update("urgentQueueHoursBeforeDeadline", v)} unit="hours" />
+          <SettingField label={t.deadlines.urgentThreshold} description={t.deadlines.urgentThresholdDesc}>
+  <NumberInput value={settings.urgentQueueHoursBeforeDeadline} onChange={v => update("urgentQueueHoursBeforeDeadline", v)} unit={t.deadlines.hours} />
           </SettingField>
-     <SettingField label="Auto-Assign Backup on Critical Overdue" description="Automatically reassign overdue critical tasks to a backup admin.">
+     <SettingField label={t.deadlines.autoAssignBackup} description={t.deadlines.autoAssignBackupDesc}>
          <Toggle checked={settings.autoAssignBackupOnCriticalOverdue} onChange={v => update("autoAssignBackupOnCriticalOverdue", v)} />
           </SettingField>
         </div>
@@ -213,13 +213,13 @@ console.error(e);
       <div className="rounded-xl border border-primary/20 bg-primary/5">
 <div className="border-b border-primary/10 px-4 py-3">
      <h2 className="text-xs font-semibold uppercase tracking-wide text-primary flex items-center gap-1.5">
-            <RefreshCw className="h-3.5 w-3.5" /> Deadline Preview
+            <RefreshCw className="h-3.5 w-3.5" /> {t.deadlines.preview}
     </h2>
-          <p className="text-[11px] text-muted-foreground mt-0.5">Compute deadlines from a sample notice date to verify your settings.</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{t.deadlines.previewDescription}</p>
       </div>
   <div className="px-4 py-3 space-y-3">
           <div className="flex items-center gap-2">
-            <label className="text-xs text-muted-foreground">Notice Date:</label>
+            <label className="text-xs text-muted-foreground">{t.deadlines.noticeDate}:</label>
             <input
               type="date"
           value={previewDate}
@@ -227,16 +227,16 @@ console.error(e);
               className="rounded-md border border-input bg-background px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
  <Button variant="outline" size="sm" className="text-xs gap-1" onClick={handlePreview}>
-           <RefreshCw className="h-3 w-3" /> Compute
+           <RefreshCw className="h-3 w-3" /> {t.deadlines.compute}
             </Button>
     </div>
     {preview && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
    {[
-            { label: "Claim Deadline", value: preview.claimDeadline },
-{ label: "Objection Deadline", value: preview.objectionDeadline },
-      { label: "Notice Send By", value: preview.initialNoticeSendBy },
-       { label: "First Report", value: preview.firstReportDue },
+            { label: t.deadlines.claimDeadlineResult, value: preview.claimDeadline },
+{ label: t.deadlines.objectionDeadlineResult, value: preview.objectionDeadline },
+      { label: t.deadlines.noticeSendBy, value: preview.initialNoticeSendBy },
+       { label: t.deadlines.firstReport, value: preview.firstReportDue },
               ].map(d => (
                 <div key={d.label} className="rounded-lg border border-border bg-card p-2.5 text-center">
          <p className="text-[10px] text-muted-foreground">{d.label}</p>

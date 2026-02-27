@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { companiesApi, casesApi, tasksApi, documentsApi } from "@/services/api";
 import { useTranslation } from "@/contexts/LanguageContext";
-import type { CompanyDto, CaseDto, TaskDto, DocumentDto } from "@/services/api/types";
+import type { CompanyDto, CaseDto, TaskDto, DocumentDto, CompanyCasePartyDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
-import { Loader2, Plus, Briefcase, ListChecks, Pencil, Phone, FileText, X } from "lucide-react";
+import TaskDetailModal from "@/components/TaskDetailModal";
+import { Loader2, Plus, Briefcase, ListChecks, Pencil, Phone, FileText, X, Users } from "lucide-react";
 import { format } from "date-fns";
 
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
@@ -27,12 +28,14 @@ export default function CompanyDetailPage() {
   const [cases, setCases] = useState<CaseDto[]>([]);
   const [tasks, setTasks] = useState<TaskDto[]>([]);
   const [docs, setDocs] = useState<DocumentDto[]>([]);
+  const [parties, setParties] = useState<CompanyCasePartyDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDocPanel, setShowDocPanel] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskDeadline, setNewTaskDeadline] = useState("");
   const [savingTask, setSavingTask] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -41,11 +44,13 @@ export default function CompanyDetailPage() {
       casesApi.getAll(id),
       tasksApi.getAll({ companyId: id }),
       documentsApi.getByCompany(id),
-    ]).then(([compRes, casesRes, tasksRes, docsRes]) => {
+      companiesApi.getPartiesByCompany(id),
+    ]).then(([compRes, casesRes, tasksRes, docsRes, partiesRes]) => {
       setCompany(compRes.data);
       setCases(casesRes.data);
       setTasks(tasksRes.data);
       setDocs(docsRes.data);
+      setParties(partiesRes.data);
     }).catch(console.error)
     .finally(() => setLoading(false));
   }, [id]);
@@ -81,6 +86,7 @@ export default function CompanyDetailPage() {
     <div className="flex gap-5">
       {/* Main content */}
  <div className="flex-1 min-w-0 max-w-5xl mx-auto space-y-6">
+      <TaskDetailModal taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} onStatusChanged={() => { if (id) tasksApi.getAll({ companyId: id }).then(r => setTasks(r.data)); }} />
      <BackButton className="cursor-pointer flex items-center gap-2 mb-2" onClick={() => navigate("/companies")}>{t.companies.backToCompanies}</BackButton>
 
         {/* Company header */}
@@ -156,6 +162,44 @@ export default function CompanyDetailPage() {
     </div>
         </div>
 
+        {/* Parties */}
+        {parties.length > 0 && (
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Users className="h-3.5 w-3.5" /> {t.companies.partiesSection} ({parties.length})
+              </h2>
+            </div>
+            <div className="rounded-xl border border-border bg-card divide-y divide-border">
+              {parties.map(p => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-accent/50 transition-colors"
+                  onClick={() => navigate(`/cases/${p.caseId}`)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {p.caseNumber ?? p.caseId}
+                      {p.debtorName && <span className="ml-2 text-xs text-muted-foreground">— {p.debtorName}</span>}
+                    </p>
+                    {p.roleDescription && (
+                      <p className="text-xs text-muted-foreground truncate">{p.roleDescription}</p>
+                    )}
+                  </div>
+                  <Badge variant="secondary" className="text-[10px] shrink-0">{p.role}</Badge>
+                  {p.claimAmountRon != null && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {p.claimAmountRon.toLocaleString("ro-RO")} RON
+                      {p.claimAccepted === true && <span className="ml-1 text-green-600">✓</span>}
+                      {p.claimAccepted === false && <span className="ml-1 text-destructive">✗</span>}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Tasks */}
         <div>
       <div className="mb-2 flex items-center justify-between">
@@ -202,7 +246,7 @@ export default function CompanyDetailPage() {
        <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t.tasks.noTasks}</p>
    ) : (
      tasks.map(tk => (
-     <div key={tk.id} className="flex items-center gap-3 px-4 py-2.5">
+     <div key={tk.id} className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setSelectedTaskId(tk.id)}>
           <div className="min-w-0 flex-1">
     <p className="text-sm font-medium text-foreground truncate">{tk.title}</p>
         {tk.description && <p className="text-xs text-muted-foreground truncate">{tk.description}</p>}

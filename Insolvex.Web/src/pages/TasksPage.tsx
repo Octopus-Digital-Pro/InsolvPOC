@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { tasksApi } from "@/services/api";
 import { useTranslation } from "@/contexts/LanguageContext";
 import type { TaskDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import TaskDetailModal from "@/components/TaskDetailModal";
 import {
   Loader2, Search, ListChecks, LayoutGrid, Calendar as CalendarIcon,
   CheckCircle2, Clock, AlertTriangle, Ban, X,
@@ -71,6 +72,7 @@ export default function TasksPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [blockModal, setBlockModal] = useState<{ taskId: string; open: boolean }>({ taskId: "", open: false });
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const reload = () => {
     setLoading(true);
@@ -131,6 +133,7 @@ export default function TasksPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-4">
       <BlockReasonModal open={blockModal.open} onConfirm={handleBlockConfirm} onCancel={() => setBlockModal({ taskId: "", open: false })} />
+      <TaskDetailModal taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} onStatusChanged={() => reload()} />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -208,6 +211,7 @@ export default function TasksPage() {
           updatingId={updatingId}
           onStatusChange={handleStatusChange}
           navigate={navigate}
+          onTaskClick={setSelectedTaskId}
         />
       )}
 
@@ -240,7 +244,8 @@ export default function TasksPage() {
                           draggable
                           onDragStart={() => setDraggedId(task.id)}
                           onDragEnd={() => setDraggedId(null)}
-                          className={`rounded-lg border border-border bg-card p-2.5 cursor-grab active:cursor-grabbing hover:shadow-sm transition-shadow ${isOverdue ? "border-destructive/50" : ""} ${draggedId === task.id ? "opacity-50" : ""}`}
+                          onClick={() => setSelectedTaskId(task.id)}
+                          className={`rounded-lg border border-border bg-card p-2.5 cursor-pointer hover:shadow-sm hover:bg-accent/30 transition-shadow ${isOverdue ? "border-destructive/50" : ""} ${draggedId === task.id ? "opacity-50" : ""}`}
                         >
                           <p className="text-xs font-medium text-foreground line-clamp-2">{task.title}</p>
                           <div className="mt-1.5 flex items-center gap-2 flex-wrap">
@@ -271,7 +276,7 @@ export default function TasksPage() {
   );
 }
 
-/* ─── Grouped List View ─────────────────────────────────────────────────── */
+/* â”€â”€â”€ Grouped List View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const GROUP_ORDER: Array<TaskDto["status"]> = ["blocked", "inProgress", "open", "done"];
 const GROUP_META: Record<string, { label: string; colorClass: string }> = {
   blocked:    { label: "Blocked",     colorClass: "text-destructive" },
@@ -286,12 +291,14 @@ function GroupedListView({
   updatingId,
   onStatusChange,
   navigate,
+  onTaskClick,
 }: {
   tasks: TaskDto[];
   statusLabel: (s: string) => string;
   updatingId: string | null;
   onStatusChange: (id: string, status: string) => void;
   navigate: (path: string) => void;
+  onTaskClick: (id: string) => void;
 }) {
   const groups = GROUP_ORDER
     .map(status => ({ status, items: tasks.filter(t => t.status === status) }))
@@ -334,8 +341,7 @@ function GroupedListView({
                     >
                       {tk.status === "done" && <CheckCircle2 className="h-3 w-3" />}
                     </button>
-                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => tk.companyId && navigate(`/companies/${tk.companyId}`)}>
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onTaskClick(tk.id)}>                      <div className="flex items-center gap-2">
                         <p className={`text-sm font-medium truncate ${tk.status === "done" ? "line-through text-muted-foreground" : "text-foreground"}`}>{tk.title}</p>
                         {tk.labels && tk.labels.split(",").slice(0, 2).map(l => (
                           <Badge key={l.trim()} variant="secondary" className="text-[10px] font-normal shrink-0 hidden sm:inline-flex">{l.trim()}</Badge>
@@ -364,7 +370,7 @@ function GroupedListView({
   );
 }
 
-/* ─── Calendar View (week grid) ─────────────────────────────────────────── */
+/* â”€â”€â”€ Calendar View (week grid) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function TaskCalendarView({ tasks }: { tasks: TaskDto[] }) {
   const [weekOffset, setWeekOffset] = useState(0);
 
@@ -432,162 +438,3 @@ function TaskCalendarView({ tasks }: { tasks: TaskDto[] }) {
   );
 }
 
-     <ListChecks className="h-10 w-10 mb-2 opacity-30" />
-              <p className="text-sm">{t.tasks.noTasks}</p>
-  </div>
-  ) : (
-     filtered.map(tk => {
-        const isOverdue = tk.deadline && isPast(new Date(tk.deadline)) && tk.status !== "done";
-          const isDueToday = tk.deadline && isToday(new Date(tk.deadline));
-   return (
-          <div key={tk.id} className={`flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors ${isOverdue ? "bg-destructive/5" : ""}`}>
- {/* Status toggle */}
-         <button
-onClick={() => handleStatusChange(tk.id, tk.status === "done" ? "open" : "done")}
-       disabled={updatingId === tk.id}
-        className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-        tk.status === "done"
-         ? "border-green-500 bg-green-500 text-white"
-   : isOverdue ? "border-red-400 hover:border-red-500"
-   : "border-border hover:border-primary"
- }`}
-        >
-      {tk.status === "done" && <CheckCircle2 className="h-3 w-3" />}
-      </button>
-
-          <div className="min-w-0 flex-1 cursor-pointer" onClick={() => tk.companyId && navigate(`/companies/${tk.companyId}`)}>
-        <div className="flex items-center gap-2">
-     <p className={`text-sm font-medium truncate ${tk.status === "done" ? "line-through text-muted-foreground" : "text-foreground"}`}>{tk.title}</p>
-   {tk.labels && tk.labels.split(",").slice(0, 2).map(l => (
-         <Badge key={l.trim()} variant="secondary" className="text-[10px] font-normal shrink-0 hidden sm:inline-flex">{l.trim()}</Badge>
-          ))}
-      </div>
-        <p className="text-xs text-muted-foreground">{tk.companyName ?? "�"}{tk.assignedToName ? ` � ${tk.assignedToName}` : ""}</p>
-               </div>
-
-   <Badge variant={STATUS_VARIANT[tk.status] ?? "default"} className="shrink-0 text-[10px]">{statusLabel(tk.status)}</Badge>
-      {tk.deadline && (
-      <span className={`text-xs shrink-0 ${isOverdue ? "text-destructive font-medium" : isDueToday ? "text-amber-500" : "text-muted-foreground"}`}>
-               {isOverdue && "? "}{format(new Date(tk.deadline), "dd MMM")}
-   </span>
-   )}
-    </div>
-              );
-            })
-          )}
-        </div>
-      )}
-
-      {/* Kanban View */}
-      {view === "kanban" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {KANBAN_COLS.map(col => {
-            const colTasks = filtered.filter(t => t.status === col.key);
-       return (
-       <div key={col.key} className="rounded-xl border border-border bg-card/50">
-         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-             <col.icon className={`h-3.5 w-3.5 ${col.color}`} />
-         <span className="text-xs font-semibold">{col.label}</span>
-         <Badge variant="secondary" className="text-[9px] ml-auto">{colTasks.length}</Badge>
-      </div>
-  <div className="p-2 space-y-2 max-h-[500px] overflow-y-auto">
-      {colTasks.length === 0 ? (
-  <p className="text-[10px] text-muted-foreground text-center py-6">No tasks</p>
-     ) : (
-           colTasks.map(task => {
-  const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== "done";
-       return (
-     <div
-         key={task.id}
-      className={`rounded-lg border border-border bg-card p-2.5 cursor-pointer hover:shadow-sm transition-shadow ${isOverdue ? "border-destructive/50" : ""}`}
-       onClick={() => handleStatusChange(task.id, col.key === "open" ? "done" : col.key === "done" ? "open" : "done")}
-      >
-          <p className="text-xs font-medium text-foreground line-clamp-2">{task.title}</p>
-       <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-    {task.companyName && <span className="text-[9px] text-muted-foreground truncate">{task.companyName}</span>}
-   {task.deadline && (
-   <span className={`text-[9px] ${isOverdue ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-       {format(new Date(task.deadline), "dd MMM")}
-  </span>
-     )}
-     </div>
-                </div>
-               );
-      })
-       )}
-       </div>
-   </div>
-  );
-        })}
-     </div>
-      )}
-
-      {/* Calendar View */}
-      {view === "calendar" && <TaskCalendarView tasks={filtered} />}
-    </div>
-  );
-}
-
-/* ?? Calendar View (week grid) ???????????????????????? */
-function TaskCalendarView({ tasks }: { tasks: TaskDto[] }) {
-  const [weekOffset, setWeekOffset] = useState(0);
-
-  const now = new Date();
-  const weekStart = startOfWeek(addDays(now, weekOffset * 7), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(addDays(now, weekOffset * 7), { weekStartsOn: 1 });
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
-  return (
-<div className="space-y-2">
-  <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(w => w - 1)}>? Prev</Button>
-  <span className="text-xs font-medium text-muted-foreground">
-  {format(weekStart, "dd MMM")} � {format(weekEnd, "dd MMM yyyy")}
-        </span>
-    <div className="flex gap-1">
-          <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(0)}>Today</Button>
-  <Button variant="ghost" size="sm" className="text-xs" onClick={() => setWeekOffset(w => w + 1)}>Next ?</Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-    {days.map(day => {
-          const dayStr = format(day, "yyyy-MM-dd");
-          const dayTasks = tasks.filter(t =>
-            t.deadline && format(new Date(t.deadline), "yyyy-MM-dd") === dayStr
-          );
-          const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-          const isTodayDate = isToday(day);
-
-        return (
-          <div
-           key={dayStr}
-        className={`rounded-lg border p-2 min-h-[120px] ${
-       isTodayDate ? "border-primary bg-primary/5" : isWeekend ? "border-border bg-muted/30" : "border-border bg-card"
-          }`}
-         >
-        <p className={`text-[10px] font-medium mb-1 ${isTodayDate ? "text-primary" : "text-muted-foreground"}`}>
-         {format(day, "EEE d")}
-      </p>
-            <div className="space-y-1">
-        {dayTasks.map(t => (
-  <div
-     key={t.id}
-            className={`rounded px-1.5 py-0.5 text-[9px] truncate ${
- t.status === "done"
-   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-      : "bg-primary/10 text-primary"
-       }`}
-        title={`${t.title} � ${t.companyName ?? ""}`}
-         >
-      {t.title}
-           </div>
-        ))}
-          </div>
-    </div>
-     );
-        })}
-      </div>
-    </div>
-  );
-}

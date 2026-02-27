@@ -117,6 +117,7 @@ builder.Services.AddScoped<IDocumentUploadService, DocumentUploadService>();
 
 // DDD service layer
 builder.Services.AddScoped<ICaseService, CaseService>();
+builder.Services.AddScoped<ICaseDeadlineService, CaseDeadlineService>();
 builder.Services.AddScoped<ICompanyService, CompanyService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();

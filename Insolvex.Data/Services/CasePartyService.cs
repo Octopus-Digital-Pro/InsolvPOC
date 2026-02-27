@@ -94,4 +94,26 @@ public sealed class CasePartyService : ICasePartyService
         _db.CaseParties.Remove(party);
         await _db.SaveChangesAsync(ct);
     }
+
+    public async Task<List<CompanyCasePartyDto>> GetByCompanyAsync(Guid companyId, CancellationToken ct = default)
+        => await _db.CaseParties
+            .Include(p => p.Company)
+            .Include(p => p.Case)
+            .Where(p => p.CompanyId == companyId)
+            .OrderBy(p => p.Case!.CaseNumber)
+            .Select(p => new CompanyCasePartyDto(
+                p.Id,
+                p.CaseId,
+                p.Case != null ? p.Case.CaseNumber : null,
+                p.Case != null ? p.Case.DebtorName : null,
+                p.CompanyId,
+                p.Company != null ? p.Company.Name : null,
+                p.Role.ToString(),
+                p.RoleDescription,
+                p.ClaimAmountRon,
+                p.ClaimAccepted,
+                p.JoinedDate,
+                p.Notes
+            ))
+            .ToListAsync(ct);
 }

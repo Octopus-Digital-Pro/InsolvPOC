@@ -305,4 +305,73 @@ public sealed class TaskService : ITaskService
             CreatedBy = _currentUser.Email ?? "System",
         };
     }
+
+    // ?? Notes ????????????????????????????????????????????????
+
+    public async Task<List<TaskNoteDto>> GetNotesAsync(Guid taskId, CancellationToken ct = default)
+    {
+        var tenantId = _currentUser.TenantId;
+        // Verify the task is accessible
+        var taskExists = await _db.CompanyTasks
+            .AnyAsync(t => t.Id == taskId && (tenantId == null || t.TenantId == tenantId), ct);
+        if (!taskExists) return new List<TaskNoteDto>();
+
+        return await _db.TaskNotes
+            .Where(n => n.TaskId == taskId)
+            .OrderBy(n => n.CreatedOn)
+            .Select(n => new TaskNoteDto(n.Id, n.TaskId, n.Content, n.CreatedByName, n.CreatedOn, n.UpdatedOn))
+            .ToListAsync(ct);
+    }
+
+    public async Task<TaskNoteDto> AddNoteAsync(Guid taskId, string content, CancellationToken ct = default)
+    {
+        var tenantId = _currentUser.TenantId
+            ?? throw new BusinessException("Tenant context required.");
+
+        var task = await _db.CompanyTasks
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.TenantId == tenantId, ct)
+            ?? throw new BusinessException("Task not found.");
+
+        var note = new TaskNote
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            TaskId = taskId,
+            Content = content,
+            CreatedByName = _currentUser.Email ?? "Unknown",
+            CreatedOn = DateTime.UtcNow,
+        };
+
+        _db.TaskNotes.Add(note);
+        await _db.SaveChangesAsync(ct);
+
+        return new TaskNoteDto(note.Id, note.TaskId, note.Content, note.CreatedByName, note.CreatedOn, note.UpdatedOn);
+    }
+
+    public async Task<TaskNoteDto> UpdateNoteAsync(Guid noteId, string content, CancellationToken ct = default)
+    {
+        var tenantId = _currentUser.TenantId;
+        var note = await _db.TaskNotes
+            .FirstOrDefaultAsync(n => n.Id == noteId && (tenantId == null || n.TenantId == tenantId), ct)
+            ?? throw new BusinessException("Note not found.");
+
+        note.Content = content;
+        note.UpdatedOn = DateTime.UtcNow;
+        note.LastModifiedOn = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync(ct);
+
+        return new TaskNoteDto(note.Id, note.TaskId, note.Content, note.CreatedByName, note.CreatedOn, note.UpdatedOn);
+    }
+
+    public async Task DeleteNoteAsync(Guid noteId, CancellationToken ct = default)
+    {
+        var tenantId = _currentUser.TenantId;
+        var note = await _db.TaskNotes
+            .FirstOrDefaultAsync(n => n.Id == noteId && (tenantId == null || n.TenantId == tenantId), ct)
+            ?? throw new BusinessException("Note not found.");
+
+        _db.TaskNotes.Remove(note);
+        await _db.SaveChangesAsync(ct);
+    }
 }

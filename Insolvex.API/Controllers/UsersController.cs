@@ -60,6 +60,14 @@ public class UsersController : ControllerBase
   public async Task<IActionResult> GetInvitations(CancellationToken ct)
       => Ok(await _users.GetInvitationsAsync(ct));
 
+  [HttpDelete("invitations/{id:guid}")]
+  [RequirePermission(Permission.UserInvite)]
+  public async Task<IActionResult> RevokeInvitation(Guid id, CancellationToken ct)
+  {
+    await _users.RevokeInvitationAsync(id, ct);
+    return NoContent();
+  }
+
   [HttpPost("accept-invitation")]
   [AllowAnonymous]
   public async Task<IActionResult> AcceptInvitation([FromBody] AcceptInvitationRequest request, CancellationToken ct)

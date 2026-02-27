@@ -10,6 +10,7 @@ export type DocumentTemplateType =
   | "DefinitiveClaimsTable"
   | "FinalReportArt167"
   | "CreditorNotificationHtml"
+  | "MandatoryReport"
   | "Custom";
 
 /** Incoming (received) document types — not generated, but recognized by AI. */
@@ -73,6 +74,18 @@ export interface PlaceholderField {
 export interface PlaceholderGroup {
   group: string;
   fields: PlaceholderField[];
+}
+
+export interface RenderHtmlToPdfRequest {
+  html: string;
+  caseId: string;
+  templateName?: string;
+}
+
+export interface SaveHtmlToCaseRequest {
+  html: string;
+  caseId: string;
+  templateName: string;
 }
 
 // ── Friendly display names for system template types ─────────────────────────
@@ -211,6 +224,16 @@ export const documentTemplatesApi = {
     return { blob, fileName };
   },
 
+  /**
+   * Render the template to PDF and save it as an InsolvencyDocument on the case.
+   * Returns { documentId, fileName, requiresSignature }.
+   */
+  saveToCase: (id: string, req: RenderTemplateRequest) =>
+    client.post<{ documentId: string; fileName: string; storageKey: string; requiresSignature: boolean }>(
+      `/document-templates/${id}/save-to-case`,
+      req,
+    ),
+
   /** Upload a sample/reference PDF for an incoming document type (AI recognition). */
   uploadIncomingReference: (type: IncomingDocumentType, file: File, onProgress?: (pct: number) => void) => {
     const form = new FormData();
@@ -230,4 +253,38 @@ export const documentTemplatesApi = {
   /** Check whether a reference PDF has been uploaded for an incoming document type. */
   getIncomingReference: (type: IncomingDocumentType) =>
     client.get<IncomingDocumentReferenceStatus>(`/document-templates/incoming-reference/${type}`),
-};
+  /**
+   * Convert arbitrary HTML (already rendered + optionally signed) to a PDF download.
+   * Used after the user edits the preview-modal content.
+   */
+  renderHtmlToPdfBlob: async (
+    req: RenderHtmlToPdfRequest,
+  ): Promise<{ blob: Blob; fileName: string }> => {
+    const token = localStorage.getItem("authToken");
+    const tenantId = localStorage.getItem("selectedTenantId");
+    const res = await fetch("/api/document-templates/render-html-to-pdf", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenantId ? { "X-Tenant-Id": tenantId } : {}),
+      },
+      body: JSON.stringify({ html: req.html, templateName: req.templateName }),
+    });
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition") ?? "";
+    const match = cd.match(/filename\*?=(?:UTF-8'')?([^";]+)/);
+    const fileName = match ? decodeURIComponent(match[1].trim()) : `document_${Date.now()}.pdf`;
+    return { blob, fileName };
+  },
+
+  /**
+   * Save arbitrary HTML (reviewed / signed in the preview modal) as an InsolvencyDocument.
+   * Returns { documentId, fileName, requiresSignature }.
+   */
+  saveToCaseFromHtml: (req: SaveHtmlToCaseRequest) =>
+    client.post<{ documentId: string; fileName: string; storageKey: string; requiresSignature: boolean }>(
+      "/document-templates/save-html-to-case",
+      req,
+    ),};

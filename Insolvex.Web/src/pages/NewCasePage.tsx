@@ -138,7 +138,7 @@ function DebtorSelector({
 }) {
   const [query, setQuery] = useState("");
   const [localResults, setLocalResults] = useState<CompanyDto[]>([]);
-  const [localLoading, setLocalLoading] = useState(false);
+  const [_localLoading, setLocalLoading] = useState(false);
   const [onrcResults, setOnrcResults] = useState<ONRCFirmResult[]>([]);
   const [onrcLoading, setOnrcLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -365,6 +365,16 @@ export default function NewCasePage() {
   const [procedureType, setProcedureType] = useState("insolventa");
   const [lawReference, setLawReference] = useState("Legea 85/2014");
 
+  // Key dates
+  const [noticeDate, setNoticeDate] = useState("");
+  const [openingDate, setOpeningDate] = useState("");
+  const [nextHearingDate, setNextHearingDate] = useState("");
+  const [claimsDeadline, setClaimsDeadline] = useState("");
+  const [contestationsDeadline, setContestationsDeadline] = useState("");
+  const [definitiveTableDate, setDefinitiveTableDate] = useState("");
+  const [reorganizationPlanDeadline, setReorganizationPlanDeadline] = useState("");
+  const [closureDate, setClosureDate] = useState("");
+
   useEffect(() => {
     companiesApi.getAll().then(r => setCompanies(r.data)).catch(console.error);
     tribunalsApi.getAll().then(r => setTribunals(r.data)).catch(console.error);
@@ -384,6 +394,14 @@ export default function NewCasePage() {
         companyId: companyId || undefined,
         procedureType: procedureType || undefined,
         lawReference: lawReference || undefined,
+        noticeDate: noticeDate || undefined,
+        openingDate: openingDate || undefined,
+        nextHearingDate: nextHearingDate || undefined,
+        claimsDeadline: claimsDeadline || undefined,
+        contestationsDeadline: contestationsDeadline || undefined,
+        definitiveTableDate: definitiveTableDate || undefined,
+        reorganizationPlanDeadline: reorganizationPlanDeadline || undefined,
+        closureDate: closureDate || undefined,
       } as Parameters<typeof casesApi.create>[0]);
       navigate(`/cases/${res.data.id}`);
     } catch (err) {
@@ -485,6 +503,45 @@ export default function NewCasePage() {
             <div>
               <label className={labelCls}>Debtor CUI</label>
               <input value={debtorCui} onChange={e => setDebtorCui(e.target.value)} className={inputCls} placeholder="e.g. RO12345678" />
+            </div>
+          </div>
+        </div>
+
+        {/* Key Dates */}
+        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-foreground">Key Dates <span className="font-normal text-muted-foreground">(optional)</span></h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>Notice Date</label>
+              <input type="date" value={noticeDate} onChange={e => setNoticeDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Opening Date</label>
+              <input type="date" value={openingDate} onChange={e => setOpeningDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Next Hearing</label>
+              <input type="date" value={nextHearingDate} onChange={e => setNextHearingDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Claims Deadline</label>
+              <input type="date" value={claimsDeadline} onChange={e => setClaimsDeadline(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Contestations Deadline</label>
+              <input type="date" value={contestationsDeadline} onChange={e => setContestationsDeadline(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Definitive Table Date</label>
+              <input type="date" value={definitiveTableDate} onChange={e => setDefinitiveTableDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Reorganization Plan Deadline</label>
+              <input type="date" value={reorganizationPlanDeadline} onChange={e => setReorganizationPlanDeadline(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Closure Date</label>
+              <input type="date" value={closureDate} onChange={e => setClosureDate(e.target.value)} className={inputCls} />
             </div>
           </div>
         </div>
