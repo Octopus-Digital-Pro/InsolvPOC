@@ -116,6 +116,7 @@ builder.Services.AddScoped<TemplateGenerationService>();
 builder.Services.AddScoped<TaskEscalationService>();
 builder.Services.AddScoped<SummaryRefreshService>();
 builder.Services.AddScoped<IDocumentUploadService, DocumentUploadService>();
+builder.Services.AddScoped<ICaseDocumentUploadService, CaseDocumentUploadService>();
 
 // DDD service layer
 builder.Services.AddScoped<ICaseService, CaseService>();

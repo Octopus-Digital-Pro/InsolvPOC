@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Insolvex.Data;
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.Exceptions;
+using Insolvex.Data.Infrastructure;
 using Insolvex.Domain.Entities;
 using Insolvex.Domain.Enums;
 
@@ -30,6 +31,7 @@ public sealed class DocumentUploadService : IDocumentUploadService
   private readonly CaseCreationService _caseCreation;
   private readonly SummaryRefreshService _summaryRefresh;
   private readonly ICaseEventService _caseEvents;
+  private readonly IFileStorageService _storage;
   private readonly ILogger<DocumentUploadService> _logger;
 
   private static readonly string[] AllowedExtensions =
@@ -43,6 +45,7 @@ public sealed class DocumentUploadService : IDocumentUploadService
       CaseCreationService caseCreation,
       SummaryRefreshService summaryRefresh,
       ICaseEventService caseEvents,
+      IFileStorageService storage,
       ILogger<DocumentUploadService> logger)
   {
     _db = db;
@@ -52,6 +55,7 @@ public sealed class DocumentUploadService : IDocumentUploadService
     _caseCreation = caseCreation;
     _summaryRefresh = summaryRefresh;
     _caseEvents = caseEvents;
+    _storage = storage;
     _logger = logger;
   }
 
@@ -331,6 +335,11 @@ DocumentUploadRequest request, CancellationToken ct)
       CreatedBy = _currentUser.Email ?? "System",
     };
 
+    // Move temp file to canonical storage path
+    var storageKey = await MoveToStorageAsync(
+        upload, existingCase.Id, document.Id, upload.DetectedDocType ?? "unknown");
+    document.StorageKey = storageKey;
+
     _db.InsolvencyDocuments.Add(document);
     await _db.SaveChangesAsync(ct);
 
@@ -382,6 +391,45 @@ DocumentUploadRequest request, CancellationToken ct)
       DocumentId = document.Id,
       CaseNumber = existingCase.CaseNumber,
     };
+  }
+
+  // ?? Storage helpers ????????????????????????????????????
+
+  /// <summary>
+  /// Copies the temp upload file to its canonical storage key and returns the key.
+  /// Falls back to the temp path if the file cannot be moved.
+  /// </summary>
+  private async Task<string?> MoveToStorageAsync(
+      PendingUpload upload, Guid caseId, Guid docId, string docType)
+  {
+    if (string.IsNullOrWhiteSpace(upload.FilePath)) return null;
+
+    try
+    {
+      var ext      = Path.GetExtension(upload.OriginalFileName).ToLowerInvariant();
+      if (ext.Length == 0) ext = ".pdf";
+      var key      = CaseStorageKeys.Document(caseId, docType, docId, ext);
+      var mimeType = ext == ".pdf" ? "application/pdf" : "application/octet-stream";
+
+      await _storage.EnsureFolderAsync(CaseStorageKeys.Folder(caseId, docType));
+
+      if (File.Exists(upload.FilePath))
+      {
+        await using var fs = File.OpenRead(upload.FilePath);
+        await _storage.UploadAsync(key, fs, mimeType);
+
+        try { File.Delete(upload.FilePath); }
+        catch (Exception ex) { _logger.LogDebug(ex, "Could not delete temp file {Path}", upload.FilePath); }
+      }
+
+      _logger.LogInformation("Filed document to canonical key: {Key}", key);
+      return key;
+    }
+    catch (Exception ex)
+    {
+      _logger.LogWarning(ex, "Could not move upload to storage for case {CaseId}", caseId);
+      return upload.FilePath; // fall back to old path
+    }
   }
 
   // ?? Validation ??????????????????????????????????????????

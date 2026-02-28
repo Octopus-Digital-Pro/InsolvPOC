@@ -29,4 +29,12 @@ public interface IFileStorageService
   /// Generate a pre-signed URL for temporary access (e.g., for downloads).
   /// </summary>
   string GetPresignedUrl(string key, TimeSpan expiry);
+
+  /// <summary>
+  /// Ensures a logical "folder" exists at the given prefix path.
+  /// For local disk: creates the directory.
+  /// For S3: uploads a zero-byte <c>.folder</c> marker object so the path is visible.
+  /// Safe to call repeatedly — no-op if the folder already exists.
+  /// </summary>
+  Task EnsureFolderAsync(string folderPrefix, CancellationToken ct = default);
 }

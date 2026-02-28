@@ -15,7 +15,19 @@ export type DocumentTemplateType =
   | "custom";
 
 /** Incoming (received) document types — not generated, but recognized by AI. */
-export type IncomingDocumentType = "CourtOpeningDecision";
+export type IncomingDocumentType =
+  | "CourtOpeningDecision"
+  | "BpiPublication"
+  | "CreditorNotification"
+  | "CreditorClaim"
+  | "AssetInventory"
+  | "PractitionerReport"
+  | "FinancialStatement"
+  | "TaxCertificate"
+  | "BankStatement"
+  | "LiquidationReport"
+  | "Generated"
+  | "Other";
 
 export interface IncomingDocumentReferenceStatus {
   type: IncomingDocumentType;
@@ -162,6 +174,17 @@ export const SYSTEM_TEMPLATE_LABELS: Record<string, string> = {
 /** Incoming document friendly names (received from court / external parties). */
 export const INCOMING_DOCUMENT_LABELS: Record<IncomingDocumentType, string> = {
   CourtOpeningDecision: "Sentință / Hotărâre deschidere procedură",
+  BpiPublication: "Publicație BPI",
+  CreditorNotification: "Notificare creditori",
+  CreditorClaim: "Cerere de creanță",
+  AssetInventory: "Inventar active",
+  PractitionerReport: "Raport practician",
+  FinancialStatement: "Situație financiară",
+  TaxCertificate: "Certificat fiscal",
+  BankStatement: "Extras de cont",
+  LiquidationReport: "Raport de lichidare",
+  Generated: "Document generat",
+  Other: "Alt document",
 };
 
 export const INCOMING_DOCUMENT_DESC: Record<IncomingDocumentType, string> = {
@@ -169,6 +192,17 @@ export const INCOMING_DOCUMENT_DESC: Record<IncomingDocumentType, string> = {
     "Document emis de instanță care deschide procedura de insolvență. " +
     "Încarcă un exemplu PDF — sistemul îl va analiza și va recunoaște automat documentele similare " +
     "încărcate de practicieni ca notificare de deschidere a procedurii.",
+  BpiPublication: "Publicație oficială în Buletinul Procedurilor de Insolvență.",
+  CreditorNotification: "Notificare transmisă creditorilor privind deschiderea sau derularea procedurii.",
+  CreditorClaim: "Cerere de înscriere a creanței depusă de un creditor.",
+  AssetInventory: "Inventar al bunurilor debitorului întocmit de practician.",
+  PractitionerReport: "Raport periodic al practicianului în insolvență.",
+  FinancialStatement: "Situație financiară (bilanț, cont de profit și pierdere etc.).",
+  TaxCertificate: "Certificat de atestare fiscală emis de ANAF.",
+  BankStatement: "Extras de cont bancar al debitorului.",
+  LiquidationReport: "Raport final de lichidare și distribuire a fondurilor.",
+  Generated: "Document generat automat de sistem.",
+  Other: "Alt tip de document care nu se încadrează în categoriile de mai sus.",
 };
 
 type UiLocale = "en" | "ro" | "hu";
@@ -176,12 +210,45 @@ type UiLocale = "en" | "ro" | "hu";
 const INCOMING_DOCUMENT_LABELS_BY_LOCALE: Record<UiLocale, Record<IncomingDocumentType, string>> = {
   en: {
     CourtOpeningDecision: "Court opening decision",
+    BpiPublication: "BPI publication",
+    CreditorNotification: "Creditor notification",
+    CreditorClaim: "Creditor claim",
+    AssetInventory: "Asset inventory",
+    PractitionerReport: "Practitioner report",
+    FinancialStatement: "Financial statement",
+    TaxCertificate: "Tax certificate",
+    BankStatement: "Bank statement",
+    LiquidationReport: "Liquidation report",
+    Generated: "Generated document",
+    Other: "Other document",
   },
   ro: {
     CourtOpeningDecision: "Sentință / Hotărâre deschidere procedură",
+    BpiPublication: "Publicație BPI",
+    CreditorNotification: "Notificare creditori",
+    CreditorClaim: "Cerere de creanță",
+    AssetInventory: "Inventar active",
+    PractitionerReport: "Raport practician",
+    FinancialStatement: "Situație financiară",
+    TaxCertificate: "Certificat fiscal",
+    BankStatement: "Extras de cont",
+    LiquidationReport: "Raport de lichidare",
+    Generated: "Document generat",
+    Other: "Alt document",
   },
   hu: {
     CourtOpeningDecision: "Eljárásmegnyitó bírósági határozat",
+    BpiPublication: "BPI közzététel",
+    CreditorNotification: "Hitelezői értesítés",
+    CreditorClaim: "Követelés bejelentése",
+    AssetInventory: "Vagyonleltár",
+    PractitionerReport: "Szakértői jelentés",
+    FinancialStatement: "Pénzügyi kimutatás",
+    TaxCertificate: "Adóigazolás",
+    BankStatement: "Bankszámlakivonat",
+    LiquidationReport: "Felszámolási jelentés",
+    Generated: "Generált dokumentum",
+    Other: "Egyéb dokumentum",
   },
 };
 
@@ -190,16 +257,49 @@ const INCOMING_DOCUMENT_DESC_BY_LOCALE: Record<UiLocale, Record<IncomingDocument
     CourtOpeningDecision:
       "Court-issued document that opens the insolvency procedure. " +
       "Upload one sample PDF and AI will learn to auto-recognize and classify similar documents uploaded later.",
+    BpiPublication: "Official publication in the Insolvency Procedures Bulletin.",
+    CreditorNotification: "Notification sent to creditors about the opening or progress of the procedure.",
+    CreditorClaim: "Creditor's claim registration request.",
+    AssetInventory: "Inventory of the debtor's assets prepared by the practitioner.",
+    PractitionerReport: "Periodic report issued by the insolvency practitioner.",
+    FinancialStatement: "Financial statement (balance sheet, P&L, etc.).",
+    TaxCertificate: "Tax compliance certificate issued by the tax authority.",
+    BankStatement: "Bank account statement of the debtor.",
+    LiquidationReport: "Final liquidation and fund distribution report.",
+    Generated: "Document automatically generated by the system.",
+    Other: "Other document type not covered by the above categories.",
   },
   ro: {
     CourtOpeningDecision:
       "Document emis de instanță care deschide procedura de insolvență. " +
       "Încarcă un exemplu PDF și AI-ul va recunoaște și clasifica automat documentele similare încărcate ulterior.",
+    BpiPublication: "Publicație oficială în Buletinul Procedurilor de Insolvență.",
+    CreditorNotification: "Notificare transmisă creditorilor privind deschiderea sau derularea procedurii.",
+    CreditorClaim: "Cerere de înscriere a creanței depusă de un creditor.",
+    AssetInventory: "Inventar al bunurilor debitorului întocmit de practician.",
+    PractitionerReport: "Raport periodic al practicianului în insolvență.",
+    FinancialStatement: "Situație financiară (bilanț, cont de profit și pierdere etc.).",
+    TaxCertificate: "Certificat de atestare fiscală emis de ANAF.",
+    BankStatement: "Extras de cont bancar al debitorului.",
+    LiquidationReport: "Raport final de lichidare și distribuire a fondurilor.",
+    Generated: "Document generat automat de sistem.",
+    Other: "Alt tip de document care nu se încadrează în categoriile de mai sus.",
   },
   hu: {
     CourtOpeningDecision:
       "A bíróság által kibocsátott dokumentum, amely megnyitja a fizetésképtelenségi eljárást. " +
       "Töltsön fel egy mint PDF-et, és az AI később automatikusan felismeri és osztályozza a hasonló dokumentumokat.",
+    BpiPublication: "Hivatalos közzététel a Fizetésképtelenségi Eljárások Értesítőjében.",
+    CreditorNotification: "Az eljárás megnyitásáról vagy menetéről szóló hitelezői értesítés.",
+    CreditorClaim: "Hitelező által benyújtott követelésbejelentési kérelem.",
+    AssetInventory: "Az adós vagyonáról a szakértő által készített leltár.",
+    PractitionerReport: "A felszámoló biztos rendszeres időközönként kiadott jelentése.",
+    FinancialStatement: "Pénzügyi kimutatás (mérleg, eredménykimutatás stb.).",
+    TaxCertificate: "Az adóhatóság által kiállított adóigazolás.",
+    BankStatement: "Az adós bankszámlájának kivonata.",
+    LiquidationReport: "Záró felszámolási és vagyonfelosztási jelentés.",
+    Generated: "A rendszer által automatikusan generált dokumentum.",
+    Other: "Más dokumentumtípus, amely nem tartozik a fenti kategóriákba.",
   },
 };
 

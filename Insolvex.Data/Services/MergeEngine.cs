@@ -262,6 +262,15 @@ public class MergeEngine
         vm["FutureTasksNames"] = futureText;
         vm["FutureTasksNamesHtml"] = futureHtml.ToString();
 
+        // ── Consolidated task report summaries (all tasks with a ReportSummary) ──
+        var reportSummary = string.Join("\n\n", caseTasks
+            .Where(t => !string.IsNullOrWhiteSpace(t.ReportSummary))
+            .OrderByDescending(t => t.CompletedAt ?? t.LastModifiedOn ?? t.CreatedOn)
+            .Select(t => $"{t.Title}: {t.ReportSummary}"));
+        if (vm["Case"] is Dictionary<string, object?> caseDict)
+            caseDict["ReportSummary"] = reportSummary;
+        vm["ReportSummary"] = reportSummary;
+
         // ── Booleans for {{#if}} ──
         vm["HasCreditors"] = creditors.Count > 0;
         vm["HasClaims"] = claims.Count > 0;

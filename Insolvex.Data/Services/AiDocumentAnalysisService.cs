@@ -72,8 +72,18 @@ public sealed class AiDocumentAnalysisService
     /// Attempt AI-powered extraction. Returns null when AI is unavailable or disabled,
     /// allowing the caller to fall back to heuristic extraction.
     /// </summary>
+    /// <param name="extractedText">Raw text extracted from the document.</param>
+    /// <param name="fileName">Original file name (hint for AI).</param>
+    /// <param name="annotationContext">
+    /// Optional: a text summary of field annotations from the document profile
+    /// (e.g. "Opening date: top-right corner, ~20% from top").
+    /// When provided this is prepended to the AI prompt as structural guidance.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
     public async Task<AiAnalysisResult?> AnalyzeAsync(
-        string extractedText, string fileName, CancellationToken ct = default)
+        string extractedText, string fileName,
+        string? annotationContext = null,
+        CancellationToken ct = default)
     {
         try
         {
@@ -84,7 +94,7 @@ public sealed class AiDocumentAnalysisService
             if (string.IsNullOrWhiteSpace(apiKey)) return null;
 
             var language = await ResolveTenantLanguageAsync(ct);
-            var prompt = BuildPrompt(extractedText, fileName, language);
+            var prompt = BuildPrompt(extractedText, fileName, language, annotationContext);
             var systemInstruction = BuildSystemInstruction(language);
 
             var rawJson = config.Provider switch
@@ -171,11 +181,11 @@ public sealed class AiDocumentAnalysisService
 
     // ── Prompt ────────────────────────────────────────────────────────────────
 
-    private static string BuildPrompt(string extractedText, string fileName, string language)
+    private static string BuildPrompt(string extractedText, string fileName, string language, string? annotationContext = null)
     {
         // Truncate very long texts to stay within token limits (~4000 chars is enough for structured extraction)
         var textSnippet = extractedText.Length > 6000
-            ? extractedText[..6000] + "\n[...document continues...]"
+            ? extractedText[..6000] + "\n[...document continues...]\n"
             : extractedText;
 
         var langInstruction = language switch
@@ -185,10 +195,19 @@ public sealed class AiDocumentAnalysisService
             _ => "Use English legal understanding. Keep JSON keys in English exactly as specified.",
         };
 
+        var annotationSection = !string.IsNullOrWhiteSpace(annotationContext)
+            ? $"""
+
+            Field annotation hints (where specific fields are located in the document layout):
+            {annotationContext}
+
+            Use these location hints to prioritise which text regions contain each field.
+            """
+            : string.Empty;
         return $$"""
             Analyze the insolvency document below and extract structured data.
             Return ONLY a valid JSON object — no markdown, no explanation.
-            {{langInstruction}}
+            {{langInstruction}}{{annotationSection}}
 
             Required JSON structure:
             {

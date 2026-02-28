@@ -117,7 +117,8 @@ public class DocumentTemplatesController : ControllerBase
                 F("LawReference",          "Temei legal"),
                 F("OpeningDecisionNo",     "Nr. sentință deschidere"),
                 F("BpiPublicationNo",      "Nr. publicare BPI"),
-                F("BpiPublicationDate",    "Dată publicare BPI")
+                F("BpiPublicationDate",    "Dată publicare BPI"),
+                F("ReportSummary",         "Rezumat raport task-uri")
             ),
             G("Debitor",
                 F("DebtorName",            "Denumire debitor"),

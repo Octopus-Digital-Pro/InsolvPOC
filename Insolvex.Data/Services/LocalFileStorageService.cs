@@ -65,4 +65,12 @@ public class LocalFileStorageService : IFileStorageService
         // Local storage doesn't support presigned URLs — return relative path
         return $"/api/documents/download/{key}";
     }
+
+    public Task EnsureFolderAsync(string folderPrefix, CancellationToken ct = default)
+    {
+        var folderPath = FullPath(folderPrefix.TrimEnd('/'));
+        Directory.CreateDirectory(folderPath);
+        _logger.LogDebug("Ensured local folder: {Path}", folderPath);
+        return Task.CompletedTask;
+    }
 }

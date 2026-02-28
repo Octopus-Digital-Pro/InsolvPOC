@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Insolvex.Data;
 using Insolvex.Core.Abstractions;
+using Insolvex.Data.Infrastructure;
 using Insolvex.Domain.Entities;
 using Insolvex.Domain.Enums;
 using TaskStatus = Insolvex.Domain.Enums.TaskStatus;
@@ -30,6 +31,7 @@ public class CaseCreationService
   private readonly DeadlineEngine _deadlineEngine;
   private readonly MailMergeService _mailMerge;
   private readonly IONRCFirmService _onrc;
+  private readonly IFileStorageService _storage;
   private readonly ILogger<CaseCreationService> _logger;
 
   public CaseCreationService(
@@ -39,6 +41,7 @@ public class CaseCreationService
       DeadlineEngine deadlineEngine,
       MailMergeService mailMerge,
       IONRCFirmService onrc,
+      IFileStorageService storage,
       ILogger<CaseCreationService> logger)
   {
     _db = db;
@@ -47,6 +50,7 @@ public class CaseCreationService
     _deadlineEngine = deadlineEngine;
     _mailMerge = mailMerge;
     _onrc = onrc;
+    _storage = storage;
     _logger = logger;
   }
 
@@ -146,11 +150,16 @@ public class CaseCreationService
       RawExtraction = upload.ExtractedText,
       Summary = documentSummaries["en"],
       SummaryByLanguageJson = JsonSerializer.Serialize(documentSummaries),
+      // StorageKey will be set after moving the file to canonical path
       StorageKey = upload.FilePath,
       Purpose = "Uploaded",
       ClassificationConfidence = (int)(upload.Confidence * 100),
     };
     _db.InsolvencyDocuments.Add(doc);
+
+    // Move uploaded file from TempUploads to canonical case storage path
+    // (fire-and-ignore on failure — the DB record is created regardless)
+    await MoveUploadedFileAsync(upload, newCase.Id, doc, tenantId);
 
     // Step 5: Create CaseParties
     var partiesCreated = 0;
@@ -187,6 +196,9 @@ public class CaseCreationService
     _db.ScheduledEmails.AddRange(emails);
 
     await _db.SaveChangesAsync();
+
+    // Fire-and-forget: create standard folder structure in storage
+    _ = InitialiseCaseFoldersAsync(newCase.Id);
 
     // Step 8: Auto-generate key documents (fire-and-forget)
     var generatedDocs = new List<GeneratedDocument>();
@@ -256,6 +268,56 @@ $"from an uploaded notice document dated {noticeDate:dd MMM yyyy}. " +
   }
 
   // ?? Private helpers ?????????????????????????????????????
+
+  /// <summary>
+  /// Moves the uploaded temp file from TempUploads into the canonical
+  /// <c>cases/{caseId}/{docType}/{docId}{ext}</c> storage path and updates
+  /// the document record's StorageKey in memory (caller saves to DB later).
+  /// </summary>
+  private async Task MoveUploadedFileAsync(
+      PendingUpload upload, Guid caseId, InsolvencyDocument doc, Guid? tenantId)
+  {
+    if (string.IsNullOrWhiteSpace(upload.FilePath) || !File.Exists(upload.FilePath))
+    {
+      _logger.LogWarning("Temp upload file not found at '{Path}' — StorageKey left as temp path", upload.FilePath);
+      return;
+    }
+
+    try
+    {
+      var docType  = upload.DetectedDocType ?? "original_notice";
+      var ext      = Path.GetExtension(upload.OriginalFileName).ToLowerInvariant();
+      if (ext.Length == 0) ext = ".pdf";
+      var key      = CaseStorageKeys.Document(caseId, docType, doc.Id, ext);
+      var mimeType = ext == ".pdf" ? "application/pdf" : "application/octet-stream";
+
+      await _storage.EnsureFolderAsync(CaseStorageKeys.Folder(caseId, docType));
+
+      await using var fs = File.OpenRead(upload.FilePath);
+      await _storage.UploadAsync(key, fs, mimeType);
+
+      doc.StorageKey = key;
+      _logger.LogInformation("Moved upload to canonical key: {Key}", key);
+
+      // Clean up temp file (best-effort)
+      try { File.Delete(upload.FilePath); }
+      catch (Exception ex) { _logger.LogDebug(ex, "Could not delete temp file {Path}", upload.FilePath); }
+    }
+    catch (Exception ex)
+    {
+      _logger.LogWarning(ex, "Failed to move upload to canonical storage — file remains at temp path");
+    }
+  }
+
+  /// <summary>Fire-and-forget: ensures all standard folders exist for the case.</summary>
+  private async Task InitialiseCaseFoldersAsync(Guid caseId)
+  {
+    foreach (var folder in CaseStorageKeys.StandardFolders(caseId))
+    {
+      try { await _storage.EnsureFolderAsync(folder); }
+      catch (Exception ex) { _logger.LogDebug(ex, "Could not ensure folder {Folder}", folder); }
+    }
+  }
 
   private static ProcedureType ResolveProcedureType(string? requestType, ProcedureType? detected)
   {

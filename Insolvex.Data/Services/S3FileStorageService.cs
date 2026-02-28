@@ -90,4 +90,29 @@ await _s3.GetObjectMetadataAsync(_options.BucketName, fullKey, ct);
         };
         return _s3.GetPreSignedURL(request);
     }
+
+    public async Task EnsureFolderAsync(string folderPrefix, CancellationToken ct = default)
+    {
+        // S3 has no real folders — upload a zero-byte .folder marker to make the prefix visible
+        var markerKey = FullKey(folderPrefix.TrimEnd('/') + "/.folder");
+        var alreadyExists = false;
+        try
+        {
+            await _s3.GetObjectMetadataAsync(_options.BucketName, markerKey, ct);
+            alreadyExists = true;
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound) { }
+
+        if (!alreadyExists)
+        {
+            _logger.LogDebug("Creating S3 folder marker: {Key}", markerKey);
+            await _s3.PutObjectAsync(new PutObjectRequest
+            {
+                BucketName = _options.BucketName,
+                Key = markerKey,
+                InputStream = new MemoryStream(),
+                ContentType = "application/x-directory",
+            }, ct);
+        }
+    }
 }

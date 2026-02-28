@@ -12,6 +12,11 @@ export interface TenantAiConfigDto {
   summaryActivityDays: number;
   notes: string | null;
   updatedAt: string | null;
+  // Per-tenant AI key override
+  hasApiKey: boolean;
+  provider: string | null;
+  apiEndpoint: string | null;
+  modelName: string | null;
 }
 
 export interface UpdateTenantAiConfigRequest {
@@ -21,6 +26,20 @@ export interface UpdateTenantAiConfigRequest {
   chatEnabled: boolean;
   summaryActivityDays: number;
   notes: string | null;
+  // Key override fields (optional — null = leave as-is, "" = clear)
+  apiKey?: string | null;
+  provider?: string | null;
+  apiEndpoint?: string | null;
+  modelName?: string | null;
+}
+
+/** TenantAdmin self-service: only key / model fields. */
+export interface UpdateTenantAiKeyRequest {
+  /** null = leave existing | "" = clear | value = new key */
+  apiKey?: string | null;
+  provider?: string | null;
+  apiEndpoint?: string | null;
+  modelName?: string | null;
 }
 
 export interface AiChatMessageDto {
@@ -73,6 +92,8 @@ export const tenantAiConfigApi = {
     client.get<TenantAiConfigDto>(`/settings/tenant-ai-config/${tenantId}`),
   update: (tenantId: string, req: UpdateTenantAiConfigRequest) =>
     client.put<TenantAiConfigDto>(`/settings/tenant-ai-config/${tenantId}`, req),
+  updateOwnKey: (req: UpdateTenantAiKeyRequest) =>
+    client.put<TenantAiConfigDto>("/settings/tenant-ai-config/own-key", req),
 };
 
 export const caseAiApi = {

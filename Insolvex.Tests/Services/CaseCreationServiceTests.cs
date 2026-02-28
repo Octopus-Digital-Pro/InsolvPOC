@@ -48,7 +48,8 @@ MockBehavior.Loose, db, storage.Object, Mock.Of<ILogger<TemplateGenerationServic
 
     var svc = new CaseCreationService(
         db, currentUser.Object, audit.Object, deadlineEngine,
-        mailMerge, Mock.Of<IONRCFirmService>(), Mock.Of<ILogger<CaseCreationService>>());
+        mailMerge, Mock.Of<IONRCFirmService>(), storage.Object,
+        Mock.Of<ILogger<CaseCreationService>>());
 
     return (svc, db);
   }

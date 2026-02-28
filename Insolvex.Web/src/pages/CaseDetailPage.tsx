@@ -11,6 +11,7 @@ import { caseEmailsApi, caseCalendarApi } from "@/services/api/caseWorkspace";
 import { tasksApi } from "@/services/api/tasks";
 import { caseAiApi } from "@/services/api/caseAiApi";
 import type { AiEnabledStatus } from "@/services/api/caseAiApi";
+import { caseDocumentsApi, CASE_DOCUMENT_TYPES } from "@/services/api/caseDocumentsApi";
 import CaseAiTab from "@/components/CaseAiTab";
 import { useTranslation } from "@/contexts/LanguageContext";
 import type { CaseDto, CasePartyDto, DocumentDto, TaskDto, CompanyDto, UserDto } from "@/services/api/types";
@@ -75,6 +76,8 @@ export default function CaseDetailPage() {
   const [caseTasks, setCaseTasks] = useState<TaskDto[]>([]);
   const [caseEmails, setCaseEmails] = useState<CaseEmailDto[]>([]);
   const [docUploading, setDocUploading] = useState(false);
+  const [docTypeSelectOpen, setDocTypeSelectOpen] = useState(false);
+  const [selectedDocType, setSelectedDocType] = useState("CourtOpeningDecision");
   const docUploadRef = useRef<HTMLInputElement>(null);
   const [addPartyOpen, setAddPartyOpen] = useState(false);
   const [removingPartyId, setRemovingPartyId] = useState<string | null>(null);
@@ -213,20 +216,11 @@ export default function CaseDetailPage() {
     const file = e.target.files?.[0];
     if (!file || !id) return;
     e.target.value = "";
+    setDocTypeSelectOpen(false);
     setDocUploading(true);
     try {
-      const token = localStorage.getItem("authToken");
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/documents/upload", {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        navigate(`/documents/${data.id}/review?caseId=${id}`);
-      }
+      await caseDocumentsApi.upload(id, selectedDocType, file);
+      load();
     } catch (err) { console.error(err); }
     finally { setDocUploading(false); }
   };
@@ -490,7 +484,7 @@ export default function CaseDetailPage() {
                     </Button>
                   )}
                   <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
-                    onClick={() => docUploadRef.current?.click()}
+                    onClick={() => setDocTypeSelectOpen(o => !o)}
                     disabled={docUploading || isClosed}>
                     {docUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                     {t.cases.uploadDocument}
@@ -498,6 +492,25 @@ export default function CaseDetailPage() {
                   <input ref={docUploadRef} type="file" accept=".pdf,.doc,.docx,image/*" className="hidden" onChange={handleDocUpload} />
                 </div>
               </div>
+              {docTypeSelectOpen && (
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5">
+                  <select
+                    className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={selectedDocType}
+                    onChange={e => setSelectedDocType(e.target.value)}
+                  >
+                    {CASE_DOCUMENT_TYPES.map(dt => (
+                      <option key={dt.value} value={dt.value}>{dt.label}</option>
+                    ))}
+                  </select>
+                  <Button size="sm" className="text-xs gap-1" onClick={() => docUploadRef.current?.click()} disabled={docUploading}>
+                    <Upload className="h-3 w-3" /> Choose File
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-xs px-1.5" onClick={() => setDocTypeSelectOpen(false)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
               <div className="rounded-xl border border-border bg-card divide-y divide-border">
                 {documents.length === 0 ? (
                   <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t.cases.noDocuments}</p>

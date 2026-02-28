@@ -4,7 +4,7 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import {
   ArrowLeft, Building2, Users, KeyRound,
   Mail, AlertCircle, ShieldCheck, Gavel, Receipt, MapPin,
-  RotateCcw, Database, Clock, FileText, Brain, Layers,
+  RotateCcw, Database, Clock, FileText, Brain, Layers, Key,
 } from "lucide-react";
 
 interface SettingsNavItemProps {
@@ -29,7 +29,7 @@ function SettingsNavItem({ to, icon: Icon, label }: SettingsNavItemProps) {
 }
 
 export default function SettingsLayout() {
-const { isGlobalAdmin } = useAuth();
+const { isGlobalAdmin, isTenantAdmin } = useAuth();
   const { t } = useTranslation();
 
   return (
@@ -83,6 +83,9 @@ const { isGlobalAdmin } = useAuth();
           )}
           {isGlobalAdmin && (
             <SettingsNavItem to="/settings/tenant-ai" icon={Layers} label={t.ai.tenantConfigTitle} />
+          )}
+          {isTenantAdmin && !isGlobalAdmin && (
+            <SettingsNavItem to="/settings/my-ai" icon={Key} label="My AI Settings" />
           )}
         </nav>
       </aside>
