@@ -80,6 +80,10 @@ export const caseWorkflowApi = {
   closeCase: (caseId: string, body: { explanation?: string; overridePendingStages: boolean }) =>
     client.post<{ message: string }>(`/cases/${caseId}/workflow/close`, body),
 
+  /** Reopen a closed case. TenantAdmin / GlobalAdmin only. */
+  reopenCase: (caseId: string) =>
+    client.post<{ message: string }>(`/cases/${caseId}/workflow/reopen`),
+
   // ── Stage deadline override ───────────────────────────────────────────────
 
   /** Override the deadline for a specific stage (tenant admin only). */

@@ -66,8 +66,8 @@ const { isGlobalAdmin } = useAuth();
 <SettingsNavItem to="/settings/finance" icon={Receipt} label={t.authorities?.finance ?? "ANAF"} />
     <SettingsNavItem to="/settings/localgov" icon={MapPin} label={t.authorities?.localGov ?? "Local Gov"} />
         <SettingsNavItem to="/settings/deadlines" icon={Clock} label={t.tasks?.deadline ?? "Deadlines"} />
-          <SettingsNavItem to="/settings/templates" icon={FileText} label="Document Templates" />
-          <SettingsNavItem to="/settings/workflow-stages" icon={Layers} label="Etape procedură" />
+          <SettingsNavItem to="/settings/templates" icon={FileText} label={t.templateSettings.pageTitle} />
+          <SettingsNavItem to="/settings/workflow-stages" icon={Layers} label={t.settings.casePhases} />
           {/* System */}
      <div className="mb-1 px-3 pt-4 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
     {t.nav.admin}
@@ -79,7 +79,10 @@ const { isGlobalAdmin } = useAuth();
             <SettingsNavItem to="/settings/demo" icon={RotateCcw} label={t.settings.demoReset} />
           )}
           {isGlobalAdmin && (
-            <SettingsNavItem to="/settings/ai-config" icon={Brain} label="AI Configuration" />
+            <SettingsNavItem to="/settings/ai-config" icon={Brain} label={t.settings.aiConfiguration} />
+          )}
+          {isGlobalAdmin && (
+            <SettingsNavItem to="/settings/tenant-ai" icon={Layers} label={t.ai.tenantConfigTitle} />
           )}
         </nav>
       </aside>

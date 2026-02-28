@@ -6,7 +6,7 @@ import type { TaskDto, TaskNoteDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  X, ExternalLink, Building2, FolderOpen, AlertCircle, CheckCircle2, Clock,
+  X, Building2, FolderOpen, AlertCircle, CheckCircle2, Clock,
   AlertTriangle, Ban, Edit2, Trash2, Plus, Save, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -15,6 +15,7 @@ interface Props {
   taskId: string | null;
   onClose: () => void;
   onStatusChanged?: (taskId: string, newStatus: string) => void;
+  readOnly?: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -35,7 +36,8 @@ function Note({
   note,
   onEdit,
   onDelete,
-}: { note: TaskNoteDto; onEdit: (n: TaskNoteDto) => void; onDelete: (id: string) => void }) {
+  readOnly = false,
+}: { note: TaskNoteDto; onEdit: (n: TaskNoteDto) => void; onDelete: (id: string) => void; readOnly?: boolean }) {
   return (
     <div className="group flex gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm">
       <div className="flex-1 min-w-0">
@@ -47,6 +49,7 @@ function Note({
         </div>
         <p className="whitespace-pre-wrap break-words text-foreground">{note.content}</p>
       </div>
+      {!readOnly && (
       <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onClick={() => onEdit(note)}
           className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground">
@@ -57,11 +60,12 @@ function Note({
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
+      )}
     </div>
   );
 }
 
-export default function TaskDetailModal({ taskId, onClose, onStatusChanged }: Props) {
+export default function TaskDetailModal({ taskId, onClose, onStatusChanged, readOnly = false }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [task, setTask] = useState<TaskDto | null>(null);
@@ -73,6 +77,8 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }: Pr
   const [savingNote, setSavingNote] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockReason, setBlockReason] = useState("");
+  const [reportSummaryText, setReportSummaryText] = useState("");
+  const [savingReportSummary, setSavingReportSummary] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -83,6 +89,7 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }: Pr
       tasksApi.getNotes(taskId),
     ]).then(([taskRes, notesRes]) => {
       setTask(taskRes.data);
+      setReportSummaryText(taskRes.data.reportSummary ?? "");
       setNotes(notesRes.data);
     }).finally(() => setLoading(false));
   }, [taskId]);
@@ -134,8 +141,16 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }: Pr
     } finally { setSavingNote(false); }
   };
 
-  const handleDeleteNote = async (noteId: string) => {
-    if (!taskId) return;
+  const handleSaveReportSummary = async () => {
+    if (!task) return;
+    setSavingReportSummary(true);
+    try {
+      const res = await tasksApi.update(task.id, { reportSummary: reportSummaryText.trim() || null });
+      setTask(res.data);
+    } finally { setSavingReportSummary(false); }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {    if (!taskId) return;
     const note = notes.find(n => n.id === noteId);
     if (!note) return;
     await tasksApi.deleteNote(taskId, noteId);
@@ -224,8 +239,9 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }: Pr
               <button
                 key={value}
                 title={t.tasks[value as keyof typeof t.tasks] as string}
-                onClick={() => handleStatusChange(value)}
-                className={`p-1.5 rounded hover:bg-accent transition-colors ${task?.status === value ? color : "text-muted-foreground hover:text-foreground"}`}
+                onClick={() => !readOnly && handleStatusChange(value)}
+                disabled={readOnly}
+                className={`p-1.5 rounded hover:bg-accent transition-colors ${task?.status === value ? color : "text-muted-foreground hover:text-foreground"} ${readOnly ? "opacity-40 cursor-not-allowed" : ""}`}
               >
                 <Icon className="h-4 w-4" />
               </button>
@@ -277,6 +293,30 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }: Pr
             </dl>
           )}
 
+          {/* Report Summary section — visible for done/inProgress tasks */}
+          {task && (task.status === "done" || task.status === "inProgress") && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-foreground">{t.tasks.reportSummaryLabel}</h3>
+              <p className="text-xs text-muted-foreground">{t.tasks.reportSummaryHelp}</p>
+              <textarea
+                value={reportSummaryText}
+                onChange={e => !readOnly && setReportSummaryText(e.target.value)}
+                readOnly={readOnly}
+                rows={3}
+                placeholder={t.tasks.reportSummaryPlaceholder}
+                className={`w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-y ${readOnly ? "opacity-60 cursor-not-allowed" : ""}`}
+              />
+              {!readOnly && (
+              <div className="flex justify-end">
+                <Button size="sm" disabled={savingReportSummary} onClick={handleSaveReportSummary}>
+                  {savingReportSummary ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  {t.tasks.saveChanges}
+                </Button>
+              </div>
+              )}
+            </div>
+          )}
+
           {/* Notes section */}
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-3">{t.tasks.notes}</h3>
@@ -310,14 +350,14 @@ export default function TaskDetailModal({ taskId, onClose, onStatusChanged }: Pr
                       </div>
                     </div>
                   ) : (
-                    <Note key={note.id} note={note} onEdit={startEdit} onDelete={handleDeleteNote} />
+                    <Note key={note.id} note={note} onEdit={readOnly ? () => {} : startEdit} onDelete={readOnly ? () => {} : handleDeleteNote} readOnly={readOnly} />
                   )
                 )}
               </div>
             )}
 
             {/* Add note */}
-            {!editingNote && (
+            {!editingNote && !readOnly && (
               <div className="mt-3 space-y-2">
                 <textarea
                   ref={textareaRef}

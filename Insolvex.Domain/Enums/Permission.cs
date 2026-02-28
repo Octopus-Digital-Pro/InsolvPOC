@@ -14,6 +14,7 @@ public enum Permission
   CaseDelete = 103,
   CaseExport = 104,
   CaseClose = 105,
+  CaseReopen = 106,
 
   // ?? Case Parties ??
   PartyView = 200,
@@ -65,9 +66,14 @@ public enum Permission
   TemplateGenerate = 801,
   TemplateManage = 802,
 
-  // ?? AI Summaries ??
+  // ?? AI Summaries & Chat ??
   SummaryView = 850,
   SummaryGenerate = 851,
+  AiChatUse = 852,
+
+  // ?? Tenant AI Configuration ??
+  TenantAiConfigView = 860,
+  TenantAiConfigEdit = 861,
 
   // ?? Settings ??
   SettingsView = 900,
@@ -103,4 +109,7 @@ public enum Permission
   AssetCreate = 1001,
   AssetEdit = 1002,
   AssetDelete = 1003,
+
+  // 🔑 Tenant AI key (TenantAdmin self-service) 🔑
+  TenantAiKeyEdit = 1010,
 }

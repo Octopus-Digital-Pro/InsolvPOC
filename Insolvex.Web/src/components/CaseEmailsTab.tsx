@@ -28,6 +28,7 @@ interface Props {
   parties?: CasePartyDto[];
   emails: CaseEmailDto[];
   onRefresh: () => void;
+  readOnly?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ function EmailCard({ email, onReply }: {
           </p>
         </div>
         {attachments.length > 0 && (
-          <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" title={`${attachments.length} attachment(s)`} />
+          <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" aria-label={`${attachments.length} attachment(s)`} />
         )}
         <Badge variant={statusVariant(email.status)} className="text-[10px] shrink-0">{email.status}</Badge>
         <span className="text-[10px] text-muted-foreground shrink-0">
@@ -152,7 +153,7 @@ function EmailCard({ email, onReply }: {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function CaseEmailsTab({ caseId, caseName, parties, emails, onRefresh }: Props) {
+export default function CaseEmailsTab({ caseId, caseName, parties, emails, onRefresh, readOnly = false }: Props) {
   const [expandedThreadIds, setExpandedThreadIds] = useState<Set<string>>(new Set());
   const [showBulk, setShowBulk] = useState(false);
   const [bulkPreview, setBulkPreview] = useState<BulkEmailPreview | null>(null);
@@ -232,6 +233,8 @@ export default function CaseEmailsTab({ caseId, caseName, parties, emails, onRef
           )}
         </div>
         <div className="flex gap-1.5">
+          {!readOnly && (
+            <>
           <Button
             variant="outline" size="sm"
             className="text-xs gap-1 border-border"
@@ -249,6 +252,8 @@ export default function CaseEmailsTab({ caseId, caseName, parties, emails, onRef
             <Mail className="h-3.5 w-3.5" />
             New Email
           </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -293,9 +298,11 @@ export default function CaseEmailsTab({ caseId, caseName, parties, emails, onRef
         <div className="rounded-xl border border-dashed border-border bg-card/50 p-8 text-center">
           <Mail className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
           <p className="text-sm text-muted-foreground">No emails scheduled or sent for this case yet.</p>
-          <Button variant="outline" size="sm" className="mt-3 text-xs gap-1" onClick={openNewEmail}>
-            <Mail className="h-3.5 w-3.5" /> New Email
-          </Button>
+          {!readOnly && (
+            <Button variant="outline" size="sm" className="mt-3 text-xs gap-1" onClick={openNewEmail}>
+              <Mail className="h-3.5 w-3.5" /> New Email
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-2">

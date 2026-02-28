@@ -89,7 +89,23 @@ export const caseEmailsApi = {
     client.get<BulkEmailPreview>(`/cases/${caseId}/bulk-email/creditor-cohort/preview`, { params: { roles } }),
 };
 
+export interface CreateCalendarEventPayload {
+  caseId: string;
+  title: string;
+  description?: string | null;
+  start: string;
+  end?: string | null;
+  allDay: boolean;
+  location?: string | null;
+  eventType: string;
+  participantsJson?: string | null;
+  relatedTaskId?: string | null;
+}
+
 export const caseCalendarApi = {
   getByCaseId: (caseId: string) =>
     client.get<CaseCalendarEventDto[]>(`/cases/${caseId}/calendar`),
+
+  create: (caseId: string, data: CreateCalendarEventPayload) =>
+    client.post<CaseCalendarEventDto>(`/cases/${caseId}/calendar`, data),
 };

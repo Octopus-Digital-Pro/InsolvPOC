@@ -13,9 +13,10 @@ import {
 
 interface Props {
   caseId: string;
+  readOnly?: boolean;
 }
 
-export default function CaseWorkflowPanel({ caseId }: Props) {
+export default function CaseWorkflowPanel({ caseId, readOnly = false }: Props) {
   const { t } = useTranslation();
   const { isTenantAdmin } = useAuth();
 
@@ -228,7 +229,7 @@ export default function CaseWorkflowPanel({ caseId }: Props) {
                             Overridden
                           </span>
                         )}
-                        {isTenantAdmin && deadlineEdit !== stage.stageKey && (
+                        {isTenantAdmin && !readOnly && deadlineEdit !== stage.stageKey && (
                           <button
                             onClick={() => {
                               setDeadlineEdit(stage.stageKey);
@@ -257,7 +258,7 @@ export default function CaseWorkflowPanel({ caseId }: Props) {
                       )}
 
                       {/* Inline deadline override form */}
-                      {isTenantAdmin && deadlineEdit === stage.stageKey && (
+                      {isTenantAdmin && !readOnly && deadlineEdit === stage.stageKey && (
                         <div className="mt-2 rounded-md border border-border bg-muted/30 p-3 space-y-2">
                           <p className="text-xs font-medium text-foreground">Override Deadline</p>
                           <div className="grid grid-cols-2 gap-2">
@@ -344,7 +345,7 @@ export default function CaseWorkflowPanel({ caseId }: Props) {
                   )}
 
                   {/* Skip confirmation */}
-                  {skipConfirm === stage.stageKey && (
+                  {skipConfirm === stage.stageKey && !readOnly && (
                     <div className="rounded-md border border-amber-400/30 bg-amber-500/5 p-3 space-y-2">
                       <p className="text-xs font-medium text-amber-700">{t.workflow.skipStagePrompt}</p>
                       <input
@@ -378,7 +379,7 @@ export default function CaseWorkflowPanel({ caseId }: Props) {
                   )}
 
                   {/* Action buttons */}
-                  {skipConfirm !== stage.stageKey && (
+                  {skipConfirm !== stage.stageKey && !readOnly && (
                     <div className="flex gap-2">
                       {/* Start */}
                       {stage.status === "NotStarted" && !gated && (

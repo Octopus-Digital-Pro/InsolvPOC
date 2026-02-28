@@ -290,7 +290,7 @@ function GroupedListView({
   statusLabel,
   updatingId,
   onStatusChange,
-  navigate,
+  navigate: _navigate,
   onTaskClick,
 }: {
   tasks: TaskDto[];

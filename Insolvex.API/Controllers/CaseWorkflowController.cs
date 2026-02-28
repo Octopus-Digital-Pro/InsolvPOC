@@ -64,6 +64,15 @@ public class CaseWorkflowController : ControllerBase
         return Ok(new { message = "Case closed successfully." });
     }
 
+    /// <summary>Reopen a closed case. TenantAdmin / GlobalAdmin only.</summary>
+    [HttpPost("reopen")]
+    [RequirePermission(Permission.CaseReopen)]
+    public async Task<IActionResult> ReopenCase(Guid caseId, CancellationToken ct)
+    {
+        await _workflow.ReopenCaseAsync(caseId, ct);
+        return Ok(new { message = "Case reopened successfully." });
+    }
+
     // ── Stage deadline override ─────────────────────────────────────────
 
     /// <summary>Override the deadline for a specific workflow stage. Tenant admin only.</summary>

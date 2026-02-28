@@ -23,7 +23,8 @@ public record TaskDto(
     DateTime? CompletedAt,
     DateTime CreatedOn,
     string? Summary,
-    string? SummaryByLanguageJson
+    string? SummaryByLanguageJson,
+    string? ReportSummary
 );
 
 public record CreateTaskRequest(

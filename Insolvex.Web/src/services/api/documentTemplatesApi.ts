@@ -3,15 +3,16 @@ import client from "./client";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type DocumentTemplateType =
-  | "CreditorNotificationBpi"
-  | "ReportArt97"
-  | "PreliminaryClaimsTable"
-  | "CreditorsMeetingMinutes"
-  | "DefinitiveClaimsTable"
-  | "FinalReportArt167"
-  | "CreditorNotificationHtml"
-  | "MandatoryReport"
-  | "Custom";
+  | "courtOpeningDecision"
+  | "creditorNotificationBpi"
+  | "reportArt97"
+  | "preliminaryClaimsTable"
+  | "creditorsMeetingMinutes"
+  | "definitiveClaimsTable"
+  | "finalReportArt167"
+  | "creditorNotificationHtml"
+  | "mandatoryReport"
+  | "custom";
 
 /** Incoming (received) document types — not generated, but recognized by AI. */
 export type IncomingDocumentType = "CourtOpeningDecision";
@@ -59,6 +60,10 @@ export interface UpdateDocumentTemplateRequest {
 export interface RenderTemplateRequest {
   caseId: string;
   recipientPartyId?: string;
+  pastTasksFromDate?: string;
+  pastTasksToDate?: string;
+  futureTasksFromDate?: string;
+  futureTasksToDate?: string;
 }
 
 export interface RenderTemplateResult {
@@ -76,6 +81,59 @@ export interface PlaceholderGroup {
   fields: PlaceholderField[];
 }
 
+export interface ImportWordDocumentResult {
+  html: string;
+  detectedPlaceholders: string[];
+  fileName: string;
+}
+
+export interface IncomingAnnotationItem {
+  id: string;
+  field: string;
+  label: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface IncomingAnnotationsPayload {
+  annotations: IncomingAnnotationItem[];
+  notes?: string | null;
+}
+
+/** Full DB profile for an incoming document type, including AI summaries in 3 languages. */
+export interface IncomingDocumentProfile {
+  type: string;
+  exists: boolean;
+  originalFileName?: string;
+  fileSizeBytes?: number;
+  uploadedOn?: string;
+  lastAnnotatedOn?: string | null;
+  annotationCount?: number;
+  annotationNotes?: string | null;
+  aiSummaryEn?: string | null;
+  aiSummaryRo?: string | null;
+  aiSummaryHu?: string | null;
+  aiParametersJson?: string | null;
+  aiModel?: string | null;
+  aiConfidence?: number | null;
+  aiAnalysedOn?: string | null;
+}
+
+/** Response from POST .../analyse */
+export interface AiDocumentProfileResult {
+  type: string;
+  aiSummaryEn?: string | null;
+  aiSummaryRo?: string | null;
+  aiSummaryHu?: string | null;
+  aiParametersJson?: string | null;
+  aiModel?: string | null;
+  aiConfidence?: number | null;
+  aiAnalysedOn?: string | null;
+  message: string;
+}
+
 export interface RenderHtmlToPdfRequest {
   html: string;
   caseId: string;
@@ -91,13 +149,14 @@ export interface SaveHtmlToCaseRequest {
 // ── Friendly display names for system template types ─────────────────────────
 
 export const SYSTEM_TEMPLATE_LABELS: Record<string, string> = {
-  CreditorNotificationBpi: "Notificare creditori + publicare BPI",
-  ReportArt97: "Raport 40 zile (Art. 97)",
-  PreliminaryClaimsTable: "Tabel preliminar de creanțe",
-  CreditorsMeetingMinutes: "Proces-verbal AGC confirmare lichidator",
-  DefinitiveClaimsTable: "Tabel definitiv de creanțe",
-  FinalReportArt167: "Raport final (Art. 167)",
-  CreditorNotificationHtml: "Notificare deschidere procedură (HTML)",
+  creditorNotificationBpi: "Notificare creditori + publicare BPI",
+  reportArt97: "Raport 40 zile (Art. 97)",
+  mandatoryReport: "Raport periodic obligatoriu (30 zile)",
+  preliminaryClaimsTable: "Tabel preliminar de creanțe",
+  creditorsMeetingMinutes: "Proces-verbal AGC confirmare lichidator",
+  definitiveClaimsTable: "Tabel definitiv de creanțe",
+  finalReportArt167: "Raport final (Art. 167)",
+  creditorNotificationHtml: "Notificare deschidere procedură (HTML)",
 };
 
 /** Incoming document friendly names (received from court / external parties). */
@@ -157,13 +216,14 @@ export const getIncomingDocumentDescription = (type: IncomingDocumentType, local
 };
 
 export const SYSTEM_TEMPLATE_STAGE: Record<string, string> = {
-  CreditorNotificationBpi: "Deschidere procedură",
-  ReportArt97: "Observație",
-  PreliminaryClaimsTable: "Verificare creanțe",
-  CreditorsMeetingMinutes: "Adunarea creditorilor",
-  DefinitiveClaimsTable: "Lichidare",
-  FinalReportArt167: "Închidere",
-  CreditorNotificationHtml: "Deschidere procedură",
+  creditorNotificationBpi: "Deschidere procedură",
+  reportArt97: "Observație",
+  mandatoryReport: "Monitorizare",
+  preliminaryClaimsTable: "Verificare creanțe",
+  creditorsMeetingMinutes: "Adunarea creditorilor",
+  definitiveClaimsTable: "Lichidare",
+  finalReportArt167: "Închidere",
+  creditorNotificationHtml: "Deschidere procedură",
 };
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -234,6 +294,22 @@ export const documentTemplatesApi = {
       req,
     ),
 
+  /** Upload a .docx Word document, extract HTML, and insert AI-detected placeholders. */
+  importWordDocument: (file: File, onProgress?: (pct: number) => void) => {
+    const form = new FormData();
+    form.append("file", file);
+    // Do NOT set Content-Type manually — axios must auto-generate it with the multipart boundary.
+    return client.post<ImportWordDocumentResult>(
+      "/document-templates/import-word",
+      form,
+      {
+        onUploadProgress: onProgress
+          ? (e) => { if (e.total) onProgress(Math.round((e.loaded / e.total) * 100)); }
+          : undefined,
+      },
+    );
+  },
+
   /** Upload a sample/reference PDF for an incoming document type (AI recognition). */
   uploadIncomingReference: (type: IncomingDocumentType, file: File, onProgress?: (pct: number) => void) => {
     const form = new FormData();
@@ -242,7 +318,6 @@ export const documentTemplatesApi = {
       `/document-templates/incoming-reference/${type}`,
       form,
       {
-        headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: onProgress
           ? (e) => { if (e.total) onProgress(Math.round((e.loaded / e.total) * 100)); }
           : undefined,
@@ -253,6 +328,26 @@ export const documentTemplatesApi = {
   /** Check whether a reference PDF has been uploaded for an incoming document type. */
   getIncomingReference: (type: IncomingDocumentType) =>
     client.get<IncomingDocumentReferenceStatus>(`/document-templates/incoming-reference/${type}`),
+
+  /** Returns the URL to stream the reference PDF (for PDF.js rendering). */
+  getIncomingReferenceFileUrl: (type: IncomingDocumentType): string =>
+    `/api/document-templates/incoming-reference/${type}/file`,
+
+  /** Retrieve saved annotations for an incoming document type. */
+  getIncomingAnnotations: (type: IncomingDocumentType) =>
+    client.get<IncomingAnnotationsPayload>(`/document-templates/incoming-reference/${type}/annotations`),
+
+  /** Persist annotation rectangles + optional notes for an incoming document type. */
+  saveIncomingAnnotations: (type: IncomingDocumentType, payload: IncomingAnnotationsPayload) =>
+    client.post(`/document-templates/incoming-reference/${type}/annotations`, payload),
+
+  /** Retrieve the full DB profile (AI summaries, parameters, annotation count) for a document type. */
+  getIncomingDocumentProfile: (type: IncomingDocumentType) =>
+    client.get<IncomingDocumentProfile>(`/document-templates/incoming-reference/${type}/profile`),
+
+  /** Trigger AI analysis: generates EN/RO/HU summaries + structured field parameters and saves to DB. */
+  analyseIncomingDocument: (type: IncomingDocumentType) =>
+    client.post<AiDocumentProfileResult>(`/document-templates/incoming-reference/${type}/analyse`),
   /**
    * Convert arbitrary HTML (already rendered + optionally signed) to a PDF download.
    * Used after the user edits the preview-modal content.

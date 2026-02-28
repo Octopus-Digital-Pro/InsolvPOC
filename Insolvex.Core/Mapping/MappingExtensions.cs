@@ -139,7 +139,8 @@ t.DeadlineSource,
       t.CompletedAt,
  t.CreatedOn,
     t.Summary,
-    t.SummaryByLanguageJson
+    t.SummaryByLanguageJson,
+    t.ReportSummary
   );
 
   public static AuditLogDto ToDto(this AuditLog log) => new(

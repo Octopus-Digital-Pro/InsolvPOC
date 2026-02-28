@@ -449,9 +449,19 @@ string templatePath,
   public async Task<(string RenderedHtml, Dictionary<string, string> MergeData)> RenderHtmlBodyAsync(
       string bodyHtml,
       Guid caseId,
-      Guid? recipientPartyId = null)
+      Guid? recipientPartyId = null,
+      DateTime? pastTasksFromDate = null,
+      DateTime? pastTasksToDate = null,
+      DateTime? futureTasksFromDate = null,
+      DateTime? futureTasksToDate = null)
   {
-    var viewModel = await _mergeEngine.BuildViewModelAsync(caseId, recipientPartyId);
+    var viewModel = await _mergeEngine.BuildViewModelAsync(
+      caseId,
+      recipientPartyId,
+      pastTasksFromDate,
+      pastTasksToDate,
+      futureTasksFromDate,
+      futureTasksToDate);
     var rendered = MergeEngine.Render(bodyHtml, viewModel);
 
     // Build a flat dict from the view-model for backward-compat result serialization

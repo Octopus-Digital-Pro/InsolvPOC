@@ -53,6 +53,8 @@ public class UpdateTaskCommand
     public Domain.Enums.TaskStatus? Status { get; init; }
     public string? BlockReason { get; init; }
     public Guid? AssignedToUserId { get; init; }
+    /// <summary>Mandatory report summary text set by the practitioner on completion.</summary>
+    public string? ReportSummary { get; init; }
 }
 
 public class CaseTaskSummaryResult

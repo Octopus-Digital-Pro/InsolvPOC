@@ -40,7 +40,7 @@ function CompanyForm({ initial, onSubmit, saving, onCancel, title }: {
   const [onrcQuery, setOnrcQuery] = useState("");
   const [onrcResults, setOnrcResults] = useState<ONRCFirmResult[]>([]);
   const [onrcSearching, setOnrcSearching] = useState(false);
-  const [showOnrcDropdown, setShowOnrcDropdown] = useState(false);
+  const [, setShowOnrcDropdown] = useState(false);
   const [localResults, setLocalResults] = useState<CompanyDto[]>([]);
   const [localSearching, setLocalSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -287,7 +287,7 @@ county: county || undefined,
                 setAddress(sel.address);
                 setLocality(sel.locality);
                 setCounty(sel.county);
-                setPostalCode(sel.postcode);
+                setPostalCode(sel.postalCode);
                 setCountry(sel.country);
               }}
               inputClassName={inputCls.replace('w-full ', '')}

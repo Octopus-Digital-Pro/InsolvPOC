@@ -5,7 +5,7 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import type { CompanyDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Search, Building2, Plus, Landmark, Scale, DollarSign, Flag, MoreHorizontal, Download } from "lucide-react";
+import { Loader2, Building2, Plus, Landmark, Scale, DollarSign, Flag, MoreHorizontal, Download } from "lucide-react";
 import { downloadAuthFile } from "@/utils/downloadAuthFile";
 
 type CompanyTab = "all" | "Debtor" | "InsolvencyPractitioner" | "Creditor" | "Court" | "GovernmentAgency" | "Other";
@@ -25,7 +25,6 @@ export default function CompaniesPage() {
   const { t } = useTranslation();
   const [companies, setCompanies] = useState<CompanyDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
   const [tab, setTab] = useState<CompanyTab>("all");
 
   useEffect(() => {
@@ -35,16 +34,7 @@ export default function CompaniesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = companies.filter(c => {
-    if (tab !== "all" && c.companyType !== tab) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return c.name.toLowerCase().includes(q) ||
-      (c.cuiRo ?? "").toLowerCase().includes(q) ||
-      (c.email ?? "").toLowerCase().includes(q) ||
-      (c.county ?? "").toLowerCase().includes(q) ||
-      (c.caseNumbers ?? []).some(cn => cn.toLowerCase().includes(q));
-  });
+  const filtered = tab === "all" ? companies : companies.filter(c => c.companyType === tab);
 
   const typeCounts = companies.reduce<Record<string, number>>((acc, c) => {
     acc[c.companyType ?? "Other"] = (acc[c.companyType ?? "Other"] || 0) + 1;
@@ -103,17 +93,6 @@ export default function CompaniesPage() {
             </button>
           );
         })}
-      </div>
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Search by name, email, CUI, county, or case number…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

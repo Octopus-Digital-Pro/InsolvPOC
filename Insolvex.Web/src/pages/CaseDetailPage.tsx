@@ -5,12 +5,16 @@ import type { AuthorityRecord } from "@/services/api/authorities";
 import { onrcApi } from "@/services/api/onrc";
 import type { ONRCFirmResult } from "@/services/api/onrc";
 import { workflowApi } from "@/services/api/workflow";
+import { caseWorkflowApi } from "@/services/api/caseWorkflowApi";
 import { documentTemplatesApi } from "@/services/api/documentTemplatesApi";
-import { caseEmailsApi } from "@/services/api/caseWorkspace";
+import { caseEmailsApi, caseCalendarApi } from "@/services/api/caseWorkspace";
 import { tasksApi } from "@/services/api/tasks";
+import { caseAiApi } from "@/services/api/caseAiApi";
+import type { AiEnabledStatus } from "@/services/api/caseAiApi";
+import CaseAiTab from "@/components/CaseAiTab";
 import { useTranslation } from "@/contexts/LanguageContext";
 import type { CaseDto, CasePartyDto, DocumentDto, TaskDto, CompanyDto, UserDto } from "@/services/api/types";
-import type { CaseEmailDto } from "@/services/api/caseWorkspace";
+import type { CaseEmailDto, CaseCalendarEventDto } from "@/services/api/caseWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
@@ -29,7 +33,7 @@ import {
   Loader2, FileText, Upload, Users,
   Brain, CalendarDays, RefreshCw, Layers,
   ListChecks, Mail, Download, FileOutput,
-  History, Plus, Search, X, Building2, Package, Eye, Trash2, Lock, ClipboardList,
+  History, Plus, Search, X, Building2, Package, Eye, Trash2, Lock, ClipboardList, Bot,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -48,6 +52,10 @@ function formatMoney(val: number | null | undefined): string | null {
   return val.toLocaleString("ro-RO", { style: "currency", currency: "RON", maximumFractionDigits: 0 });
 }
 
+function toInputDate(d: Date): string {
+  return format(d, "yyyy-MM-dd");
+}
+
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -59,9 +67,11 @@ export default function CaseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [meetingOpen, setMeetingOpen] = useState(false);
   const [closeCaseOpen, setCloseCaseOpen] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "workflow" | "tasks" | "docs" | "parties" | "assets" | "emails" | "calendar" | "templates" | "activity">("overview");
+  const [aiStatus, setAiStatus] = useState<AiEnabledStatus | null>(null);
   const [caseTasks, setCaseTasks] = useState<TaskDto[]>([]);
   const [caseEmails, setCaseEmails] = useState<CaseEmailDto[]>([]);
   const [docUploading, setDocUploading] = useState(false);
@@ -73,12 +83,64 @@ export default function CaseDetailPage() {
   // Email compose state
   const [composeEmailOpen, setComposeEmailOpen] = useState(false);
   const [composeEmailInitialSubject, setComposeEmailInitialSubject] = useState("");
+  const [composeEmailInitialBody, setComposeEmailInitialBody] = useState("");
+  const [composeEmailInitialPartyIds, setComposeEmailInitialPartyIds] = useState<string[]>([]);
   const [composeEmailAttachedDocId, setComposeEmailAttachedDocId] = useState<string | undefined>();
   // Mandatory report generation + preview modal (in main component)
   const [generatingMandatoryReport, setGeneratingMandatoryReport] = useState(false);
   const [mandatoryReportModalOpen, setMandatoryReportModalOpen] = useState(false);
   const [mandatoryReportHtml, setMandatoryReportHtml] = useState("");
   const [mandatoryReportPractitioner, setMandatoryReportPractitioner] = useState("Practicant insolvență");
+  const [mandatoryReportConfigOpen, setMandatoryReportConfigOpen] = useState(false);
+  const [pastTasksFromDate, setPastTasksFromDate] = useState(toInputDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)));
+  const [pastTasksToDate, setPastTasksToDate] = useState(toInputDate(new Date()));
+  const [futureTasksFromDate, setFutureTasksFromDate] = useState(toInputDate(new Date()));
+  const [futureTasksToDate, setFutureTasksToDate] = useState(toInputDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)));
+
+  const generateMandatoryReport = useCallback(async () => {
+    if (!id) return;
+    setGeneratingMandatoryReport(true);
+    try {
+      const allTemplates = await documentTemplatesApi.getAll();
+      const mandatoryTemplate =
+        allTemplates.data.find(t => t.templateType === "mandatoryReport" && t.isActive && t.hasContent)
+        ?? allTemplates.data.find(t => t.templateType === "mandatoryReport");
+
+      if (!mandatoryTemplate?.id) {
+        alert(t.caseTemplates.mandatoryReportMissing);
+        return;
+      }
+
+      const today = toInputDate(new Date());
+      const safePastTo = pastTasksToDate > today ? today : pastTasksToDate;
+      const safeFutureFrom = futureTasksFromDate < today ? today : futureTasksFromDate;
+
+      const res = await documentTemplatesApi.render(mandatoryTemplate.id, {
+        caseId: id,
+        pastTasksFromDate,
+        pastTasksToDate: safePastTo,
+        futureTasksFromDate: safeFutureFrom,
+        futureTasksToDate,
+      });
+
+      if (!res.data.renderedHtml) return;
+      setMandatoryReportHtml(res.data.renderedHtml ?? "");
+      setMandatoryReportPractitioner(res.data.mergeData?.["PractitionerName"] ?? "Practicant insolvență");
+      setMandatoryReportConfigOpen(false);
+      setMandatoryReportModalOpen(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGeneratingMandatoryReport(false);
+    }
+  }, [
+    id,
+    pastTasksFromDate,
+    pastTasksToDate,
+    futureTasksFromDate,
+    futureTasksToDate,
+    t.caseTemplates.mandatoryReportMissing,
+  ]);
 
   const load = useCallback(() => {
     if (!id) return;
@@ -126,7 +188,26 @@ export default function CaseDetailPage() {
     finally { setSummaryLoading(false); }
   };
 
+  const handleReopenCase = async () => {
+    if (!id) return;
+    setReopening(true);
+    try {
+      await caseWorkflowApi.reopenCase(id);
+      load();
+    } catch (err) {
+      console.error(err);
+      alert(t.cases.reopenError);
+    } finally {
+      setReopening(false);
+    }
+  };
+
   useEffect(() => { loadSummary(); }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    caseAiApi.checkEnabled(id).then(r => setAiStatus(r.data)).catch(console.error);
+  }, [id]);
 
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -163,6 +244,8 @@ export default function CaseDetailPage() {
   if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   if (!caseData) return <p className="p-8 text-muted-foreground">{t.cases.noCases}</p>;
 
+  const isClosed = caseData.status === "Closed";
+
   const statusLabel = (s: string): string =>
     (t.statuses as Record<string, string>)?.[s] ?? s;
 
@@ -184,16 +267,30 @@ export default function CaseDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{statusLabel(caseData.status)}</Badge>
-            {(isPractitioner || isTenantAdmin || isGlobalAdmin) && caseData.status !== "Closed" && (
-              <Button
-                variant="destructive"
-                size="sm"
-                className="h-7 gap-1 text-xs"
-                onClick={() => setCloseCaseOpen(true)}
-              >
-                <Lock className="h-3 w-3" /> Close Case
-              </Button>
-            )}
+            {isClosed
+              ? (isTenantAdmin || isGlobalAdmin) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                    onClick={handleReopenCase}
+                    disabled={reopening}
+                  >
+                    {reopening ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    {t.cases.reopenCase}
+                  </Button>
+                )
+              : (isPractitioner || isTenantAdmin || isGlobalAdmin) && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    onClick={() => setCloseCaseOpen(true)}
+                  >
+                    <Lock className="h-3 w-3" /> Close Case
+                  </Button>
+                )
+            }
           </div>
         </div>
 
@@ -220,7 +317,7 @@ export default function CaseDetailPage() {
                 } catch (err) { console.error(err); }
                 finally { setAssigningCase(false); }
               }}
-              disabled={assigningCase}
+              disabled={assigningCase || isClosed}
               className="text-sm text-foreground bg-transparent border-b border-dashed border-border/60 hover:border-primary/50 focus:outline-none focus:border-primary cursor-pointer transition-colors w-full"
             >
               <option value="">{t.common.unassigned}</option>
@@ -247,6 +344,14 @@ export default function CaseDetailPage() {
         )}
       </div>
 
+      {/* Closed case banner */}
+      {isClosed && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 flex items-center gap-2 text-sm font-medium text-destructive">
+          <Lock className="h-4 w-4 shrink-0" />
+          {t.cases.closedBanner}
+        </div>
+      )}
+
       {/* Workspace layout */}
       <div className="space-y-3">
         {/* Actions */}
@@ -256,6 +361,7 @@ export default function CaseDetailPage() {
             size="sm"
             className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
             onClick={() => setMeetingOpen(true)}
+            disabled={isClosed}
           >
             <Users className="h-3.5 w-3.5" />
             Call Creditor Meeting
@@ -267,30 +373,13 @@ export default function CaseDetailPage() {
               variant="outline"
               size="sm"
               className="text-xs gap-1 border-amber-400/50 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-              disabled={generatingMandatoryReport}
-              onClick={async () => {
-                setGeneratingMandatoryReport(true);
-                try {
-                  const res = await documentTemplatesApi.render(
-                    // find the MandatoryReport template (will use existing render-by-type logic via workflowApi)
-                    await documentTemplatesApi.getAll().then(r => {
-                      const tpl = r.data.find(t => String(t.templateType) === "MandatoryReport");
-                      return tpl?.id ?? "";
-                    }),
-                    { caseId: id! }
-                  );
-                  if (!res.data.renderedHtml) return;
-                  setMandatoryReportHtml(res.data.renderedHtml ?? "");
-                  setMandatoryReportPractitioner(res.data.mergeData?.["PractitionerName"] ?? "Practicant insolvență");
-                  setMandatoryReportModalOpen(true);
-                } catch (err) { console.error(err); }
-                finally { setGeneratingMandatoryReport(false); }
-              }}
+              disabled={generatingMandatoryReport || isClosed}
+              onClick={() => setMandatoryReportConfigOpen(true)}
             >
               {generatingMandatoryReport
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 : <ClipboardList className="h-3.5 w-3.5" />}
-              Generate Mandatory Report
+              {t.caseTemplates.mandatoryReportButton}
             </Button>
           )}
 
@@ -306,6 +395,7 @@ export default function CaseDetailPage() {
                 setActiveTab("emails");
                 setComposeEmailOpen(true);
               }}
+            disabled={isClosed}
             >
               <Mail className="h-3.5 w-3.5" />
               Send Email
@@ -318,7 +408,7 @@ export default function CaseDetailPage() {
           {/* Tab bar */}
           <div className="flex gap-1 rounded-lg border border-border bg-card p-1 overflow-x-auto">
             {([
-              { id: "overview" as const, label: "Overview", icon: Brain },
+              { id: "overview" as const, label: "Overview", icon: aiStatus?.aiEnabled ? Bot : Brain },
               { id: "workflow" as const, label: "Workflow", icon: Layers },
               { id: "tasks" as const, label: `Tasks (${caseTasks.length})`, icon: ListChecks },
               { id: "docs" as const, label: t.cases.documents, icon: FileText },
@@ -346,6 +436,9 @@ export default function CaseDetailPage() {
 
           {/* Overview Tab */}
           {activeTab === "overview" && (
+            aiStatus?.aiEnabled
+              ? <CaseAiTab caseId={id!} readOnly={isClosed} />
+              : (
             <div className="space-y-4">
               {/* AI Summary */}
               <div className="rounded-xl border border-border bg-card p-4">
@@ -369,16 +462,17 @@ export default function CaseDetailPage() {
                 )}
               </div>
             </div>
+              )
           )}
 
           {/* Workflow Tab */}
           {activeTab === "workflow" && (
-            <CaseWorkflowPanel caseId={id!} />
+            <CaseWorkflowPanel caseId={id!} readOnly={isClosed} />
           )}
 
           {/* Tasks Tab */}
           {activeTab === "tasks" && (
-            <CaseTasksTab caseId={id!} tasks={caseTasks} onRefresh={load} />
+            <CaseTasksTab caseId={id!} tasks={caseTasks} onRefresh={load} readOnly={isClosed} />
           )}
 
           {/* Documents Tab */}
@@ -397,7 +491,7 @@ export default function CaseDetailPage() {
                   )}
                   <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
                     onClick={() => docUploadRef.current?.click()}
-                    disabled={docUploading}>
+                    disabled={docUploading || isClosed}>
                     {docUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                     {t.cases.uploadDocument}
                   </Button>
@@ -438,7 +532,7 @@ export default function CaseDetailPage() {
                 <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <Users className="h-3.5 w-3.5" /> Parties ({parties.length})
                 </h2>
-                <Button size="sm" className="gap-1.5 text-xs h-7" onClick={() => setAddPartyOpen(true)}>
+                <Button size="sm" className="gap-1.5 text-xs h-7" onClick={() => setAddPartyOpen(true)} disabled={isClosed}>
                   <Plus className="h-3.5 w-3.5" /> Add Party
                 </Button>
               </div>
@@ -464,7 +558,7 @@ export default function CaseDetailPage() {
                       <button
                         type="button"
                         onClick={() => handleRemoveParty(p.id)}
-                        disabled={removingPartyId === p.id}
+                        disabled={removingPartyId === p.id || isClosed}
                         className="ml-1 rounded p-1 hover:bg-destructive/10 text-destructive/60 hover:text-destructive transition-colors shrink-0"
                         title="Remove party"
                       >
@@ -481,7 +575,7 @@ export default function CaseDetailPage() {
 
           {/* Assets Tab */}
           {activeTab === "assets" && (
-            <CaseAssetsTab caseId={id!} parties={parties} />
+            <CaseAssetsTab caseId={id!} parties={parties} readOnly={isClosed} />
           )}
 
           {/* Emails Tab */}
@@ -492,23 +586,25 @@ export default function CaseDetailPage() {
               parties={parties}
               emails={caseEmails}
               onRefresh={load}
+              readOnly={isClosed}
             />
           )}
 
           {/* Calendar Tab */}
           {activeTab === "calendar" && (
-            <CalendarTab caseId={id!} />
+            <CalendarTab caseId={id!} readOnly={isClosed} />
           )}
 
           {/* Templates Tab */}
           {activeTab === "templates" && (
-            <TemplatesTab caseId={id!} />
+            <TemplatesTab caseId={id!} readOnly={isClosed} />
           )}
 
           {/* Activity Timeline Tab */}
           {activeTab === "activity" && (
             <CaseAuditActivity caseId={id!} caseNumber={caseData.caseNumber} locale={locale} />
           )}
+
         </div>
       </div>
 
@@ -540,20 +636,96 @@ export default function CaseDetailPage() {
         onCreated={load}
       />
 
+      {/* Mandatory Report Period Config */}
+      {mandatoryReportConfigOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl rounded-xl border border-border bg-card shadow-2xl p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold">{t.caseTemplates.mandatoryReportConfigTitle}</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t.caseTemplates.mandatoryReportConfigDesc}
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setMandatoryReportConfigOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.pastTasksFrom}</label>
+                <input
+                  type="date"
+                  value={pastTasksFromDate}
+                  max={toInputDate(new Date())}
+                  onChange={(e) => setPastTasksFromDate(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.pastTasksTo}</label>
+                <input
+                  type="date"
+                  value={pastTasksToDate}
+                  max={toInputDate(new Date())}
+                  onChange={(e) => setPastTasksToDate(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.futureTasksFrom}</label>
+                <input
+                  type="date"
+                  value={futureTasksFromDate}
+                  min={toInputDate(new Date())}
+                  onChange={(e) => setFutureTasksFromDate(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.futureTasksTo}</label>
+                <input
+                  type="date"
+                  value={futureTasksToDate}
+                  min={toInputDate(new Date())}
+                  onChange={(e) => setFutureTasksToDate(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setMandatoryReportConfigOpen(false)} disabled={generatingMandatoryReport}>
+                Cancel
+              </Button>
+              <Button onClick={generateMandatoryReport} disabled={generatingMandatoryReport}>
+                {generatingMandatoryReport ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                {t.caseTemplates.generateReport}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mandatory Report Preview Modal */}
       {mandatoryReportModalOpen && (
         <TemplatePreviewModal
           isOpen={mandatoryReportModalOpen}
-          templateName="Raport Periodic Obligatoriu"
+          templateName={t.caseTemplates.mandatoryReportTemplateName}
           renderedHtml={mandatoryReportHtml}
           caseId={id!}
           practitionerName={mandatoryReportPractitioner}
           onClose={() => setMandatoryReportModalOpen(false)}
           onSaved={(docId) => {
             setMandatoryReportModalOpen(false);
-            // After saving, optionally allow to send via email
+            load(); // refresh documents tab
+            const judgeSyndicParty = parties.find(p => p.role === "judgeSyndic");
+            setComposeEmailInitialPartyIds(judgeSyndicParty ? [judgeSyndicParty.id] : []);
             setComposeEmailAttachedDocId(docId);
-            setComposeEmailInitialSubject("Raport Periodic Obligatoriu");
+            setComposeEmailInitialSubject(t.caseTemplates.mandatoryReportTemplateName);
+            setComposeEmailInitialBody(t.caseTemplates.mandatoryReportEmailBody);
+            setComposeEmailOpen(true);
           }}
           onSendEmail={(subject, docId) => {
             setMandatoryReportModalOpen(false);
@@ -571,9 +743,11 @@ export default function CaseDetailPage() {
           caseName={caseData?.debtorName}
           parties={parties}
           initialSubject={composeEmailInitialSubject}
+          initialBody={composeEmailInitialBody}
+          initialPartyIds={composeEmailInitialPartyIds}
           initialAttachedDocId={composeEmailAttachedDocId}
-          onSent={() => { setComposeEmailOpen(false); load(); }}
-          onCancel={() => setComposeEmailOpen(false)}
+          onSent={() => { setComposeEmailOpen(false); setComposeEmailInitialBody(""); setComposeEmailInitialPartyIds([]); load(); }}
+          onCancel={() => { setComposeEmailOpen(false); setComposeEmailInitialBody(""); setComposeEmailInitialPartyIds([]); }}
         />
       )}
     </div>
@@ -581,37 +755,189 @@ export default function CaseDetailPage() {
 }
 
 /* ── Calendar Tab Component ─────────────────────────── */
-function CalendarTab({ caseId }: { caseId: string }) {
-  const [events, setEvents] = useState<Array<Record<string, unknown>>>([]);
+function CalendarTab({ caseId, readOnly = false }: { caseId: string; readOnly?: boolean }) {
+  const { t } = useTranslation();
+  const [events, setEvents] = useState<CaseCalendarEventDto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    start: "",
+    end: "",
+    allDay: false,
+    location: "",
+    eventType: "Meeting",
+  });
 
-  useEffect(() => {
-    workflowApi.getCaseCalendar(caseId)
-      .then(r => setEvents(r.data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+  const EVENT_TYPE_OPTIONS = ["Meeting", "Hearing", "Deadline", "Other"];
+
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await caseCalendarApi.getByCaseId(caseId);
+      setEvents(r.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, [caseId]);
 
-  if (loading) return <div className="p-6 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>;
+  useEffect(() => { void loadEvents(); }, [loadEvents]);
+
+  const openNew = () => {
+    setForm({ title: "", description: "", start: "", end: "", allDay: false, location: "", eventType: "Meeting" });
+    setFormError(null);
+    setShowNew(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setFormError(null);
+    try {
+      await caseCalendarApi.create(caseId, {
+        caseId,
+        title: form.title,
+        description: form.description || null,
+        start: new Date(form.start).toISOString(),
+        end: form.end ? new Date(form.end).toISOString() : null,
+        allDay: form.allDay,
+        location: form.location || null,
+        eventType: form.eventType,
+        participantsJson: null,
+        relatedTaskId: null,
+      });
+      setShowNew(false);
+      await loadEvents();
+    } catch (_err) {
+      setFormError(t.calendar.saveError);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
-    <div className="rounded-xl border border-border bg-card divide-y divide-border">
-      {events.length === 0 ? (
-        <p className="px-4 py-6 text-center text-sm text-muted-foreground">No calendar events yet. Schedule a creditor meeting or add deadlines.</p>
-      ) : (
-        events.map(e => (
-          <div key={e.id as string} className="flex items-center gap-3 px-4 py-2.5">
-            <CalendarDays className={`h-4 w-4 shrink-0 ${(e.eventType as string) === "Meeting" ? "text-primary" : "text-muted-foreground"}`} />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground truncate">{e.title as string}</p>
-              {!!e.location && <p className="text-[10px] text-muted-foreground">{String(e.location)}</p>}
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-foreground">{t.calendar.title}</p>
+        <Button size="sm" onClick={openNew} disabled={readOnly}>
+          <Plus className="h-3.5 w-3.5 mr-1" />
+          {t.calendar.newEvent}
+        </Button>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card divide-y divide-border">
+        {loading ? (
+          <div className="p-6 text-center"><Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" /></div>
+        ) : events.length === 0 ? (
+          <p className="px-4 py-6 text-center text-sm text-muted-foreground">{t.calendar.noEvents}</p>
+        ) : (
+          events.map(e => (
+            <div key={e.id} className="flex items-center gap-3 px-4 py-2.5">
+              <CalendarDays className={`h-4 w-4 shrink-0 ${e.eventType === "Meeting" ? "text-primary" : "text-muted-foreground"}`} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground truncate">{e.title}</p>
+                {e.location && <p className="text-[10px] text-muted-foreground">{e.location}</p>}
+              </div>
+              <Badge variant="outline" className="text-[10px] shrink-0">{e.eventType}</Badge>
+              <span className="text-[10px] text-muted-foreground shrink-0">
+                {format(new Date(e.start), "dd MMM yyyy HH:mm")}
+              </span>
             </div>
-            <Badge variant="outline" className="text-[10px] shrink-0">{e.eventType as string}</Badge>
-            <span className="text-[10px] text-muted-foreground shrink-0">
-              {format(new Date(e.start as string), "dd MMM yyyy HH:mm")}
-            </span>
+          ))
+        )}
+      </div>
+
+      {showNew && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowNew(false)}>
+          <div className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl p-6 mx-4" onClick={ev => ev.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-foreground">{t.calendar.newEvent}</h3>
+              <button type="button" onClick={() => setShowNew(false)} className="text-muted-foreground hover:text-foreground transition-colors"><X className="h-4 w-4" /></button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">{t.calendar.eventTitle} *</label>
+                <input
+                  className="mt-0.5 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={form.title}
+                  onChange={ev => setForm(f => ({ ...f, title: ev.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">{t.calendar.eventType}</label>
+                <select
+                  className="mt-0.5 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={form.eventType}
+                  onChange={ev => setForm(f => ({ ...f, eventType: ev.target.value }))}
+                >
+                  {EVENT_TYPE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">{t.calendar.startDate} *</label>
+                  <input
+                    type="datetime-local"
+                    className="mt-0.5 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={form.start}
+                    onChange={ev => setForm(f => ({ ...f, start: ev.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">{t.calendar.endDate}</label>
+                  <input
+                    type="datetime-local"
+                    className="mt-0.5 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    value={form.end}
+                    onChange={ev => setForm(f => ({ ...f, end: ev.target.value }))}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">{t.calendar.location}</label>
+                <input
+                  className="mt-0.5 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={form.location}
+                  onChange={ev => setForm(f => ({ ...f, location: ev.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">{t.calendar.description}</label>
+                <textarea
+                  rows={2}
+                  className="mt-0.5 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  value={form.description}
+                  onChange={ev => setForm(f => ({ ...f, description: ev.target.value }))}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="cal-allDay"
+                  checked={form.allDay}
+                  onChange={ev => setForm(f => ({ ...f, allDay: ev.target.checked }))}
+                  className="rounded"
+                />
+                <label htmlFor="cal-allDay" className="text-xs text-muted-foreground">{t.calendar.allDay}</label>
+              </div>
+              {formError && <p className="text-xs text-destructive">{formError}</p>}
+              <div className="flex gap-2 justify-end pt-1">
+                <Button type="button" variant="outline" size="sm" onClick={() => setShowNew(false)}>{t.calendar.cancel}</Button>
+                <Button type="submit" size="sm" disabled={saving}>
+                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />}
+                  {t.calendar.save}
+                </Button>
+              </div>
+            </form>
           </div>
-        ))
+        </div>
       )}
     </div>
   );
@@ -691,7 +1017,7 @@ function CaseAuditActivity({ caseId, caseNumber, locale }: { caseId: string; cas
   );
 }
 /* ── Templates Tab Component ─────────────────────────── */
-function TemplatesTab({ caseId }: { caseId: string }) {
+function TemplatesTab({ caseId, readOnly = false }: { caseId: string; readOnly?: boolean }) {
   const { t } = useTranslation();
   const [templates, setTemplates] = useState<import("@/services/api/documentTemplatesApi").DocumentTemplateDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -741,7 +1067,7 @@ function TemplatesTab({ caseId }: { caseId: string }) {
       CreditorsMeetingMinutes: "Proces-Verbal AGC",
       DefinitiveClaimsTable: "Tabel Definitiv de Creanțe",
       FinalReportArt167: "Raport Final Art. 167",
-      MandatoryReport: "Raport Periodic Obligatoriu",
+      MandatoryReport: t.caseTemplates.mandatoryReportTemplateName,
     };
     return map[type] ?? type.replace(/([A-Z])/g, " $1").trim();
   };
@@ -801,7 +1127,7 @@ function TemplatesTab({ caseId }: { caseId: string }) {
                     size="sm"
                     className="text-xs gap-1.5 h-7"
                     onClick={() => handleGenerate(tpl)}
-                    disabled={!tpl.hasContent || isBusy}
+                    disabled={!tpl.hasContent || isBusy || readOnly}
                     title="Generează documentul, previzualizează și editează înainte de descărcare"
                   >
                     {isBusy

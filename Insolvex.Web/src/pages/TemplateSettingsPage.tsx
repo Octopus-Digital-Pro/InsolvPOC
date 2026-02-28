@@ -35,10 +35,11 @@ import {
   type PlaceholderGroup,
   type IncomingDocumentType,
   type IncomingDocumentReferenceStatus,
+  type ImportWordDocumentResult,
   SYSTEM_TEMPLATE_LABELS,
   SYSTEM_TEMPLATE_STAGE,
-  INCOMING_DOCUMENT_LABELS,
-  INCOMING_DOCUMENT_DESC,
+  getIncomingDocumentLabel,
+  getIncomingDocumentDescription,
 } from "@/services/api/documentTemplatesApi";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +48,7 @@ import {
   Bold, Italic, UnderlineIcon, List, ListOrdered,
   Heading1, Heading2, Heading3, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Eye, EyeOff, Save, ArrowLeft, CheckCircle2, AlertTriangle,
-  Upload, Info, CheckCircle,
+  Upload, Info, CheckCircle, FileUp, X,
   Table as TableIcon, Undo2, Redo2, Strikethrough, Code,
   Link as LinkIcon, Unlink, Highlighter,
   Superscript as SuperscriptIcon, Subscript as SubscriptIcon,
@@ -55,6 +56,7 @@ import {
   ImageIcon, Palette,
 } from "lucide-react";
 import { useTranslation } from "@/contexts/LanguageContext";
+import { PdfAnnotatorModal } from "@/components/PdfAnnotatorModal";
 
 // ── Editor toolbar ────────────────────────────────────────────────────────────
 
@@ -366,7 +368,11 @@ function TemplateEditorPanel({
   const [showHtml, setShowHtml] = useState(false);
   const [htmlContent, setHtmlContent] = useState(template.bodyHtml ?? "");
   const [savedOk, setSavedOk] = useState(false);
+  const [importingWord, setImportingWord] = useState(false);
+  const [importBanner, setImportBanner] = useState<{ count: number; fileName: string } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const htmlRef = useRef<HTMLTextAreaElement>(null);
+  const wordFileRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation();
 
   const editor = useEditor({
@@ -409,7 +415,6 @@ function TemplateEditorPanel({
         setTimeout(() => {
           const ta = htmlRef.current;
           if (!ta) return;
-          const pos = ta.value.length; // append at end
           const newValue = ta.value + "\n" + token;
           setHtmlContent(newValue);
           ta.focus();
@@ -441,10 +446,34 @@ function TemplateEditorPanel({
       setShowHtml(true);
     } else {
       // Switch back: push textarea content into editor
-      editor?.commands.setContent(htmlContent, false);
+      editor?.commands.setContent(htmlContent);
       setShowHtml(false);
     }
   }, [showHtml, editor, htmlContent]);
+
+  const handleWordImport = async (file: File) => {
+    setImportingWord(true);
+    setImportError(null);
+    setImportBanner(null);
+    try {
+      const res = await documentTemplatesApi.importWordDocument(file);
+      const { html, detectedPlaceholders, fileName } = res.data as ImportWordDocumentResult;
+      // Load into editor (prefer rich-text view)
+      editor?.commands.setContent(html);
+      setHtmlContent(html);
+      setShowHtml(false);
+      setImportBanner({ count: detectedPlaceholders.length, fileName });
+      setTimeout(() => setImportBanner(null), 10_000);
+    } catch (err: any) {
+      setImportError(
+        err?.response?.data?.message ?? "Failed to import Word document. Ensure the file is a valid .docx."
+      );
+      setTimeout(() => setImportError(null), 6000);
+    } finally {
+      setImportingWord(false);
+      if (wordFileRef.current) wordFileRef.current.value = "";
+    }
+  };
 
   const handleSave = async () => {
     if (!editor) return;
@@ -492,6 +521,33 @@ function TemplateEditorPanel({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* Hidden file input for Word import */}
+          <input
+            ref={wordFileRef}
+            type="file"
+            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleWordImport(file);
+            }}
+          />
+          {/* Import Word button */}
+          <button
+            type="button"
+            onClick={() => wordFileRef.current?.click()}
+            disabled={importingWord}
+            title="Import Word document (.docx) — AI will detect and insert placeholders"
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium border border-border bg-background hover:bg-accent text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          >
+            {importingWord ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FileUp className="h-3.5 w-3.5" />
+            )}
+            {importingWord ? "Analyzing…" : "Import Word"}
+          </button>
+
           <button
             type="button"
             onClick={toggleHtmlView}
@@ -524,6 +580,35 @@ function TemplateEditorPanel({
           </Button>
         </div>
       </div>
+
+      {/* Word import success banner */}
+      {importBanner && (
+        <div className="flex items-center gap-2 border-b border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-900 px-4 py-2 text-sm">
+          <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+          <span className="text-green-800 dark:text-green-300 flex-1">
+            <span className="font-medium">{importBanner.fileName}</span> imported successfully.
+            {importBanner.count > 0 ? (
+              <> AI detected <span className="font-semibold">{importBanner.count}</span> placeholder{importBanner.count !== 1 ? "s" : ""} and inserted them automatically.</>
+            ) : (
+              <> The document was converted to HTML — review the placeholder sidebar to add tokens manually.</>
+            )}
+          </span>
+          <button type="button" onClick={() => setImportBanner(null)} className="text-green-600 hover:text-green-800 dark:text-green-400">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Word import error banner */}
+      {importError && (
+        <div className="flex items-center gap-2 border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm">
+          <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+          <span className="text-destructive flex-1">{importError}</span>
+          <button type="button" onClick={() => setImportError(null)} className="text-destructive hover:opacity-70">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Description + Category for custom templates */}
       {!template.isSystem && (
@@ -731,11 +816,27 @@ function IncomingDocumentCard({
   const [uploadPct, setUploadPct] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [annotatorOpen, setAnnotatorOpen] = useState(false);
+  const [lastUploadedFile, setLastUploadedFile] = useState<File | null>(null);
+  const [profile, setProfile] = useState<import("@/services/api/documentTemplatesApi").IncomingDocumentProfile | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const { t, locale } = useTranslation();
+
+  const reloadProfile = () => {
+    documentTemplatesApi
+      .getIncomingDocumentProfile(type)
+      .then((r) => { if (r.data.exists) setProfile(r.data); })
+      .catch(() => {});
+  };
+
+  // Load profile when reference exists
+  useEffect(() => {
+    if (status?.exists) reloadProfile();
+  }, [type, status?.exists]);
 
   const handleFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Only PDF files are accepted.");
+      setError(t.templateSettings.onlyPdfError);
       return;
     }
     setUploading(true);
@@ -744,16 +845,32 @@ function IncomingDocumentCard({
     try {
       await documentTemplatesApi.uploadIncomingReference(type, file, (pct) => setUploadPct(pct));
       onUploaded();
+      // Auto-open annotator with the freshly uploaded file
+      setLastUploadedFile(file);
+      setAnnotatorOpen(true);
     } catch {
-      setError("Upload error. Please try again.");
+      setError(t.templateSettings.uploadError);
     } finally {
       setUploading(false);
       setUploadPct(null);
     }
   };
 
+  const annotationCount = profile?.annotationCount ?? null;
+  const hasAiSummary = !!(profile?.aiSummaryEn || profile?.aiSummaryRo || profile?.aiSummaryHu);
+
   return (
     <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+      {/* Annotator modal */}
+      {annotatorOpen && (
+        <PdfAnnotatorModal
+          type={type}
+          uploadedFile={lastUploadedFile}
+          onClose={() => { setAnnotatorOpen(false); setLastUploadedFile(null); }}
+          onSaved={() => { reloadProfile(); }}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -761,27 +878,51 @@ function IncomingDocumentCard({
             <FileText className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">{INCOMING_DOCUMENT_LABELS[type]}</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <p className="text-sm font-semibold text-foreground">{getIncomingDocumentLabel(type, locale)}</p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
               <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-amber-400 text-amber-600 dark:text-amber-400">
-                Incoming document
+                {t.templateSettings.incomingBadge}
               </Badge>
               {status?.exists && (
                 <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-emerald-400 text-emerald-600 dark:text-emerald-400 gap-1">
                   <CheckCircle className="h-2.5 w-2.5" />
-                  Reference uploaded
+                  {t.templateSettings.referenceUploaded}
+                </Badge>
+              )}
+              {annotationCount !== null && annotationCount > 0 && (
+                <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-blue-400 text-blue-600 dark:text-blue-400 gap-1">
+                  <CheckCircle className="h-2.5 w-2.5" />
+                  {annotationCount} {annotationCount !== 1 ? t.templateSettings.fields : t.templateSettings.field} {t.templateSettings.annotated}
+                </Badge>
+              )}
+              {hasAiSummary && (
+                <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-purple-400 text-purple-600 dark:text-purple-400 gap-1">
+                  <CheckCircle className="h-2.5 w-2.5" />
+                  {t.templateSettings.aiProfileBadge}
                 </Badge>
               )}
             </div>
           </div>
         </div>
+        {/* Annotate button — visible once a reference PDF exists */}
+        {status?.exists && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setLastUploadedFile(null); setAnnotatorOpen(true); }}
+            className="shrink-0"
+          >
+            <Pencil className="h-3.5 w-3.5 mr-1.5" />
+            {hasAiSummary ? t.templateSettings.viewEdit : t.templateSettings.annotate}
+          </Button>
+        )}
       </div>
 
       {/* Description */}
       <div className="flex gap-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3">
         <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
         <p className="text-xs text-blue-700 dark:text-blue-300">
-          {INCOMING_DOCUMENT_DESC[type]}
+          {getIncomingDocumentDescription(type, locale)}
         </p>
       </div>
 
@@ -804,15 +945,16 @@ function IncomingDocumentCard({
           <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
           {status?.exists ? (
             <div>
-              <p className="text-sm font-medium text-foreground">Înlocuiește documentul de referință</p>
+              <p className="text-sm font-medium text-foreground">{t.templateSettings.replaceReference}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Fișier existent: <span className="font-mono">{status.fileName ?? "referință"}</span>
+                {t.templateSettings.currentFile} <span className="font-mono">{profile?.originalFileName ?? status.fileName ?? "reference"}</span>
+                {profile?.fileSizeBytes ? ` (${(profile.fileSizeBytes / 1024).toFixed(0)} KB)` : ""}
               </p>
             </div>
           ) : (
             <div>
-              <p className="text-sm font-medium text-foreground">Upload PDF reference document</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Click or drag file here</p>
+              <p className="text-sm font-medium text-foreground">{t.templateSettings.uploadPdfReference}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t.templateSettings.clickOrDrag}</p>
             </div>
           )}
           <input
@@ -820,13 +962,13 @@ function IncomingDocumentCard({
             type="file"
             accept=".pdf,application/pdf"
             className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) handleFile(f); }}
           />
         </div>
       ) : (
         <div className="space-y-2 py-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{uploadPct !== null && uploadPct < 100 ? `Uploading… ${uploadPct}%` : "Processing…"}</span>
+            <span>{uploadPct !== null && uploadPct < 100 ? `${t.templateSettings.uploading} ${uploadPct}%` : t.templateSettings.processing}</span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
             <div
@@ -844,12 +986,39 @@ function IncomingDocumentCard({
         </p>
       )}
 
+      {/* AI summary snippet */}
+      {hasAiSummary && profile && (
+        <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 p-3 space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">{t.templateSettings.aiProfileLabel}</span>
+            {profile.aiConfidence != null && (
+              <span className={`text-[9px] font-semibold rounded-full px-1.5 py-0.5 ${
+                profile.aiConfidence >= 0.8
+                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                  : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
+              }`}>
+                {Math.round(profile.aiConfidence * 100)}% {t.templateSettings.confLabel}
+              </span>
+            )}
+            {profile.aiAnalysedOn && (
+              <span className="text-[9px] text-muted-foreground ml-auto">{new Date(profile.aiAnalysedOn).toLocaleDateString()}</span>
+            )}
+          </div>
+          <p className="text-xs text-purple-800 dark:text-purple-200 leading-relaxed line-clamp-3">
+            {profile.aiSummaryEn}
+          </p>
+          <p className="text-[10px] text-purple-600 dark:text-purple-400">
+            {t.templateSettings.summariesAvailable}
+          </p>
+        </div>
+      )}
+
       {/* AI recognition status */}
       {status?.exists && (
         <div className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3">
           <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <p className="text-xs text-emerald-700 dark:text-emerald-300">
-            AI recognition active — similar documents uploaded by practitioners will be auto-classified as <strong>{INCOMING_DOCUMENT_LABELS[type]}</strong>.
+            {t.templateSettings.aiRecognitionActive} <strong>{getIncomingDocumentLabel(type, locale)}</strong>.
           </p>
         </div>
       )}
@@ -936,7 +1105,7 @@ export default function TemplateSettingsPage() {
   const [incomingStatuses, setIncomingStatuses] = useState<Record<string, IncomingDocumentReferenceStatus>>({});
 
   // System templates: exclude CourtOpeningDecision (it's an incoming document, not generated)
-  const systemTemplates = templates.filter((t) => t.isSystem && t.templateType !== "CourtOpeningDecision");
+  const systemTemplates = templates.filter((t) => t.isSystem && t.templateType !== "courtOpeningDecision");
   const customTemplates = templates.filter((t) => !t.isSystem);
 
   const INCOMING_TYPES: IncomingDocumentType[] = ["CourtOpeningDecision"];

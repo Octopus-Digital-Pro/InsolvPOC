@@ -97,6 +97,8 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<AiDocumentAnalysisService>();
+builder.Services.AddScoped<WordTemplateImportService>();
+builder.Services.AddScoped<IncomingDocumentProfileService>();
 builder.Services.AddScoped<DocumentClassificationService>();
 builder.Services.Configure<MailMergeOptions>(builder.Configuration.GetSection(MailMergeOptions.SectionName));
 builder.Services.AddScoped<HtmlPdfService>();
@@ -143,6 +145,8 @@ builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<ISigningKeyService, SigningKeyService>();
 builder.Services.AddScoped<ICaseEventService, CaseEventService>();
 builder.Services.AddScoped<IAiConfigService, AiConfigService>();
+builder.Services.AddScoped<ITenantAiConfigService, TenantAiConfigService>();
+builder.Services.AddScoped<ICaseAiService, CaseAiService>();
 builder.Services.AddScoped<ICaseWorkflowService, CaseWorkflowService>();
 
 // Background services

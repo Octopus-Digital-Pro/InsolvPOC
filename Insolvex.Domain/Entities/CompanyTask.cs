@@ -18,6 +18,12 @@ public class CompanyTask : TenantScopedEntity
     /// <summary>Task summary text used for quick display.</summary>
     public string? Summary { get; set; }
 
+    /// <summary>
+    /// Practitioner-written summary specifically for the mandatory periodic report.
+    /// Only tasks with this field populated are included in the periodic report.
+    /// </summary>
+    public string? ReportSummary { get; set; }
+
     /// <summary>Language-keyed JSON map of task summaries (e.g. en/ro/hu).</summary>
     public string? SummaryByLanguageJson { get; set; }
 

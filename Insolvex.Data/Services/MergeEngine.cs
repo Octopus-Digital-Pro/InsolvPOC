@@ -1,5 +1,6 @@
 using HandlebarsDotNet;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 using Insolvex.Data;
 using Insolvex.Core.Abstractions;
 using Insolvex.Domain.Entities;
@@ -52,7 +53,12 @@ public class MergeEngine
     /// Builds the full hierarchical merge view-model for a case.
     /// </summary>
     public async Task<Dictionary<string, object?>> BuildViewModelAsync(
-        Guid caseId, Guid? recipientPartyId = null)
+        Guid caseId,
+        Guid? recipientPartyId = null,
+        DateTime? pastTasksFromDate = null,
+        DateTime? pastTasksToDate = null,
+        DateTime? futureTasksFromDate = null,
+        DateTime? futureTasksToDate = null)
     {
         var c = await _db.InsolvencyCases
             .Include(x => x.Company)
@@ -143,6 +149,119 @@ public class MergeEngine
             ["CurrentYear"] = DateTime.UtcNow.Year.ToString(),
         };
 
+        // ── Mandatory periodic report helpers: past/future task windows ──
+        var today = DateTime.UtcNow.Date;
+
+        var pastFrom = (pastTasksFromDate?.Date ?? today.AddDays(-30));
+        var pastTo = (pastTasksToDate?.Date ?? today);
+        if (pastTo > today) pastTo = today;
+        if (pastFrom > pastTo) pastFrom = pastTo;
+
+        var futureFrom = (futureTasksFromDate?.Date ?? today);
+        if (futureFrom < today) futureFrom = today;
+        var futureTo = (futureTasksToDate?.Date ?? today.AddDays(30));
+        if (futureTo < futureFrom) futureTo = futureFrom;
+
+        var caseTasks = await _db.CompanyTasks
+            .AsNoTracking()
+            .Where(t => t.CaseId == caseId)
+            .ToListAsync();
+
+        // Past reported tasks: Done (by CompletedAt) OR InProgress (by LastModifiedOn), report summary required
+        var pastReportedTasks = caseTasks
+            .Where(t =>
+                !string.IsNullOrWhiteSpace(t.ReportSummary)
+                && (
+                    (t.Status == Insolvex.Domain.Enums.TaskStatus.Done
+                        && t.CompletedAt.HasValue
+                        && t.CompletedAt.Value.Date >= pastFrom
+                        && t.CompletedAt.Value.Date <= pastTo)
+                    ||
+                    (t.Status == Insolvex.Domain.Enums.TaskStatus.InProgress
+                        && t.LastModifiedOn.HasValue
+                        && t.LastModifiedOn.Value.Date >= pastFrom
+                        && t.LastModifiedOn.Value.Date <= pastTo)
+                ))
+            .OrderByDescending(t => t.CompletedAt ?? t.LastModifiedOn)
+            .Select((t, idx) => new Dictionary<string, object?>
+            {
+                ["RowNo"] = (idx + 1).ToString(),
+                ["Title"] = t.Title,
+                ["Summary"] = t.ReportSummary ?? "",
+                ["Status"] = t.Status.ToString(),
+                ["CompletedAt"] = t.CompletedAt?.ToString("dd.MM.yyyy")
+                                 ?? t.LastModifiedOn?.ToString("dd.MM.yyyy")
+                                 ?? "",
+            })
+            .ToList();
+
+        // Future tasks: by deadline, not completed/cancelled, names only
+        var futurePlannedTasks = caseTasks
+            .Where(t =>
+                t.Deadline.HasValue
+                && t.Deadline.Value.Date >= futureFrom
+                && t.Deadline.Value.Date <= futureTo
+                && t.Status != Insolvex.Domain.Enums.TaskStatus.Done
+                && t.Status != Insolvex.Domain.Enums.TaskStatus.Cancelled)
+            .OrderBy(t => t.Deadline)
+            .Select((t, idx) => new Dictionary<string, object?>
+            {
+                ["RowNo"] = (idx + 1).ToString(),
+                ["Title"] = t.Title,
+                ["Deadline"] = t.Deadline!.Value.ToString("dd.MM.yyyy"),
+                ["Status"] = t.Status.ToString(),
+            })
+            .ToList();
+
+        var pastHtml = new StringBuilder();
+        if (pastReportedTasks.Count > 0)
+        {
+            pastHtml.Append("<ul>");
+            foreach (var task in pastReportedTasks)
+            {
+                pastHtml.Append("<li><strong>")
+                    .Append(System.Net.WebUtility.HtmlEncode(task["Title"]?.ToString() ?? ""))
+                    .Append("</strong>: ")
+                    .Append(System.Net.WebUtility.HtmlEncode(task["Summary"]?.ToString() ?? ""))
+                    .Append("</li>");
+            }
+            pastHtml.Append("</ul>");
+        }
+
+        var pastText = string.Join("\n", pastReportedTasks.Select(t =>
+            $"- {t["Title"]}: {t["Summary"]}"));
+
+        var futureHtml = new StringBuilder();
+        if (futurePlannedTasks.Count > 0)
+        {
+            futureHtml.Append("<ul>");
+            foreach (var task in futurePlannedTasks)
+            {
+                futureHtml.Append("<li>")
+                    .Append(System.Net.WebUtility.HtmlEncode(task["Title"]?.ToString() ?? ""))
+                    .Append("</li>");
+            }
+            futureHtml.Append("</ul>");
+        }
+
+        var futureText = string.Join("\n", futurePlannedTasks.Select(t =>
+            $"- {t["Title"]}"));
+
+        vm["PastTasksFromDate"] = pastFrom.ToString("dd.MM.yyyy");
+        vm["PastTasksToDate"] = pastTo.ToString("dd.MM.yyyy");
+        vm["FutureTasksFromDate"] = futureFrom.ToString("dd.MM.yyyy");
+        vm["FutureTasksToDate"] = futureTo.ToString("dd.MM.yyyy");
+
+        vm["PastReportedTasks"] = pastReportedTasks;
+        vm["FuturePlannedTasks"] = futurePlannedTasks;
+        vm["HasPastReportedTasks"] = pastReportedTasks.Count > 0;
+        vm["HasFuturePlannedTasks"] = futurePlannedTasks.Count > 0;
+
+        vm["PastTasksSummaryWithReport"] = pastText;
+        vm["PastTasksSummaryWithReportHtml"] = pastHtml.ToString();
+        vm["FutureTasksNames"] = futureText;
+        vm["FutureTasksNamesHtml"] = futureHtml.ToString();
+
         // ── Booleans for {{#if}} ──
         vm["HasCreditors"] = creditors.Count > 0;
         vm["HasClaims"] = claims.Count > 0;
@@ -175,9 +294,21 @@ public class MergeEngine
     /// Render an HTML template body using Handlebars syntax with the case view-model.
     /// </summary>
     public async Task<(string RenderedHtml, Dictionary<string, object?> ViewModel)> RenderAsync(
-        string bodyHtml, Guid caseId, Guid? recipientPartyId = null)
+        string bodyHtml,
+        Guid caseId,
+        Guid? recipientPartyId = null,
+        DateTime? pastTasksFromDate = null,
+        DateTime? pastTasksToDate = null,
+        DateTime? futureTasksFromDate = null,
+        DateTime? futureTasksToDate = null)
     {
-        var viewModel = await BuildViewModelAsync(caseId, recipientPartyId);
+        var viewModel = await BuildViewModelAsync(
+            caseId,
+            recipientPartyId,
+            pastTasksFromDate,
+            pastTasksToDate,
+            futureTasksFromDate,
+            futureTasksToDate);
         var rendered = Render(bodyHtml, viewModel);
         return (rendered, viewModel);
     }

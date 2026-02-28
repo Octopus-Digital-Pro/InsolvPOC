@@ -61,6 +61,7 @@ public class TasksController : ControllerBase
             Status = body.Status,
             BlockReason = body.BlockReason,
             AssignedToUserId = body.AssignedToUserId,
+            ReportSummary = body.ReportSummary,
         }, ct);
         return Ok(dto);
     }
@@ -82,4 +83,5 @@ public record CreateTaskBody(
 public record UpdateTaskBody(
     string? Title = null, string? Description = null, string? Labels = null,
     string? Category = null, DateTime? Deadline = null, Domain.Enums.TaskStatus? Status = null,
-    string? BlockReason = null, Guid? AssignedToUserId = null);
+    string? BlockReason = null, Guid? AssignedToUserId = null,
+    string? ReportSummary = null);

@@ -52,6 +52,9 @@ public class ApplicationDbContext : DbContext
   public DbSet<CaseWorkflowStage> CaseWorkflowStages => Set<CaseWorkflowStage>();
   public DbSet<CaseDeadline> CaseDeadlines => Set<CaseDeadline>();
   public DbSet<TaskNote> TaskNotes => Set<TaskNote>();
+  public DbSet<IncomingDocumentProfile> IncomingDocumentProfiles => Set<IncomingDocumentProfile>();
+  public DbSet<TenantAiConfig> TenantAiConfigs => Set<TenantAiConfig>();
+  public DbSet<AiChatMessage> AiChatMessages => Set<AiChatMessage>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -578,6 +581,38 @@ e.HasIndex(t => new { t.TenantId, t.Name });
       e.Property(d => d.Notes).HasMaxLength(2000);
       e.HasOne(d => d.Case).WithMany().HasForeignKey(d => d.CaseId).OnDelete(DeleteBehavior.Cascade);
       e.HasIndex(d => d.CaseId);
+    });
+
+    // IncomingDocumentProfile — one row per (TenantId, DocumentType)
+    modelBuilder.Entity<IncomingDocumentProfile>(e =>
+    {
+      e.HasKey(p => p.Id);
+      e.Property(p => p.DocumentType).HasMaxLength(128).IsRequired();
+      e.Property(p => p.StorageKey).HasMaxLength(512).IsRequired();
+      e.Property(p => p.OriginalFileName).HasMaxLength(512).IsRequired();
+      e.Property(p => p.AnnotationNotes).HasMaxLength(4000);
+      e.Property(p => p.AiModel).HasMaxLength(128);
+      e.HasIndex(p => new { p.TenantId, p.DocumentType }).IsUnique();
+    });
+
+    // TenantAiConfig
+    modelBuilder.Entity<TenantAiConfig>(e =>
+    {
+      e.HasKey(c => c.Id);
+      e.Property(c => c.Notes).HasMaxLength(1000);
+      e.HasIndex(c => c.TenantId).IsUnique(); // one per tenant
+    });
+
+    // AiChatMessage
+    modelBuilder.Entity<AiChatMessage>(e =>
+    {
+      e.HasKey(m => m.Id);
+      e.Property(m => m.Role).HasMaxLength(32).IsRequired();
+      e.Property(m => m.Content).IsRequired();
+      e.Property(m => m.Model).HasMaxLength(128);
+      e.HasIndex(m => new { m.CaseId, m.CreatedAt });
+      e.HasOne(m => m.Case).WithMany().HasForeignKey(m => m.CaseId).OnDelete(DeleteBehavior.Cascade);
+      e.HasOne(m => m.User).WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.SetNull);
     });
 
     // ----- Tenant query filters -----

@@ -54,7 +54,11 @@ public record UpdateDocumentTemplateRequest(
 /// <summary>Request body for the render endpoint.</summary>
 public record RenderTemplateRequest(
     Guid CaseId,
-    Guid? RecipientPartyId = null
+    Guid? RecipientPartyId = null,
+    DateTime? PastTasksFromDate = null,
+    DateTime? PastTasksToDate = null,
+    DateTime? FutureTasksFromDate = null,
+    DateTime? FutureTasksToDate = null
 );
 
 /// <summary>Result of rendering a template against a case.</summary>

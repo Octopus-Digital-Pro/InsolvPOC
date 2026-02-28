@@ -51,6 +51,12 @@ public interface ICaseWorkflowService
     Task CloseCaseAsync(Guid caseId, string? explanation, bool overridePendingStages, CancellationToken ct = default);
 
     /// <summary>
+    /// Reopen a closed case. Only TenantAdmin or GlobalAdmin can do this.
+    /// Sets status back to Active and writes an audit log.
+    /// </summary>
+    Task ReopenCaseAsync(Guid caseId, CancellationToken ct = default);
+
+    /// <summary>
     /// Override the deadline date for a workflow stage. Tenant admin only.
     /// Requires a mandatory note. Creates an audit log entry.
     /// </summary>

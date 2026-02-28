@@ -14,5 +14,7 @@ export { onrcApi } from "./onrc";
 export { addressApi } from "./address";
 export { documentTemplatesApi } from "./documentTemplatesApi";
 export { caseWorkflowApi } from "./caseWorkflowApi";
+export { caseAiApi, tenantAiConfigApi } from "./caseAiApi";
+export type { TenantAiConfigDto, UpdateTenantAiConfigRequest, AiChatMessageDto, AiEnabledStatus } from "./caseAiApi";
 export type * from "./types";
 export type { AddressResult } from "./address";

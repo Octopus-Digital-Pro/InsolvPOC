@@ -17,6 +17,7 @@ interface Props {
   caseId: string;
   tasks: TaskDto[];
   onRefresh: () => void;
+  readOnly?: boolean;
 }
 
 const STATUS_COLUMNS = [
@@ -61,7 +62,7 @@ function BlockReasonModal({ open, onConfirm, onCancel }: {
   );
 }
 
-export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Props) {
+export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh, readOnly = false }: Props) {
   const [view, setView] = useState<ViewMode>("list");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserDto[]>([]);
@@ -119,7 +120,7 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Prop
         onConfirm={handleBlockConfirm}
         onCancel={() => setBlockModal({ open: false, taskId: "" })}
       />
-      <TaskDetailModal taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} onStatusChanged={() => onRefresh()} />
+      <TaskDetailModal taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} onStatusChanged={() => onRefresh()} readOnly={readOnly} />
   {/* Header + view toggle */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -155,10 +156,10 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Prop
       </div>
 
       {/* List View */}
-      {view === "list" && <ListView tasks={tasks} onStatusChange={handleStatusChange} onAssign={handleAssign} updatingId={updatingId} users={users} onTaskClick={setSelectedTaskId} />}
+      {view === "list" && <ListView tasks={tasks} onStatusChange={handleStatusChange} onAssign={handleAssign} updatingId={updatingId} users={users} onTaskClick={setSelectedTaskId} readOnly={readOnly} />}
 
       {/* Kanban View */}
-    {view === "kanban" && <KanbanView tasks={tasks} onStatusChange={handleStatusChange} updatingId={updatingId} onTaskClick={setSelectedTaskId} />}
+    {view === "kanban" && <KanbanView tasks={tasks} onStatusChange={handleStatusChange} updatingId={updatingId} onTaskClick={setSelectedTaskId} readOnly={readOnly} />}
 
  {/* Calendar View */}
       {view === "calendar" && <CalendarView tasks={tasks} />}
@@ -167,13 +168,14 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh }: Prop
 }
 
 /* ?? List View ???????????????????????????????????????? */
-function ListView({ tasks, onStatusChange, onAssign, updatingId, users, onTaskClick }: {
+function ListView({ tasks, onStatusChange, onAssign, updatingId, users, onTaskClick, readOnly = false }: {
   tasks: TaskDto[];
   onStatusChange: (id: string, status: string) => void;
   onAssign: (id: string, userId: string | null) => void;
   updatingId: string | null;
   users: UserDto[];
   onTaskClick: (id: string) => void;
+  readOnly?: boolean;
 }) {
   const sorted = [...tasks].sort((a, b) => {
     if (a.status === "done" && b.status !== "done") return 1;
@@ -194,19 +196,20 @@ function ListView({ tasks, onStatusChange, onAssign, updatingId, users, onTaskCl
   return (
     <div className="rounded-xl border border-border bg-card divide-y divide-border">
       {sorted.map(task => (
-        <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} onAssign={onAssign} updating={updatingId === task.id} users={users} onTaskClick={onTaskClick} />
+        <TaskRow key={task.id} task={task} onStatusChange={onStatusChange} onAssign={onAssign} updating={updatingId === task.id} users={users} onTaskClick={onTaskClick} readOnly={readOnly} />
       ))}
     </div>
   );
 }
 
-function TaskRow({ task, onStatusChange, onAssign, updating, users, onTaskClick }: {
+function TaskRow({ task, onStatusChange, onAssign, updating, users, onTaskClick, readOnly = false }: {
   task: TaskDto;
   onStatusChange: (id: string, status: string) => void;
   onAssign: (id: string, userId: string | null) => void;
   updating: boolean;
   users: UserDto[];
   onTaskClick: (id: string) => void;
+  readOnly?: boolean;
 }) {
   const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== "done";
   const isDueToday = task.deadline && isToday(new Date(task.deadline));
@@ -215,8 +218,8 @@ function TaskRow({ task, onStatusChange, onAssign, updating, users, onTaskClick 
     <div className={`flex items-center gap-3 px-4 py-2.5 ${isOverdue ? "bg-destructive/5" : ""} ${task.status === "done" ? "opacity-60" : ""}`}>
       {/* Status toggle */}
       <button
-        onClick={() => onStatusChange(task.id, task.status === "done" ? "open" : "done")}
-        disabled={updating}
+        onClick={() => !readOnly && onStatusChange(task.id, task.status === "done" ? "open" : "done")}
+        disabled={updating || readOnly}
       className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
           task.status === "done"
   ? "border-green-500 bg-green-500 text-white"
@@ -250,8 +253,8 @@ function TaskRow({ task, onStatusChange, onAssign, updating, users, onTaskClick 
     {/* Assignee */}
       <select
         value={task.assignedToUserId ?? ""}
-        onChange={e => onAssign(task.id, e.target.value || null)}
-        disabled={updating}
+        onChange={e => !readOnly && onAssign(task.id, e.target.value || null)}
+        disabled={updating || readOnly}
         onClick={e => e.stopPropagation()}
         className="hidden md:block text-[10px] text-muted-foreground bg-transparent border-b border-dashed border-border/40 hover:border-primary/50 focus:outline-none focus:border-primary cursor-pointer transition-colors max-w-[110px] truncate"
       >
@@ -281,16 +284,17 @@ isOverdue ? "text-destructive" : isDueToday ? "text-amber-500" : "text-muted-for
 }
 
 /* ── Kanban View ─────────────────────────────────────────────────────────── */
-function KanbanView({ tasks, onStatusChange, updatingId: _updatingId, onTaskClick }: {
+function KanbanView({ tasks, onStatusChange, updatingId: _updatingId, onTaskClick, readOnly = false }: {
   tasks: TaskDto[];
   onStatusChange: (id: string, status: string) => void;
   updatingId: string | null;
   onTaskClick: (id: string) => void;
+  readOnly?: boolean;
 }) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
 
   const handleDrop = (colKey: string) => {
-    if (!draggedId) return;
+    if (!draggedId || readOnly) return;
     onStatusChange(draggedId, colKey);
     setDraggedId(null);
   };
@@ -320,9 +324,10 @@ function KanbanView({ tasks, onStatusChange, updatingId: _updatingId, onTaskClic
                     key={task.id}
                     task={task}
                     isDragging={draggedId === task.id}
-                    onDragStart={() => setDraggedId(task.id)}
+                    onDragStart={() => !readOnly && setDraggedId(task.id)}
                     onDragEnd={() => setDraggedId(null)}
                     onTaskClick={onTaskClick}
+                    readOnly={readOnly}
                   />
                 ))
               )}
@@ -334,18 +339,19 @@ function KanbanView({ tasks, onStatusChange, updatingId: _updatingId, onTaskClic
   );
 }
 
-function KanbanCard({ task, isDragging, onDragStart, onDragEnd, onTaskClick }: {
+function KanbanCard({ task, isDragging, onDragStart, onDragEnd, onTaskClick, readOnly = false }: {
   task: TaskDto;
   isDragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
   onTaskClick: (id: string) => void;
+  readOnly?: boolean;
 }) {
   const isOverdue = task.deadline && isPast(new Date(task.deadline)) && task.status !== "done";
 
   return (
     <div
-      draggable
+      draggable={!readOnly}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onClick={() => onTaskClick(task.id)}

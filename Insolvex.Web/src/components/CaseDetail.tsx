@@ -78,7 +78,7 @@ export default function CaseDetail({
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>Court: {insolvencyCase.courtName || "—"}</span>
           <span className="text-border">|</span>
-          <span>Status: {insolvencyCase.status || "Active"}</span>
+          <span>Status: {(insolvencyCase as unknown as Record<string, unknown>).status as string || "Active"}</span>
           {nextHearingIso && (
             <>
               <span className="text-border">|</span>

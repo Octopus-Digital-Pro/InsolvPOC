@@ -28,19 +28,64 @@ public class DocumentTemplatesController : ControllerBase
     private readonly TemplateGenerationService _generator;
     private readonly IFileStorageService _storage;
     private readonly HtmlPdfService _htmlPdf;
+    private readonly WordTemplateImportService _wordImport;
+    private readonly IncomingDocumentProfileService _incomingProfiles;
 
     public DocumentTemplatesController(
         ApplicationDbContext db,
         ICurrentUserService currentUser,
         TemplateGenerationService generator,
         IFileStorageService storage,
-        HtmlPdfService htmlPdf)
+        HtmlPdfService htmlPdf,
+        WordTemplateImportService wordImport,
+        IncomingDocumentProfileService incomingProfiles)
     {
         _db = db;
         _currentUser = currentUser;
         _generator = generator;
         _storage = storage;
         _htmlPdf = htmlPdf;
+        _wordImport = wordImport;
+        _incomingProfiles = incomingProfiles;
+    }
+
+    // ── Word document import ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// Accepts a .docx Word document, extracts its content as HTML, and uses the
+    /// configured AI model to detect and insert {{PlaceholderKey}} tokens.
+    /// Returns the processed HTML and the list of detected placeholder keys.
+    /// </summary>
+    [HttpPost("import-word")]
+    [RequirePermission(Permission.TemplateManage)]
+    [RequestSizeLimit(20_000_000)]
+    public async Task<IActionResult> ImportWordDocument(IFormFile file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "No file provided." });
+
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext != ".docx")
+            return BadRequest(new { message = "Only .docx Word documents are accepted." });
+
+        await using var stream = file.OpenReadStream();
+
+        var groups = BuildPlaceholderGroups();
+
+        try
+        {
+            var result = await _wordImport.ImportAsync(stream, groups, ct);
+            return Ok(new
+            {
+                html = result.Html,
+                detectedPlaceholders = result.DetectedPlaceholders,
+                fileName = file.FileName,
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     // ── Available placeholder groups (for the editor sidebar) ────────────────
@@ -50,198 +95,150 @@ public class DocumentTemplatesController : ControllerBase
     [RequirePermission(Permission.TemplateView)]
     public IActionResult GetPlaceholders()
     {
-        var groups = new[]
-        {
-            new
-            {
-                group = "Dosar",
-                fields = new[]
-                {
-                    new { key = "CaseNumber",          label = "Număr dosar" },
-                    new { key = "ProcedureType",        label = "Tip procedură" },
-                    new { key = "LawReference",         label = "Temei legal" },
-                    new { key = "OpeningDecisionNo",    label = "Nr. sentință deschidere" },
-                    new { key = "BpiPublicationNo",     label = "Nr. publicare BPI" },
-                    new { key = "BpiPublicationDate",   label = "Dată publicare BPI" },
-                }
-            },
-            new
-            {
-                group = "Debitor",
-                fields = new[]
-                {
-                    new { key = "DebtorName",           label = "Denumire debitor" },
-                    new { key = "DebtorCui",            label = "CUI debitor" },
-                    new { key = "DebtorAddress",        label = "Adresă debitor" },
-                    new { key = "DebtorLocality",       label = "Localitate debitor" },
-                    new { key = "DebtorCounty",         label = "Județ debitor" },
-                    new { key = "DebtorTradeRegisterNo",label = "Nr. Reg. Comerțului" },
-                    new { key = "DebtorCaen",           label = "Cod CAEN" },
-                    new { key = "DebtorAdministratorName", label = "Reprezentant legal" },
-                }
-            },
-            new
-            {
-                group = "Instanță",
-                fields = new[]
-                {
-                    new { key = "CourtName",            label = "Instanță" },
-                    new { key = "CourtSection",         label = "Secție" },
-                    new { key = "JudgeSyndic",          label = "Judecător sindic (dosar)" },
-                    new { key = "JudgeName",            label = "Judecător (registratură)" },
-                    new { key = "CourtRegistryAddress", label = "Adresă registratură" },
-                    new { key = "CourtRegistryPhone",   label = "Telefon registratură" },
-                    new { key = "CourtRegistryHours",   label = "Program registratură" },
-                }
-            },
-            new
-            {
-                group = "Practicant / Firmă",
-                fields = new[]
-                {
-                    new { key = "PractitionerName",     label = "Practicant insolvenţă" },
-                    new { key = "PractitionerRole",     label = "Calitate practicant" },
-                    new { key = "PractitionerEntityName", label = "Entitate practicant" },
-                    new { key = "PractitionerCUI",      label = "CUI practicant" },
-                    new { key = "PractitionerAddress",  label = "Adresă practicant" },
-                    new { key = "PractitionerUNPIRNo",  label = "Nr. UNPIR" },
-                    new { key = "PractitionerPhone",    label = "Telefon practicant" },
-                    new { key = "PractitionerFax",      label = "Fax practicant" },
-                    new { key = "PractitionerEmail",    label = "Email practicant" },
-                    new { key = "PractitionerDecisionNo", label = "Nr. decizie numire" },
-                    new { key = "PractitionerRepresentativeName", label = "Reprezentant practicant" },
-                    new { key = "FirmName",             label = "Firmă insolvență" },
-                    new { key = "FirmCui",              label = "CUI firmă" },
-                    new { key = "FirmAddress",          label = "Adresă firmă" },
-                    new { key = "FirmPhone",            label = "Telefon firmă" },
-                    new { key = "FirmEmail",            label = "Email firmă" },
-                    new { key = "FirmIban",             label = "IBAN firmă" },
-                    new { key = "FirmBankName",         label = "Bancă firmă" },
-                }
-            },
-            new
-            {
-                group = "Date cheie",
-                fields = new[]
-                {
-                    new { key = "NoticeDate",               label = "Dată notificare" },
-                    new { key = "OpeningDate",              label = "Dată deschidere procedură" },
-                    new { key = "ClaimsDeadline",           label = "Termen depunere cereri de creanță" },
-                    new { key = "ContestationsDeadline",    label = "Termen contestații" },
-                    new { key = "NextHearingDate",          label = "Următor termen instanță" },
-                    new { key = "CurrentDate",              label = "Data curentă" },
-                    new { key = "CurrentYear",              label = "Anul curent" },
-                }
-            },
-            new
-            {
-                group = "Adunarea creditorilor",
-                fields = new[]
-                {
-                    new { key = "CreditorsMeetingDate",     label = "Dată adunare creditori" },
-                    new { key = "CreditorsMeetingTime",     label = "Ora adunare creditori" },
-                    new { key = "CreditorsMeetingAddress",  label = "Locație adunare creditori" },
-                }
-            },
-            new
-            {
-                group = "Financiar",
-                fields = new[]
-                {
-                    new { key = "TotalClaimsRon",           label = "Total creanțe (RON)" },
-                    new { key = "SecuredClaimsRon",         label = "Creanțe garantate (RON)" },
-                    new { key = "UnsecuredClaimsRon",       label = "Creanțe negarantate (RON)" },
-                }
-            },
-            new
-            {
-                group = "Destinatar (per-parte)",
-                fields = new[]
-                {
-                    new { key = "RecipientName",            label = "Denumire destinatar" },
-                    new { key = "RecipientAddress",         label = "Adresă destinatar" },
-                    new { key = "RecipientEmail",           label = "Email destinatar" },
-                    new { key = "RecipientIdentifier",      label = "CUI/CNP destinatar" },
-                    new { key = "RecipientRole",            label = "Rol destinatar" },
-                }
-            },
-            // ── Collection groups ({{#each}}) ────────────────────────────────
-            new
-            {
-                group = "🔁 Creditori ({{#each Creditors}})",
-                fields = new[]
-                {
-                    new { key = "RowNo",        label = "Nr. crt." },
-                    new { key = "Name",         label = "Denumire creditor" },
-                    new { key = "Role",         label = "Rol / Tip creditor" },
-                    new { key = "Identifier",   label = "CUI / CNP" },
-                    new { key = "Address",      label = "Adresă creditor" },
-                    new { key = "Email",        label = "Email creditor" },
-                }
-            },
-            new
-            {
-                group = "🔁 Creanțe ({{#each Claims}})",
-                fields = new[]
-                {
-                    new { key = "RowNo",            label = "Nr. crt." },
-                    new { key = "CreditorName",     label = "Creditor" },
-                    new { key = "DeclaredAmount",   label = "Sumă declarată" },
-                    new { key = "AdmittedAmount",   label = "Sumă admisă" },
-                    new { key = "Percent",          label = "Procent din total" },
-                    new { key = "Rank",             label = "Rang / Prioritate" },
-                    new { key = "Status",           label = "Status creanță" },
-                }
-            },
-            new
-            {
-                group = "🔁 Active ({{#each Assets}})",
-                fields = new[]
-                {
-                    new { key = "RowNo",            label = "Nr. crt." },
-                    new { key = "Description",      label = "Descriere activ" },
-                    new { key = "Type",             label = "Tip activ" },
-                    new { key = "EstimatedValue",   label = "Valoare estimată" },
-                    new { key = "Status",           label = "Status activ" },
-                    new { key = "SaleProceeds",     label = "Preț vânzare" },
-                }
-            },
-            // ── Totaluri agregate ─────────────────────────────────────────────
-            new
-            {
-                group = "Totaluri",
-                fields = new[]
-                {
-                    new { key = "Totals.DeclaredTotal",   label = "Total creanțe declarate" },
-                    new { key = "Totals.AdmittedTotal",   label = "Total creanțe admise" },
-                    new { key = "Totals.CreditorCount",   label = "Număr creditori" },
-                    new { key = "Totals.ClaimCount",      label = "Număr creanțe" },
-                    new { key = "Totals.AssetCount",      label = "Număr active" },
-                }
-            },
-            // ── Conditional blocks ({{#if}}) ─────────────────────────────────
-            new
-            {
-                group = "❓ Condiții ({{#if}})",
-                fields = new[]
-                {
-                    new { key = "HasCreditors",   label = "Are creditori?" },
-                    new { key = "HasClaims",      label = "Are creanțe?" },
-                    new { key = "HasAssets",       label = "Are active?" },
-                }
-            },
-            // ── Electronic signature ─────────────────────────────────────────
-            new
-            {
-                group = "✍ Semnătură electronică",
-                fields = new[]
-                {
-                    new { key = "ElectronicSignature", label = "Bloc semnătură electronică" },
-                }
-            },
-        };
-
+        var groups = BuildPlaceholderGroups();
         return Ok(groups);
+    }
+
+    /// <summary>Builds the full list of placeholder groups shared across endpoints.</summary>
+    private static WordTemplateImportService.PlaceholderGroupInfo[] BuildPlaceholderGroups()
+    {
+        // Local helpers to keep the list concise and avoid runtime dynamic binding.
+        static WordTemplateImportService.PlaceholderGroupInfo G(
+            string group, params WordTemplateImportService.PlaceholderFieldInfo[] fields)
+            => new(group, fields);
+        static WordTemplateImportService.PlaceholderFieldInfo F(string key, string label)
+            => new(key, label);
+
+        return
+        [
+            G("Dosar",
+                F("CaseNumber",           "Număr dosar"),
+                F("ProcedureType",         "Tip procedură"),
+                F("LawReference",          "Temei legal"),
+                F("OpeningDecisionNo",     "Nr. sentință deschidere"),
+                F("BpiPublicationNo",      "Nr. publicare BPI"),
+                F("BpiPublicationDate",    "Dată publicare BPI")
+            ),
+            G("Debitor",
+                F("DebtorName",            "Denumire debitor"),
+                F("DebtorCui",             "CUI debitor"),
+                F("DebtorAddress",         "Adresă debitor"),
+                F("DebtorLocality",        "Localitate debitor"),
+                F("DebtorCounty",          "Județ debitor"),
+                F("DebtorTradeRegisterNo", "Nr. Reg. Comerțului"),
+                F("DebtorCaen",            "Cod CAEN"),
+                F("DebtorAdministratorName", "Reprezentant legal")
+            ),
+            G("Instanță",
+                F("CourtName",             "Instanță"),
+                F("CourtSection",          "Secție"),
+                F("JudgeSyndic",           "Judecător sindic (dosar)"),
+                F("JudgeName",             "Judecător (registratură)"),
+                F("CourtRegistryAddress",  "Adresă registratură"),
+                F("CourtRegistryPhone",    "Telefon registratură"),
+                F("CourtRegistryHours",    "Program registratură")
+            ),
+            G("Practicant / Firmă",
+                F("PractitionerName",      "Practicant insolvenţă"),
+                F("PractitionerRole",      "Calitate practicant"),
+                F("PractitionerEntityName","Entitate practicant"),
+                F("PractitionerCUI",       "CUI practicant"),
+                F("PractitionerAddress",   "Adresă practicant"),
+                F("PractitionerUNPIRNo",   "Nr. UNPIR"),
+                F("PractitionerPhone",     "Telefon practicant"),
+                F("PractitionerFax",       "Fax practicant"),
+                F("PractitionerEmail",     "Email practicant"),
+                F("PractitionerDecisionNo","Nr. decizie numire"),
+                F("PractitionerRepresentativeName", "Reprezentant practicant"),
+                F("FirmName",              "Firmă insolvență"),
+                F("FirmCui",               "CUI firmă"),
+                F("FirmAddress",           "Adresă firmă"),
+                F("FirmPhone",             "Telefon firmă"),
+                F("FirmEmail",             "Email firmă"),
+                F("FirmIban",              "IBAN firmă"),
+                F("FirmBankName",          "Bancă firmă")
+            ),
+            G("Date cheie",
+                F("NoticeDate",            "Dată notificare"),
+                F("OpeningDate",           "Dată deschidere procedură"),
+                F("ClaimsDeadline",        "Termen depunere cereri de creanță"),
+                F("ContestationsDeadline", "Termen contestații"),
+                F("NextHearingDate",       "Următor termen instanță"),
+                F("CurrentDate",           "Data curentă"),
+                F("CurrentYear",           "Anul curent")
+            ),
+            G("Adunarea creditorilor",
+                F("CreditorsMeetingDate",   "Dată adunare creditori"),
+                F("CreditorsMeetingTime",   "Ora adunare creditori"),
+                F("CreditorsMeetingAddress","Locație adunare creditori")
+            ),
+            G("Financiar",
+                F("TotalClaimsRon",         "Total creanțe (RON)"),
+                F("SecuredClaimsRon",       "Creanțe garantate (RON)"),
+                F("UnsecuredClaimsRon",     "Creanțe negarantate (RON)")
+            ),
+            G("Destinatar (per-parte)",
+                F("RecipientName",          "Denumire destinatar"),
+                F("RecipientAddress",       "Adresă destinatar"),
+                F("RecipientEmail",         "Email destinatar"),
+                F("RecipientIdentifier",    "CUI/CNP destinatar"),
+                F("RecipientRole",          "Rol destinatar")
+            ),
+            G("Raport periodic (30 zile)",
+                F("PastTasksFromDate",           "Început perioadă task-uri trecute"),
+                F("PastTasksToDate",             "Sfârșit perioadă task-uri trecute"),
+                F("FutureTasksFromDate",         "Început perioadă task-uri viitoare"),
+                F("FutureTasksToDate",           "Sfârșit perioadă task-uri viitoare"),
+                F("PastTasksSummaryWithReport",  "Task-uri trecute cu rezumat (text)"),
+                F("PastTasksSummaryWithReportHtml", "Task-uri trecute cu rezumat (HTML listă)"),
+                F("FutureTasksNames",            "Task-uri viitoare (nume, text)"),
+                F("FutureTasksNamesHtml",        "Task-uri viitoare (nume, HTML listă)")
+            ),
+            // ── Collection groups ({{#each}}) ────────────────────────────────
+            G("🔁 Creditori ({{#each Creditors}})",
+                F("RowNo",       "Nr. crt."),
+                F("Name",        "Denumire creditor"),
+                F("Role",        "Rol / Tip creditor"),
+                F("Identifier",  "CUI / CNP"),
+                F("Address",     "Adresă creditor"),
+                F("Email",       "Email creditor")
+            ),
+            G("🔁 Creanțe ({{#each Claims}})",
+                F("RowNo",           "Nr. crt."),
+                F("CreditorName",    "Creditor"),
+                F("DeclaredAmount",  "Sumă declarată"),
+                F("AdmittedAmount",  "Sumă admisă"),
+                F("Percent",         "Procent din total"),
+                F("Rank",            "Rang / Prioritate"),
+                F("Status",          "Status creanță")
+            ),
+            G("🔁 Active ({{#each Assets}})",
+                F("RowNo",           "Nr. crt."),
+                F("Description",     "Descriere activ"),
+                F("Type",            "Tip activ"),
+                F("EstimatedValue",  "Valoare estimată"),
+                F("Status",          "Status activ"),
+                F("SaleProceeds",    "Preț vânzare")
+            ),
+            // ── Totaluri agregate ─────────────────────────────────────────────
+            G("Totaluri",
+                F("Totals.DeclaredTotal",  "Total creanțe declarate"),
+                F("Totals.AdmittedTotal",  "Total creanțe admise"),
+                F("Totals.CreditorCount",  "Număr creditori"),
+                F("Totals.ClaimCount",     "Număr creanțe"),
+                F("Totals.AssetCount",     "Număr active")
+            ),
+            // ── Conditional blocks ({{#if}}) ─────────────────────────────────
+            G("❓ Condiții ({{#if}})",
+                F("HasCreditors",  "Are creditori?"),
+                F("HasClaims",     "Are creanțe?"),
+                F("HasAssets",     "Are active?")
+            ),
+            // ── Electronic signature ─────────────────────────────────────────
+            G("✍ Semnătură electronică",
+                F("ElectronicSignature", "Bloc semnătură electronică")
+            ),
+        ];
     }
 
     // ── List ─────────────────────────────────────────────────────────────────
@@ -410,7 +407,13 @@ public class DocumentTemplatesController : ControllerBase
             return BadRequest(new { message = "Template has no HTML body content." });
 
         var (renderedHtml, mergeData) = await _generator.RenderHtmlBodyAsync(
-            t.BodyHtml, req.CaseId, req.RecipientPartyId);
+            t.BodyHtml,
+            req.CaseId,
+            req.RecipientPartyId,
+            req.PastTasksFromDate,
+            req.PastTasksToDate,
+            req.FutureTasksFromDate,
+            req.FutureTasksToDate);
 
         return Ok(new RenderTemplateResult(renderedHtml, mergeData));
     }
@@ -438,7 +441,14 @@ public class DocumentTemplatesController : ControllerBase
         if (string.IsNullOrWhiteSpace(t.BodyHtml))
             return BadRequest(new { message = "Template has no HTML body content." });
 
-        var (renderedHtml, _) = await _generator.RenderHtmlBodyAsync(t.BodyHtml, req.CaseId, req.RecipientPartyId);
+        var (renderedHtml, _) = await _generator.RenderHtmlBodyAsync(
+            t.BodyHtml,
+            req.CaseId,
+            req.RecipientPartyId,
+            req.PastTasksFromDate,
+            req.PastTasksToDate,
+            req.FutureTasksFromDate,
+            req.FutureTasksToDate);
         var pdfBytes = await _htmlPdf.RenderHtmlStringToPdfBytesAsync(renderedHtml, ct);
         var safeName = string.Concat(t.Name.Split(Path.GetInvalidFileNameChars()))
                            .Replace(" ", "_");
@@ -473,7 +483,14 @@ public class DocumentTemplatesController : ControllerBase
             return BadRequest(new { message = "Template has no HTML body content." });
 
         // 1. Render HTML then convert to PDF
-        var (renderedHtml, _) = await _generator.RenderHtmlBodyAsync(t.BodyHtml, req.CaseId, req.RecipientPartyId);
+        var (renderedHtml, _) = await _generator.RenderHtmlBodyAsync(
+            t.BodyHtml,
+            req.CaseId,
+            req.RecipientPartyId,
+            req.PastTasksFromDate,
+            req.PastTasksToDate,
+            req.FutureTasksFromDate,
+            req.FutureTasksToDate);
         var pdfBytes = await _htmlPdf.RenderHtmlStringToPdfBytesAsync(renderedHtml, ct);
 
         // 2. Persist the PDF in file storage
@@ -610,6 +627,9 @@ public class DocumentTemplatesController : ControllerBase
         await using var stream = file.OpenReadStream();
         await _storage.UploadAsync(key, stream, "application/pdf", ct);
 
+        // Persist to DB (creates or updates the profile row)
+        await _incomingProfiles.UpsertOnUploadAsync(type, key, file.FileName, file.Length, ct);
+
         return Ok(new
         {
             type,
@@ -625,6 +645,12 @@ public class DocumentTemplatesController : ControllerBase
     [RequirePermission(Permission.TemplateView)]
     public async Task<IActionResult> GetIncomingReference(string type, CancellationToken ct)
     {
+        // Check DB profile first (most reliable)
+        var profile = await _incomingProfiles.GetProfileAsync(type, ct);
+        if (profile is not null)
+            return Ok(new { type, exists = true });
+
+        // Fall back to storage check for backwards compatibility (before DB was added)
         var key = $"incoming-reference/{type}.pdf";
         try
         {
@@ -636,6 +662,157 @@ public class DocumentTemplatesController : ControllerBase
             return Ok(new { type, exists = false });
         }
     }
+
+    /// <summary>
+    /// Streams the previously uploaded reference PDF back to the browser so the
+    /// annotation tool can render it with PDF.js without needing a signed storage URL.
+    /// </summary>
+    [HttpGet("incoming-reference/{type}/file")]
+    [RequirePermission(Permission.TemplateView)]
+    public async Task<IActionResult> GetIncomingReferenceFile(string type, CancellationToken ct)
+    {
+        var key = $"incoming-reference/{type}.pdf";
+        try
+        {
+            var stream = await _storage.DownloadAsync(key, ct);
+            return File(stream, "application/pdf", $"{type}-reference.pdf");
+        }
+        catch
+        {
+            return NotFound(new { message = "No reference PDF uploaded for this type." });
+        }
+    }
+
+    /// <summary>Returns saved annotation JSON for a given incoming document type, or an empty list.</summary>
+    [HttpGet("incoming-reference/{type}/annotations")]
+    [RequirePermission(Permission.TemplateView)]
+    public async Task<IActionResult> GetIncomingAnnotations(string type, CancellationToken ct)
+    {
+        // Try DB first
+        var profile = await _incomingProfiles.GetProfileAsync(type, ct);
+        if (profile?.AnnotationsJson is not null)
+        {
+            // Return in the shape the frontend expects: { annotations, notes }
+            return Ok(new
+            {
+                annotations = System.Text.Json.JsonSerializer.Deserialize<object[]>(profile.AnnotationsJson)
+                              ?? Array.Empty<object>(),
+                notes = profile.AnnotationNotes,
+            });
+        }
+
+        // Fall back to storage JSON file (legacy path)
+        var key = $"incoming-reference/{type}.annotations.json";
+        try
+        {
+            using var stream = await _storage.DownloadAsync(key, ct);
+            using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync(ct);
+            return Content(json, "application/json");
+        }
+        catch
+        {
+            return Ok(new { annotations = Array.Empty<object>(), notes = (string?)null });
+        }
+    }
+
+    /// <summary>Persists annotation JSON (rectangle regions with field labels) for an incoming document type.</summary>
+    [HttpPost("incoming-reference/{type}/annotations")]
+    [RequirePermission(Permission.TemplateManage)]
+    public async Task<IActionResult> SaveIncomingAnnotations(
+        string type, [FromBody] SaveIncomingAnnotationsRequest req, CancellationToken ct)
+    {
+        // Persist to storage (backup / legacy consumers)
+        var storageKey = $"incoming-reference/{type}.annotations.json";
+        var json = System.Text.Json.JsonSerializer.Serialize(req);
+        var bytes = System.Text.Encoding.UTF8.GetBytes(json);
+        using var ms = new MemoryStream(bytes);
+        await _storage.UploadAsync(storageKey, ms, "application/json", ct);
+
+        // Persist annotations array to DB (for matching queries)
+        var annotationsJson = System.Text.Json.JsonSerializer.Serialize(req.Annotations);
+        await _incomingProfiles.SaveAnnotationsAsync(type, annotationsJson, req.Notes, ct);
+
+        return Ok(new { message = "Annotations saved." });
+    }
+
+    /// <summary>
+    /// Returns the full DB profile for a given incoming document type, including
+    /// AI summaries (EN/RO/HU) and structured field parameters.
+    /// </summary>
+    [HttpGet("incoming-reference/{type}/profile")]
+    [RequirePermission(Permission.TemplateView)]
+    public async Task<IActionResult> GetIncomingDocumentProfile(string type, CancellationToken ct)
+    {
+        var profile = await _incomingProfiles.GetProfileAsync(type, ct);
+        if (profile is null)
+            return Ok(new { type, exists = false });
+
+        return Ok(new
+        {
+            type,
+            exists = true,
+            originalFileName = profile.OriginalFileName,
+            fileSizeBytes = profile.FileSizeBytes,
+            uploadedOn = profile.UploadedOn,
+            lastAnnotatedOn = profile.LastAnnotatedOn,
+            annotationCount = CountAnnotations(profile.AnnotationsJson),
+            annotationNotes = profile.AnnotationNotes,
+            aiSummaryEn = profile.AiSummaryEn,
+            aiSummaryRo = profile.AiSummaryRo,
+            aiSummaryHu = profile.AiSummaryHu,
+            aiParametersJson = profile.AiParametersJson,
+            aiModel = profile.AiModel,
+            aiConfidence = profile.AiConfidence,
+            aiAnalysedOn = profile.AiAnalysedOn,
+        });
+    }
+
+    /// <summary>
+    /// Triggers AI analysis of the reference document type. Generates natural-language
+    /// summaries in EN, RO, and HU plus structured field parameters; saves to DB.
+    /// </summary>
+    [HttpPost("incoming-reference/{type}/analyse")]
+    [RequirePermission(Permission.TemplateManage)]
+    public async Task<IActionResult> AnalyseIncomingDocument(string type, CancellationToken ct)
+    {
+        try
+        {
+            var profile = await _incomingProfiles.AnalyseAsync(type, ct);
+            if (profile is null)
+                return NotFound(new { message = $"No profile found for document type '{type}'.", type });
+
+            return Ok(new
+            {
+                type,
+                aiSummaryEn = profile.AiSummaryEn,
+                aiSummaryRo = profile.AiSummaryRo,
+                aiSummaryHu = profile.AiSummaryHu,
+                aiParametersJson = profile.AiParametersJson,
+                aiModel = profile.AiModel,
+                aiConfidence = profile.AiConfidence,
+                aiAnalysedOn = profile.AiAnalysedOn,
+                message = "AI analysis complete.",
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    private static int CountAnnotations(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return 0;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? doc.RootElement.GetArrayLength()
+                : 0;
+        }
+        catch { return 0; }
+    }
 }
 // ── Additional request DTOs ───────────────────────────────────────────────────
 
@@ -644,3 +821,18 @@ public record RenderHtmlToPdfRequest(string Html, string? TemplateName);
 
 /// <summary>Save arbitrary HTML (already rendered and optionally signed) as a case document.</summary>
 public record SaveHtmlToCaseRequest(string Html, Guid CaseId, string TemplateName);
+
+/// <summary>A single annotated region on the reference PDF.</summary>
+public record IncomingAnnotationItem(
+    string Id,
+    string Field,
+    string Label,
+    double X,
+    double Y,
+    double W,
+    double H);
+
+/// <summary>Full set of annotations for one incoming document type reference.</summary>
+public record SaveIncomingAnnotationsRequest(
+    IReadOnlyList<IncomingAnnotationItem> Annotations,
+    string? Notes);

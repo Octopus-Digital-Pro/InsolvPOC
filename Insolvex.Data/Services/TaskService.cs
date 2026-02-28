@@ -103,6 +103,7 @@ public sealed class TaskService : ITaskService
         }
         if (cmd.BlockReason != null) task.BlockReason = cmd.BlockReason;
         if (cmd.AssignedToUserId.HasValue) task.AssignedToUserId = cmd.AssignedToUserId;
+        if (cmd.ReportSummary is not null) task.ReportSummary = cmd.ReportSummary == string.Empty ? null : cmd.ReportSummary;
 
         var summaries = LocalizedSummaryBuilder.BuildTaskSummaryByLanguage(
             task.Title,

@@ -29,6 +29,8 @@ interface Props {
   initialSubject?: string;
   /** Pre-fill body. */
   initialBody?: string;
+  /** Pre-select recipient parties by ID (e.g. judge syndic). */
+  initialPartyIds?: string[];
   /** Pre-select a document from the library (e.g. the just-saved template). */
   initialAttachedDocId?: string;
   /** If composing a reply, pass the email being replied to. */
@@ -43,6 +45,7 @@ export default function EmailComposeModal({
   parties: partiesProp,
   initialSubject = "",
   initialBody = "",
+  initialPartyIds,
   initialAttachedDocId,
   replyToEmailId,
   onSent,
@@ -54,7 +57,7 @@ export default function EmailComposeModal({
   const [loadingData, setLoadingData] = useState(true);
 
   // ── form state ────────────────────────────────────────────────────────────
-  const [recipientPartyIds, setRecipientPartyIds] = useState<string[]>([]);
+  const [recipientPartyIds, setRecipientPartyIds] = useState<string[]>(initialPartyIds ?? []);
   const [toAddresses, setToAddresses] = useState("");
   const [cc, setCc] = useState("");
   const [subject, setSubject] = useState(initialSubject);

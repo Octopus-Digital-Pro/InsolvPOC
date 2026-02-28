@@ -30,6 +30,7 @@ import AuditTrailPage from "./pages/AuditTrailPage";
 import TenantAdminPage from "./pages/TenantAdminPage";
 import ONRCSettingsPage from "./pages/ONRCSettingsPage";
 import AiSettingsPage from "./pages/AiSettingsPage";
+import TenantAiConfigPage from "./pages/TenantAiConfigPage";
 import WorkflowStagesPage from "./pages/WorkflowStagesPage";
 import ReportsPage from "./pages/ReportsPage";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -162,6 +163,7 @@ function AppRoutes() {
           />
           <Route path="demo" element={<SettingsPage tab="demo" />} />
           <Route path="ai-config" element={<AiSettingsPage />} />
+          <Route path="tenant-ai" element={<TenantAiConfigPage />} />
           {/* Legacy redirects */}
           <Route path="firm" element={<OrganisationSettingsPage />} />
           <Route path="onrc" element={<ONRCSettingsPage />} />

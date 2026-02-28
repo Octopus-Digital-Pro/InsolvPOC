@@ -177,6 +177,7 @@ export interface TaskDto {
   assignedToUserId: string | null;
   assignedToName: string | null;
   createdOn: string;
+  reportSummary: string | null;
 }
 
 export interface TaskNoteDto {

@@ -342,7 +342,7 @@ export default function AiSettingsPage() {
         )}
       </div>
 
-      <BackButton onClick={() => navigate("/settings")} />
+      <BackButton onClick={() => navigate("/settings")}>← Back</BackButton>
     </div>
   );
 }

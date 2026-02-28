@@ -19,6 +19,7 @@ public static class RolePermissions
     Permission.SystemConfigView,
     Permission.SystemConfigEdit,
             Permission.DemoReset,
+            Permission.TenantAiConfigEdit, // GlobalAdmin-only
     })),
 
       [UserRole.Practitioner] = new(new[]
@@ -42,8 +43,9 @@ public static class RolePermissions
           Permission.MeetingView, Permission.MeetingCreate,
     // Templates
             Permission.TemplateView, Permission.TemplateGenerate,
- // Summaries
-          Permission.SummaryView, Permission.SummaryGenerate,
+ // Summaries & AI chat
+          Permission.SummaryView, Permission.SummaryGenerate, Permission.AiChatUse,
+          Permission.TenantAiConfigView,
             // Assets — full CRUD
             Permission.AssetView, Permission.AssetCreate, Permission.AssetEdit, Permission.AssetDelete,
             // Settings — view tenant info, firm info, deadline config
@@ -77,9 +79,10 @@ Permission.SettingsView,
    Permission.MeetingView,
    // Templates — view + generate (no manage)
             Permission.TemplateView, Permission.TemplateGenerate,
-            // Summaries — view only
-        Permission.SummaryView,
-            // Assets — view + create (no delete)
+            // Summaries & AI chat â€" view + use
+        Permission.SummaryView, Permission.AiChatUse,
+        Permission.TenantAiConfigView,
+            // Assets â€" view + create (no delete)
             Permission.AssetView, Permission.AssetCreate, Permission.AssetEdit,
           // Settings — view tenant info, firm info, deadline config
             Permission.SettingsView,

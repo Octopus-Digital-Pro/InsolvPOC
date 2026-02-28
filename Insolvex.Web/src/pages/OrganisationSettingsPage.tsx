@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Globe, Building2, Landmark, Check,
-  Search, X, ChevronDown, CreditCard, Users, Briefcase,
+  Search, X, CreditCard, Users, Briefcase,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -364,7 +364,7 @@ export default function OrganisationSettingsPage() {
               <Badge variant={(tenantData.isActive as boolean) ? "success" : "destructive"} className="text-xs">
                 {(tenantData.isActive as boolean) ? "Active" : "Inactive"}
               </Badge>
-              {tenantData.subscriptionExpiry && (
+              {!!(tenantData.subscriptionExpiry as string | null) && (
                 <p className="text-[10px] text-muted-foreground">
                   Expires {format(new Date(tenantData.subscriptionExpiry as string), "dd MMM yyyy")}
                 </p>
@@ -445,7 +445,7 @@ export default function OrganisationSettingsPage() {
                       setAddress(sel.address);
                       setLocality(sel.locality);
                       setCounty(sel.county);
-                      setPostalCode(sel.postcode);
+                      setPostalCode(sel.postalCode);
                       setCountry(sel.country);
                     }}
                   />

@@ -169,6 +169,13 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
     {
         var tenantId = _currentUser.TenantId;
 
+        // Resolve the case's ProcedureType so we only create stages relevant to it
+        var procedureType = await _db.InsolvencyCases
+            .Where(c => c.Id == caseId)
+            .Select(c => c.ProcedureType)
+            .FirstOrDefaultAsync(ct);
+        var procedureTypeStr = procedureType.ToString();
+
         // Load all definitions: globals + tenant overrides
         var allDefs = await _db.WorkflowStageDefinitions
             .IgnoreQueryFilters()
@@ -177,10 +184,14 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
             .OrderBy(d => d.SortOrder)
             .ToListAsync(ct);
 
-        // Resolve: tenant-specific overrides global
+        // Resolve: tenant-specific overrides global, then filter to this procedure type
         var resolved = allDefs
             .GroupBy(d => d.StageKey)
             .Select(g => g.FirstOrDefault(d => d.TenantId == tenantId) ?? g.First(d => d.TenantId == null))
+            .Where(d => string.IsNullOrWhiteSpace(d.ApplicableProcedureTypes) ||
+                        d.ApplicableProcedureTypes
+                            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                            .Contains(procedureTypeStr, StringComparer.OrdinalIgnoreCase))
             .OrderBy(d => d.SortOrder)
             .ToList();
 
@@ -463,6 +474,25 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
     }
 
     // â”€â”€ Stage deadline override â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public async Task ReopenCaseAsync(Guid caseId, CancellationToken ct = default)
+    {
+        var insolvencyCase = await _db.InsolvencyCases.FindAsync([caseId], ct)
+            ?? throw new NotFoundException($"Case {caseId} not found");
+
+        if (insolvencyCase.Status != "Closed")
+            throw new BusinessException("Case is not closed and cannot be reopened.");
+
+        insolvencyCase.Status = "Active";
+        insolvencyCase.StatusChangedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogWorkflowAsync(
+            "CaseReopened",
+            caseId,
+            new { reopenedBy = _currentUser.Email },
+            "Info");
+    }
 
     public async Task<CaseWorkflowStageDto> SetStageDeadlineAsync(
         Guid caseId, string stageKey, DateTime newDate, string note, CancellationToken ct)

@@ -140,6 +140,9 @@ export interface Translations {
     noneStandalone: string;
     hearing: string;
     docs: string;
+    closedBanner: string;
+    reopenCase: string;
+    reopenError: string;
   };
 
   // Procedure types
@@ -303,6 +306,9 @@ export interface Translations {
     createdBy: string;
     saveNote: string;
     saveChanges: string;
+    reportSummaryLabel: string;
+    reportSummaryHelp: string;
+    reportSummaryPlaceholder: string;
   };
 
   // Document review
@@ -438,6 +444,8 @@ export interface Translations {
     firmDetails: string;
     teamUsers: string;
     eSigning: string;
+    casePhases: string;
+    aiConfiguration: string;
     onrcDatabase: string;
     onrcDatabaseDesc: string;
     firmsDatabase: string;
@@ -574,6 +582,17 @@ export interface Translations {
     generating: string;
     savedBadge: string;
     noContent: string;
+    mandatoryReportButton: string;
+    mandatoryReportMissing: string;
+    mandatoryReportTemplateName: string;
+    mandatoryReportEmailBody: string;
+    mandatoryReportConfigTitle: string;
+    mandatoryReportConfigDesc: string;
+    pastTasksFrom: string;
+    pastTasksTo: string;
+    futureTasksFrom: string;
+    futureTasksTo: string;
+    generateReport: string;
   };
 
   // Authorities
@@ -611,23 +630,37 @@ export interface Translations {
     savedOk: string;
     revertConfirm: string;
     stageName: string;
+    stageKeyHelp: string;
+    stageNameHelp: string;
     sortOrder: string;
+    sortOrderHelp: string;
     procedureTypes: string;
+    procedureTypesHelp: string;
     description: string;
+    descriptionHelp: string;
     activeStage: string;
+    activeStageHelp: string;
     linkedTemplates: string;
     addTemplate: string;
     allTemplatesLinked: string;
     noTemplatesLinked: string;
     advancedConfig: string;
     requiredFields: string;
+    requiredFieldsHelp: string;
     requiredPartyRoles: string;
+    requiredPartyRolesHelp: string;
     requiredDocTypes: string;
+    requiredDocTypesHelp: string;
     requiredTaskTemplates: string;
+    requiredTaskTemplatesHelp: string;
     validationRules: string;
+    validationRulesHelp: string;
     outputDocTypes: string;
+    outputDocTypesHelp: string;
     allowedTransitions: string;
+    allowedTransitionsHelp: string;
     defaultTasks: string;
+    defaultTasksHelp: string;
     addTask: string;
     noDefaultTasks: string;
     taskTitlePlaceholder: string;
@@ -681,6 +714,26 @@ export interface Translations {
     contentShown: string;
     prevTitle: string;
     signaturePlaceholder: string;
+    incomingBadge: string;
+    referenceUploaded: string;
+    field: string;
+    fields: string;
+    annotated: string;
+    aiProfileBadge: string;
+    viewEdit: string;
+    annotate: string;
+    replaceReference: string;
+    currentFile: string;
+    uploadPdfReference: string;
+    clickOrDrag: string;
+    uploading: string;
+    processing: string;
+    onlyPdfError: string;
+    uploadError: string;
+    aiRecognitionActive: string;
+    summariesAvailable: string;
+    aiProfileLabel: string;
+    confLabel: string;
   };
 
   // Procedure Types admin (global admin only)
@@ -749,5 +802,65 @@ export interface Translations {
     appliesToTypes: string;
     keyPlaceholder: string;
     labelPlaceholder: string;
+  };
+  calendar: {
+    title: string;
+    newEvent: string;
+    noEvents: string;
+    eventTitle: string;
+    eventType: string;
+    startDate: string;
+    endDate: string;
+    location: string;
+    description: string;
+    allDay: string;
+    cancel: string;
+    save: string;
+    saveError: string;
+  };
+  ai: {
+    tabLabel: string;
+    summaryTitle: string;
+    summarySubtitle: string;
+    generateSummary: string;
+    refreshSummary: string;
+    generating: string;
+    noSummary: string;
+    generatedAt: string;
+    language: string;
+    langEn: string;
+    langRo: string;
+    langHu: string;
+    chatTitle: string;
+    chatPlaceholder: string;
+    chatSend: string;
+    chatSending: string;
+    chatClear: string;
+    chatClearConfirm: string;
+    chatEmpty: string;
+    chatError: string;
+    chatAtLimit: string;
+    aiDisabled: string;
+    aiDisabledDesc: string;
+    tokenUsage: string;
+    // Tenant AI Config page
+    tenantConfigTitle: string;
+    tenantConfigDesc: string;
+    enableAi: string;
+    enableAiDesc: string;
+    monthlyTokenLimit: string;
+    monthlyTokenLimitDesc: string;
+    currentUsage: string;
+    enableSummary: string;
+    enableSummaryDesc: string;
+    enableChat: string;
+    enableChatDesc: string;
+    activityDays: string;
+    activityDaysDesc: string;
+    notes: string;
+    saveConfig: string;
+    saved: string;
+    saveError: string;
+    selectTenant: string;
   };
 }
