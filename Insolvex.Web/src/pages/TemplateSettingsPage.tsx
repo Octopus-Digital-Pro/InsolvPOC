@@ -38,6 +38,7 @@ import {
   type ImportWordDocumentResult,
   SYSTEM_TEMPLATE_LABELS,
   SYSTEM_TEMPLATE_STAGE,
+  INCOMING_DOCUMENT_LABELS,
   getIncomingDocumentLabel,
   getIncomingDocumentDescription,
 } from "@/services/api/documentTemplatesApi";
@@ -53,7 +54,7 @@ import {
   Link as LinkIcon, Unlink, Highlighter,
   Superscript as SuperscriptIcon, Subscript as SubscriptIcon,
   Minus, Quote, RemoveFormatting, Columns, RowsIcon,
-  ImageIcon, Palette,
+  ImageIcon, Palette, Brain,
 } from "lucide-react";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { PdfAnnotatorModal } from "@/components/PdfAnnotatorModal";
@@ -1103,12 +1104,15 @@ export default function TemplateSettingsPage() {
   const [showNewForm, setShowNewForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [incomingStatuses, setIncomingStatuses] = useState<Record<string, IncomingDocumentReferenceStatus>>({});
+  const [selectedIncomingType, setSelectedIncomingType] = useState<IncomingDocumentType>("CourtOpeningDecision");
 
   // System templates: exclude CourtOpeningDecision (it's an incoming document, not generated)
   const systemTemplates = templates.filter((t) => t.isSystem && t.templateType !== "courtOpeningDecision");
   const customTemplates = templates.filter((t) => !t.isSystem);
 
-  const INCOMING_TYPES: IncomingDocumentType[] = ["CourtOpeningDecision"];
+  // All recognisable incoming document types — each can have its own reference PDF + annotations
+  const INCOMING_TYPES: IncomingDocumentType[] = Object.keys(INCOMING_DOCUMENT_LABELS) as IncomingDocumentType[];
+  const configuredIncomingCount = INCOMING_TYPES.filter((t) => incomingStatuses[t]?.exists).length;
 
   const incomingText = {
     en: {
@@ -1297,7 +1301,7 @@ export default function TemplateSettingsPage() {
           `}
         >
           {incomingText.tab}{" "}
-          <span className="ml-1 text-xs text-muted-foreground">({INCOMING_TYPES.length})</span>
+          <span className="ml-1 text-xs text-muted-foreground">({configuredIncomingCount}/{INCOMING_TYPES.length})</span>
         </button>
       </div>
 
@@ -1378,18 +1382,55 @@ export default function TemplateSettingsPage() {
 
       {/* Incoming documents tab */}
       {!loadingList && tab === "incoming" && (
-        <div className="space-y-4">
-          <p className="text-xs text-muted-foreground">
-            {incomingText.description}
-          </p>
-          {INCOMING_TYPES.map((type) => (
+        <div className="flex border border-border rounded-xl overflow-hidden" style={{ minHeight: "32rem" }}>
+          {/* ── Left: document type selector ── */}
+          <div className="w-56 shrink-0 border-r border-border bg-card flex flex-col">
+            <div className="px-3 py-2.5 border-b border-border">
+              <p className="text-xs font-semibold text-foreground">Document type</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {configuredIncomingCount} of {INCOMING_TYPES.length} configured
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {INCOMING_TYPES.map((type) => {
+                const st = incomingStatuses[type];
+                const uploaded = !!st?.exists;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setSelectedIncomingType(type)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors hover:bg-accent ${
+                      selectedIncomingType === type ? "bg-accent" : ""
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        uploaded ? "bg-emerald-500" : "bg-border"
+                      }`}
+                    />
+                    <span className={`flex-1 truncate ${selectedIncomingType === type ? "font-semibold" : ""}`}>
+                      {getIncomingDocumentLabel(type, locale)}
+                    </span>
+                    {uploaded && (
+                      <Brain className="h-3 w-3 text-purple-500 shrink-0 opacity-70" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Right: selected type card ── */}
+          <div className="flex-1 overflow-y-auto p-5">
+            <p className="text-xs text-muted-foreground mb-4">{incomingText.description}</p>
             <IncomingDocumentCard
-              key={type}
-              type={type}
-              status={incomingStatuses[type] ?? null}
+              key={selectedIncomingType}
+              type={selectedIncomingType}
+              status={incomingStatuses[selectedIncomingType] ?? null}
               onUploaded={loadIncomingStatuses}
             />
-          ))}
+          </div>
         </div>
       )}
     </div>

@@ -19,6 +19,12 @@ client.interceptors.request.use((config) => {
     config.headers["X-Tenant-Id"] = selectedTenantId;
   }
 
+  // For FormData uploads, remove the default application/json Content-Type so
+  // the browser can set multipart/form-data with the correct boundary parameter.
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
+
   return config;
 });
 

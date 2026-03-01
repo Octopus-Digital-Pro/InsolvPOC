@@ -54,12 +54,12 @@ export const caseDocumentsApi = {
     const formData = new FormData();
     formData.append("file", file);
 
+    // Do NOT set Content-Type manually — axios must auto-generate it with the multipart boundary.
     return client.post<CaseDocumentUploadResult>(
       `/cases/${caseId}/documents/upload`,
       formData,
       {
         params: { docType },
-        headers: { "Content-Type": "multipart/form-data" },
         onUploadProgress: onProgress
           ? (e) => {
               if (e.total) onProgress(Math.round((e.loaded * 100) / e.total));

@@ -18,7 +18,7 @@ import {
   INCOMING_DOCUMENT_LABELS,
 } from "@/services/api/documentTemplatesApi";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, X, Trash2, MousePointer2, Info, CheckCircle2, Brain, Sparkles } from "lucide-react";
+import { Loader2, Save, X, Trash2, MousePointer2, CheckCircle2, Brain, Sparkles } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
@@ -509,7 +509,7 @@ export function PdfAnnotatorModal({
         </div>
 
         {/* PDF canvas area */}
-        <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 flex items-start justify-center p-6">
+        <div className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 flex items-start justify-center p-6 min-w-0">
           {pdfLoading && (
             <div className="flex flex-col items-center gap-3 mt-20 text-muted-foreground">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -524,46 +524,44 @@ export function PdfAnnotatorModal({
             </div>
           )}
 
-          {!pdfLoading && !pdfError && (
-            <div ref={containerRef} className="relative shadow-lg" style={{ display: "inline-block" }}>
-              <canvas ref={canvasRef} className="block" />
-              {/* SVG annotation overlay — viewBox matches canvas pixel dimensions */}
-              <svg
-                ref={overlayRef}
-                className="absolute inset-0"
-                viewBox={canvasSize.w ? `0 0 ${canvasSize.w} ${canvasSize.h}` : undefined}
-                preserveAspectRatio="none"
-                style={{ width: "100%", height: "100%", cursor: "crosshair", userSelect: "none" }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-              >
-                {/* Saved annotations */}
-                {renderAnnotationRects()}
-                {/* In-progress drag rectangle (already in canvas-px viewBox coords) */}
-                {dragRect && activeField && (
-                  <rect
-                    x={dragRect.x} y={dragRect.y} width={dragRect.w} height={dragRect.h}
-                    fill={activeField.color} fillOpacity="0.20"
-                    stroke={activeField.color} strokeWidth="2"
-                    strokeDasharray="6 3" rx="3"
-                  />
-                )}
-              </svg>
-            </div>
-          )}
+          {/*
+            Keep the canvas container ALWAYS in the DOM (just hidden while loading/error).
+            If it were conditionally rendered, canvasRef.current would be null when
+            renderPdf() runs (pdfLoading is still true), causing it to bail out early
+            and leave the canvas blank once it becomes visible.
+          */}
+          <div
+            ref={containerRef}
+            className="relative shadow-lg"
+            style={{ display: pdfLoading || pdfError ? "none" : "inline-block" }}
+          >
+            <canvas ref={canvasRef} className="block" />
+            {/* SVG annotation overlay — viewBox matches canvas pixel dimensions */}
+            <svg
+              ref={overlayRef}
+              className="absolute inset-0"
+              viewBox={canvasSize.w ? `0 0 ${canvasSize.w} ${canvasSize.h}` : undefined}
+              preserveAspectRatio="none"
+              style={{ width: "100%", height: "100%", cursor: "crosshair", userSelect: "none" }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseLeave}
+            >
+              {/* Saved annotations */}
+              {renderAnnotationRects()}
+              {/* In-progress drag rectangle (already in canvas-px viewBox coords) */}
+              {dragRect && activeField && (
+                <rect
+                  x={dragRect.x} y={dragRect.y} width={dragRect.w} height={dragRect.h}
+                  fill={activeField.color} fillOpacity="0.20"
+                  stroke={activeField.color} strokeWidth="2"
+                  strokeDasharray="6 3" rx="3"
+                />
+              )}
+            </svg>
+          </div>
 
-          {/* Show example below PDF if no annotations yet */}
-          {!pdfLoading && !pdfError && annotations.length === 0 && (
-            <div className="ml-6 flex-shrink-0 flex flex-col gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 px-3 py-2 max-w-xs">
-                <Info className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                No annotations yet. See the example on the right for guidance.
-              </div>
-              <AnnotationExample />
-            </div>
-          )}
         </div>
 
         {/* Right sidebar: annotation list + notes */}
