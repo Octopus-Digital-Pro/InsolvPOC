@@ -678,6 +678,9 @@ export interface Translations {
     isRequired: string;
     orderTitle: string;
     removeTitle: string;
+    filterByProcedureType: string;
+    filterAllTypes: string;
+    noStagesForFilter: string;
   };
 
   // Document Templates admin page
