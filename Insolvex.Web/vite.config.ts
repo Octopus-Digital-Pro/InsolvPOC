@@ -18,6 +18,21 @@ export default defineConfig({
         changeOrigin: true,
         proxyTimeout: 1_200_000, // 20 minutes — 600 MB upload + server-side processing
         timeout: 1_200_000,
+        configure: (proxy) => {
+          proxy.on("error", (err: NodeJS.ErrnoException, _req, res) => {
+            if (err.code === "ECONNREFUSED") {
+              // API not up yet — return 503 silently instead of crashing the log
+              if ("writeHead" in res) {
+                (res as import("http").ServerResponse).writeHead(503, {
+                  "Content-Type": "application/json",
+                });
+                (res as import("http").ServerResponse).end(
+                  JSON.stringify({ error: "API server starting, please retry" })
+                );
+              }
+            }
+          });
+        },
       },
     },
   },

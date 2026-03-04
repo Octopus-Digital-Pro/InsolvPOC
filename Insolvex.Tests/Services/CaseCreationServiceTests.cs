@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
-using Insolvex.Data.Services;
+using Insolvex.Core.Services;
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.Configuration;
 using Insolvex.Domain.Entities;
@@ -36,8 +36,7 @@ public class CaseCreationServiceTests
         MockBehavior.Loose, db, Mock.Of<ILogger<MergeEngine>>());
     var templateGen = new Mock<TemplateGenerationService>(
 MockBehavior.Loose, db, storage.Object, Mock.Of<ILogger<TemplateGenerationService>>(), mergeEngine.Object);
-    var htmlPdf = new Mock<HtmlPdfService>(
-        MockBehavior.Loose, storage.Object, Mock.Of<ILogger<HtmlPdfService>>());
+    var htmlPdf = new Mock<IHtmlPdfService>();
     var mailMergeOptions = Options.Create(new MailMergeOptions { TemplatesPath = "Templates-Ro" });
     var env = new Mock<IWebHostEnvironment>();
     env.Setup(e => e.ContentRootPath).Returns(Path.GetTempPath());

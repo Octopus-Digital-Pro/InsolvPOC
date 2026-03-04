@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Insolvex.Data.Services;
+using Insolvex.Core.Services;
 using Insolvex.Domain.Entities;
 using Insolvex.Tests.Helpers;
 using TaskStatus = Insolvex.Domain.Enums.TaskStatus;

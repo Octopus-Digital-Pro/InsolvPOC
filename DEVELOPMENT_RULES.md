@@ -15,7 +15,8 @@ These rules are **mandatory** for all contributors. They enforce DDD, Clean Arch
 - **DTOs and request/response models** live in `Insolvex.Core/DTOs/`. Never define them inline in controllers.
 - **Service interfaces** live in `Insolvex.Core/Abstractions/`. Never in `Insolvex.API`.
 - **Exception types** live in `Insolvex.Core/Exceptions/`.
-- **Service implementations** live in `Insolvex.API/Services/`.
+- **Service implementations** live in `Insolvex.Core/Services/`.
+- **Integration services and implementations** live in `Insolvex.Integrations/`.
 - **Domain entities** live in `Insolvex.Domain/Entities/`. Never mutated outside a service.
 
 ---
@@ -138,6 +139,7 @@ await _audit.LogEntityAsync("Template.Deleted", ...);
 - Use `Severity = "Warning"` for deletions and security events (password reset, key deactivation).
 - Use `Severity = "Critical"` for destructive bulk operations (demo reset, bulk delete).
 - Use `Category` to group related audit entries: `"CaseManagement"`, `"DocumentManagement"`, `"TaskManagement"`, `"EmailManagement"`, `"UserManagement"`, `"SystemData"`, etc.
+- Create every audit log with a unique code and link i18n translations to the code when displaying , show corresponding name and description.
 
 ---
 

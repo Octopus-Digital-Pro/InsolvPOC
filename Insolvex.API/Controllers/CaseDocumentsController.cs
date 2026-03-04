@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Insolvex.API.Authorization;
 using Insolvex.Core.Abstractions;
-using Insolvex.Data.Infrastructure;
+using Insolvex.Core.Infrastructure;
 using Insolvex.Domain.Enums;
 
 namespace Insolvex.API.Controllers;

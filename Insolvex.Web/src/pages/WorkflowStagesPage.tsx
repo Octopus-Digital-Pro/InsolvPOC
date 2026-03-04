@@ -892,6 +892,7 @@ export default function WorkflowStagesPage() {
   const [editingStage, setEditingStage] = useState<WorkflowStageDetailDto | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [showNewForm, setShowNewForm] = useState(false);
+  const [filterProcedureType, setFilterProcedureType] = useState<string>("");
 
   const loadStages = useCallback(async () => {
     setLoading(true);
@@ -946,6 +947,31 @@ export default function WorkflowStagesPage() {
     await loadStages();
   };
 
+  // Derive unique procedure types present across all stages
+  const allProcedureTypes = Array.from(
+    new Set(
+      stages
+        .flatMap((s) =>
+          s.applicableProcedureTypes
+            ? s.applicableProcedureTypes.split(",").map((v) => v.trim()).filter(Boolean)
+            : []
+        )
+    )
+  ).sort();
+
+  // Apply filter: empty = all; otherwise show stages that are universal (null) or include the type
+  const filteredStages =
+    filterProcedureType === ""
+      ? stages
+      : stages.filter(
+          (s) =>
+            !s.applicableProcedureTypes ||
+            s.applicableProcedureTypes
+              .split(",")
+              .map((v) => v.trim())
+              .includes(filterProcedureType)
+        );
+
   // ── Render: loading detail ───────────────────────────────────────────────
 
   if (loadingDetail) {
@@ -996,6 +1022,40 @@ export default function WorkflowStagesPage() {
         />
       )}
 
+      {/* Procedure type filter */}
+      {!loading && allProcedureTypes.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-medium text-muted-foreground shrink-0">
+            {t.workflowStages.filterByProcedureType}:
+          </span>
+          <button
+            type="button"
+            onClick={() => setFilterProcedureType("")}
+            className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+              filterProcedureType === ""
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+            }`}
+          >
+            {t.workflowStages.filterAllTypes}
+          </button>
+          {allProcedureTypes.map((pt) => (
+            <button
+              key={pt}
+              type="button"
+              onClick={() => setFilterProcedureType(pt === filterProcedureType ? "" : pt)}
+              className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                filterProcedureType === pt
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+              }`}
+            >
+              {pt}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Loading */}
       {loading && (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -1005,16 +1065,16 @@ export default function WorkflowStagesPage() {
       )}
 
       {/* Stage list */}
-      {!loading && stages.length === 0 ? (
+      {!loading && filteredStages.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-8 text-center">
           <Layers className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">
-            {t.workflowStages.noStages}
+            {stages.length === 0 ? t.workflowStages.noStages : t.workflowStages.noStagesForFilter}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {stages.map((s) => (
+          {filteredStages.map((s) => (
             <StageCard key={s.id} stage={s} onClick={() => openDetail(s.id)} />
           ))}
         </div>
@@ -1023,7 +1083,7 @@ export default function WorkflowStagesPage() {
       {/* Summary */}
       {!loading && stages.length > 0 && (
         <div className="flex items-center gap-4 text-xs text-muted-foreground border-t border-border pt-4">
-          <span>{stages.length} {t.workflowStages.stagesCount}</span>
+          <span>{filteredStages.length}{filterProcedureType ? `/${stages.length}` : ""} {t.workflowStages.stagesCount}</span>
           <span>{stages.filter((s) => s.tenantId !== null).length} {t.workflowStages.overridesCount}</span>
           <span>{stages.filter((s) => !s.isActive).length} {t.workflowStages.inactiveCount}</span>
         </div>

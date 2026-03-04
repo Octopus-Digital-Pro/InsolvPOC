@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Insolvex.Data.Services;
+using Insolvex.Core.Services;
 using Insolvex.Domain.Entities;
 using Insolvex.Domain.Enums;
 using Insolvex.Tests.Helpers;
