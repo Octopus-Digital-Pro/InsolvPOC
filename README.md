@@ -152,6 +152,8 @@ Requires:
 - SQL Server (LocalDB or full instance)
 - Connection string in `appsettings.json` → `ConnectionStrings:DefaultConnection`
 
+<hr style="height:3px;border:none;background-color:#000;">
+
 # Current State — Navigation-Based Feature Map (2026-03-03)
 
 > This document describes every navigable area of the Insolvex application, the functionality available under each, and the role-based permissions that govern access.
