@@ -106,8 +106,25 @@ $apiJob = Start-Job -ScriptBlock {
     dotnet run --launch-profile Insolvex.API
 }
 
-# Wait for API to bind
-Start-Sleep -Seconds 4
+# Wait for API to bind on port 5000
+Write-Host "   Waiting for API to start on port 5000..." -ForegroundColor Yellow
+$apiReady = $false
+for ($i = 0; $i -lt 60; $i++) {
+    try {
+        $tcp = New-Object System.Net.Sockets.TcpClient
+        $tcp.Connect("localhost", 5000)
+        $tcp.Close()
+        $apiReady = $true
+        break
+    } catch {
+        Start-Sleep -Seconds 1
+    }
+}
+if ($apiReady) {
+    Write-Host "   API is ready on port 5000!" -ForegroundColor Green
+} else {
+    Write-Host "   API did not start in 60 s — launching frontend anyway." -ForegroundColor Yellow
+}
 
 # Start frontend (foreground — Ctrl+C stops everything)
 try {

@@ -6,7 +6,7 @@ using Insolvex.Domain.Entities;
 
 namespace Insolvex.Data;
 
-public class ApplicationDbContext : DbContext
+public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
   private readonly ICurrentUserService? _currentUser;
 

@@ -9,7 +9,9 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Insolvex.Data;
 using Insolvex.API.Middleware;
-using Insolvex.Data.Services;
+using Insolvex.Core.Services;
+using Insolvex.Integrations.Services;
+using Insolvex.Data.Services; // CurrentUserService (ASP.NET IHttpContextAccessor dependency stays in Data)
 using Insolvex.Core.Abstractions;
 using Insolvex.Core.Configuration;
 using Insolvex.API.Authorization;
@@ -45,6 +47,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
             sql.MigrationsAssembly("Insolvex.Data");
             sql.CommandTimeout(300); // 5 min — allows large import batches to complete
         }));
+builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
 // ----- Authentication -----
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -101,7 +104,7 @@ builder.Services.AddScoped<WordTemplateImportService>();
 builder.Services.AddScoped<IncomingDocumentProfileService>();
 builder.Services.AddScoped<DocumentClassificationService>();
 builder.Services.Configure<MailMergeOptions>(builder.Configuration.GetSection(MailMergeOptions.SectionName));
-builder.Services.AddScoped<HtmlPdfService>();
+builder.Services.AddScoped<IHtmlPdfService, HtmlPdfService>();
 builder.Services.AddScoped<MailMergeService>();
 builder.Services.AddSingleton<IDocumentSigningService, DocumentSigningService>();
 builder.Services.AddScoped<DeadlineEngine>();
@@ -155,8 +158,8 @@ builder.Services.AddHostedService<Insolvex.API.BackgroundServices.DeadlineRemind
 builder.Services.AddHostedService<Insolvex.API.BackgroundServices.TemplateEnforcementService>();
 
 // Email service
-builder.Services.Configure<Insolvex.Data.Services.SmtpSettings>(builder.Configuration.GetSection("Smtp"));
-builder.Services.AddScoped<IEmailService, Insolvex.Data.Services.SmtpEmailService>();
+builder.Services.Configure<Insolvex.Integrations.Services.SmtpSettings>(builder.Configuration.GetSection("Smtp"));
+builder.Services.AddScoped<IEmailService, Insolvex.Integrations.Services.SmtpEmailService>();
 builder.Services.AddHostedService<Insolvex.API.BackgroundServices.EmailBackgroundService>();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
