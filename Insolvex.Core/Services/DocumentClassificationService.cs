@@ -253,11 +253,11 @@ public class DocumentClassificationService
   /// </summary>
   private static string? ExtractDebtorCui(string text)
   {
-    // Priority 1: Explicit CIF/CUI label followed by optional "RO" and digits
+    // Priority 1: Explicit CIF/CUI label — capture optional "RO" prefix together with digits
     var labelPatterns = new[]
     {
-      @"(?:CIF|CUI|Cod\s+Unic\s+de\s+[Îi]nregistrare|Cod\s+de\s+Identificare\s+Fiscal[ăa])[:\s]*(?:RO)?\s*(\d{2,10})\b",
-      @"(?:CIF|CUI)[:\s/=]+(?:RO)?\s*(\d{2,10})\b",
+      @"(?:CIF|CUI|Cod\s+Unic\s+de\s+[Îi]nregistrare|Cod\s+de\s+Identificare\s+Fiscal[ăa])[:\s]*(RO)?\s*(\d{2,10})\b",
+      @"(?:CIF|CUI)[:\s/=]+(RO)?\s*(\d{2,10})\b",
     };
 
     foreach (var pattern in labelPatterns)
@@ -265,21 +265,22 @@ public class DocumentClassificationService
       var m = Regex.Match(text, pattern, RegexOptions.IgnoreCase);
       if (m.Success)
       {
-        var digits = m.Groups[1].Value.Trim();
+        var digits = m.Groups[2].Value.Trim();
         // Exclude CNP (exactly 13 digits starting with 1-9)
         if (digits.Length == 13 && Regex.IsMatch(digits, @"^[1-9]"))
           continue;
-        return digits;
+        var roPrefix = m.Groups[1].Value.Trim();
+        return string.IsNullOrEmpty(roPrefix) ? digits : $"RO{digits}";
       }
     }
 
-    // Priority 2: "RO" prefix followed by 2-10 digits (VAT format), not preceded by J (trade registry)
-    var roVatMatch = Regex.Match(text, @"(?<![A-Z])\bRO(\d{2,10})\b", RegexOptions.IgnoreCase);
+    // Priority 2: Bare "RO" prefix followed by 2-10 digits (VAT format)
+    var roVatMatch = Regex.Match(text, @"(?<![A-Z])\b(RO)(\d{2,10})\b", RegexOptions.IgnoreCase);
     if (roVatMatch.Success)
     {
-      var digits = roVatMatch.Groups[1].Value;
+      var digits = roVatMatch.Groups[2].Value;
       if (digits.Length != 13)
-        return digits;
+        return $"RO{digits}";
     }
 
     return null;

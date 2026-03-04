@@ -240,7 +240,7 @@ public sealed class AiDocumentAnalysisService
             - "urmatorul termen" / "urmatoare sedinta" = next hearing date
             - "lichidator judiciar" / "administrator judiciar" = InsolvencyPractitioner
             - "judecator sindic" = JudgeSyndic (also add as a party with role JudgeSyndic if mentioned by name)
-            - For debtorCui: scan for labels CIF, CUI, "Cod Unic de Inregistrare", "Cod de Identificare Fiscala". The value is 2-10 digits, optionally prefixed with "RO" — return ONLY the digits without the "RO" prefix. Never confuse it with trade registry numbers (e.g. J40/1234/2020), EUID, CNP (13 digits), or other countries' VAT.
+            - For debtorCui: scan for labels CIF, CUI, "Cod Unic de Inregistrare", "Cod de Identificare Fiscala". The value is 2-10 digits, optionally prefixed with "RO" — if "RO" is present in the source text keep it (e.g. "RO12345678"), otherwise return only the digits. Never confuse it with trade registry numbers (e.g. J40/1234/2020), EUID, CNP (13 digits), or other countries' VAT.
             - Document file name hint: {{fileName}}
 
             Document text:

@@ -113,28 +113,29 @@ const str = (v: unknown) =>
   typeof v === "string" && v.trim() ? v : "Not found";
 
 /**
- * Normalize a Romanian CUI/CIF value:
- * - Strips the optional "RO" prefix
- * - Returns only digits (2-10)
- * - Returns "Not found" if invalid or looks like a CNP (13 digits) or trade registry no.
+ * Normalize a Romanian CUI/CIF value.
+ * - Preserves the "RO" prefix when it is present in the source.
+ * - Returns "Not found" if invalid, looks like a CNP (13 digits) or trade registry no.
  */
 function normalizeCui(v: unknown): string {
   const raw = typeof v === "string" ? v.trim() : "";
   if (!raw || raw === "Not found") return "Not found";
 
-  // Remove "RO" prefix (case-insensitive)
-  const stripped = raw.replace(/^RO/i, "").trim();
+  // Detect optional RO prefix
+  const hasRo = /^RO/i.test(raw);
+  const digits = raw.replace(/^RO/i, "").trim();
 
   // Must be purely digits after stripping
-  if (!/^\d+$/.test(stripped)) return "Not found";
+  if (!/^\d+$/.test(digits)) return "Not found";
 
   // Reject CNP (13 digits starting with 1-9)
-  if (stripped.length === 13 && /^[1-9]/.test(stripped)) return "Not found";
+  if (digits.length === 13 && /^[1-9]/.test(digits)) return "Not found";
 
   // Valid CUI/CIF range: 2-10 digits
-  if (stripped.length < 2 || stripped.length > 10) return "Not found";
+  if (digits.length < 2 || digits.length > 10) return "Not found";
 
-  return stripped;
+  // Re-attach "RO" prefix if the source had it
+  return hasRo ? `RO${digits}` : digits;
 }
 
 function dateObj(v: unknown): { text: string; iso: string | null } {
