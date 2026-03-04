@@ -210,7 +210,7 @@ function QuickUploadZone({ t }: { t: Translations }) {
             <FileUp className="h-10 w-10 opacity-40" />
             <span className="text-xs font-medium">{t.dashboard.dragDrop}</span>
             <span className="text-[10px]">{t.dashboard.fileTypes}</span>
-         <Button variant="outline" size="sm" className="mt-2 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/5" type="button">
+         <Button disabled variant="outline" size="sm" className="mt-2 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/5" type="button">
               <Upload className="h-3.5 w-3.5" />
   {t.dashboard.browseFiles}
     </Button>

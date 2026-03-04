@@ -214,7 +214,7 @@ public sealed class AiDocumentAnalysisService
               "docType": "court_decision|report|petition|claims_table|notification|contract|invoice|bpi_publication|unknown",
               "caseNumber": "tribunal/number/year format e.g. \"123/1234/2023\" or null",
               "debtorName": "full company name or null",
-              "debtorCui": "company fiscal code (CUI/CIF/VAT) or null",
+              "debtorCui": "Romanian company tax ID (CUI/CIF). Look for labels: CIF, CUI, Cod Unic de Inregistrare, Cod de Identificare Fiscala, or 'RO' followed by digits. Return ONLY the digits (strip the 'RO' prefix). Typically 2-10 digits. Do NOT return trade registry numbers (J../../../..), EUID, CNP, or foreign VAT codes. If both CIF and CUI appear, use the numeric value. If uncertain, return null.",
               "courtName": "full court/tribunal name in source language or null",
               "courtSection": "section name or null",
               "judgeSyndic": "judge syndic full name or null",
@@ -240,6 +240,7 @@ public sealed class AiDocumentAnalysisService
             - "urmatorul termen" / "urmatoare sedinta" = next hearing date
             - "lichidator judiciar" / "administrator judiciar" = InsolvencyPractitioner
             - "judecator sindic" = JudgeSyndic (also add as a party with role JudgeSyndic if mentioned by name)
+            - For debtorCui: scan for labels CIF, CUI, "Cod Unic de Inregistrare", "Cod de Identificare Fiscala". The value is 2-10 digits, optionally prefixed with "RO" — return ONLY the digits without the "RO" prefix. Never confuse it with trade registry numbers (e.g. J40/1234/2020), EUID, CNP (13 digits), or other countries' VAT.
             - Document file name hint: {{fileName}}
 
             Document text:

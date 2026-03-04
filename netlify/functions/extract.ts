@@ -97,6 +97,13 @@ CANONICAL KEY NAMES (use these so the review UI can read fields):
 - case: use "caseNumber" (not "fileNumber"); use "court" as an object with "name", "section", "registryAddress", "registryPhone", "registryHours" (not a string).
 - parties: use "debtor" as an object with "name", "cui", "tradeRegisterNo", "address", "locality", "county", "administrator", etc.; use "practitioner" (not "appointedLiquidator") with "name", "fiscalId", "rfo", "address", "role".
 
+CUI/CIF EXTRACTION RULES (for parties.debtor.cui):
+- Look for labels: "CIF", "CUI", "Cod Unic de Înregistrare", "Cod de Identificare Fiscală", or "RO" followed by digits.
+- The value contains ONLY digits (2–10 digits). Strip the "RO" prefix if present — return only the digits.
+- Do NOT confuse with: Nr. Reg. Com. (e.g. J40/1234/2020), EUID, CNP (13 digits starting with 1-9), or foreign VAT codes.
+- If both CIF and CUI labels appear, use the one explicitly labelled; if the same number, return it once.
+- If no CUI/CIF is found, set "cui" to "Not found".
+
 Now output JSON with EXACTLY this schema:
 { ... }`;
 
@@ -104,6 +111,31 @@ Now output JSON with EXACTLY this schema:
 
 const str = (v: unknown) =>
   typeof v === "string" && v.trim() ? v : "Not found";
+
+/**
+ * Normalize a Romanian CUI/CIF value:
+ * - Strips the optional "RO" prefix
+ * - Returns only digits (2-10)
+ * - Returns "Not found" if invalid or looks like a CNP (13 digits) or trade registry no.
+ */
+function normalizeCui(v: unknown): string {
+  const raw = typeof v === "string" ? v.trim() : "";
+  if (!raw || raw === "Not found") return "Not found";
+
+  // Remove "RO" prefix (case-insensitive)
+  const stripped = raw.replace(/^RO/i, "").trim();
+
+  // Must be purely digits after stripping
+  if (!/^\d+$/.test(stripped)) return "Not found";
+
+  // Reject CNP (13 digits starting with 1-9)
+  if (stripped.length === 13 && /^[1-9]/.test(stripped)) return "Not found";
+
+  // Valid CUI/CIF range: 2-10 digits
+  if (stripped.length < 2 || stripped.length > 10) return "Not found";
+
+  return stripped;
+}
 
 function dateObj(v: unknown): { text: string; iso: string | null } {
   if (
@@ -353,7 +385,7 @@ function normalizeExtraction(
     const d = partiesDebtorRaw as Record<string, unknown>;
     debtor = {
       name: str(d.name),
-      cui: str(d.cui),
+      cui: normalizeCui(d.cui) !== "Not found" ? normalizeCui(d.cui) : str(d.cif ?? d.cui),
       tradeRegisterNo: str(d.tradeRegisterNo),
       address: str(d.address),
       locality: str(d.locality),
@@ -380,7 +412,7 @@ function normalizeExtraction(
         nameFromParties !== "Not found"
           ? nameFromParties
           : str(caseDebtor?.name),
-      cui: str(caseDebtorId?.cui ?? caseDebtor?.cui),
+      cui: (() => { const c = normalizeCui(caseDebtorId?.cui ?? caseDebtor?.cui ?? caseDebtor?.cif ?? caseDebtorId?.cif); return c !== "Not found" ? c : str(caseDebtorId?.cui ?? caseDebtor?.cui); })(),
       tradeRegisterNo: str(
         caseDebtorId?.registrationNumber ?? caseDebtor?.registrationNumber,
       ),

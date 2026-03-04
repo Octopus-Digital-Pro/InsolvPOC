@@ -380,7 +380,7 @@ export default function DocumentReviewPage() {
 
                 <div>
                   <label className={labelCls}>{t.cases.debtorCui}</label>
-                  <input value={debtorCui} onChange={e => setDebtorCui(e.target.value)} className={inputCls} placeholder="RO12345678" />
+                  <input value={debtorCui} onChange={e => setDebtorCui(e.target.value)} className={inputCls} placeholder="e.g. 12345678" />
                 </div>
 
                 <div className="sm:col-span-2 rounded-lg border border-border p-3 bg-muted/20 space-y-2">
