@@ -78,6 +78,7 @@ export interface Translations {
     demoDesc: string;
     demoNote: string;
     demoRoleAdmin: string;
+    demoRoleTenantAdmin: string;
     demoRolePractitioner: string;
     demoRoleSecretary: string;
   };

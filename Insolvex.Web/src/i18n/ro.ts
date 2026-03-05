@@ -72,6 +72,7 @@ export const ro: Translations = {
     demoDesc: "Apăsați oricare utilizator pentru autentificare instantă (doar mod dezvoltare).",
     demoNote: "Toate conturile demo au date pre-încărcate.",
     demoRoleAdmin: "Administrator",
+    demoRoleTenantAdmin: "Admin Firmă",
     demoRolePractitioner: "Practician",
     demoRoleSecretary: "Secretar",
   },

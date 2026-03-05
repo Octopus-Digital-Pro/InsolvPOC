@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/contexts/LanguageContext";
-import { Loader2, UserCircle, Shield, Briefcase, FileText } from "lucide-react";
+import { Loader2, UserCircle, Shield, Briefcase, FileText, Building2 } from "lucide-react";
 
 interface DemoUser {
   email: string;
@@ -9,6 +9,7 @@ interface DemoUser {
   firstName: string;
   lastName: string;
   role: "globalAdmin" | "tenantAdmin" | "practitioner" | "secretary";
+  description: string;
   icon: typeof Shield;
   color: string;
 }
@@ -22,6 +23,17 @@ const DEMO_USERS: DemoUser[] = [
     role: "globalAdmin",
     icon: Shield,
     color: "text-purple-600 dark:text-purple-400",
+    description: "admin@insolvex.local",
+  },
+  {
+    email: "tenantadmin@insolvex.local",
+    password: "TAdmin123!",
+    firstName: "Tenant",
+    lastName: "Admin",
+    role: "tenantAdmin",
+    icon: Building2,
+    color: "text-orange-600 dark:text-orange-400",
+    description: "tenantadmin@insolvex.local",
   },
   {
     email: "practitioner@insolvex.local",
@@ -31,6 +43,7 @@ const DEMO_USERS: DemoUser[] = [
     role: "practitioner",
     icon: Briefcase,
     color: "text-blue-600 dark:text-blue-400",
+    description: "practitioner@insolvex.local",
   },
   {
     email: "secretary@insolvex.local",
@@ -40,6 +53,7 @@ const DEMO_USERS: DemoUser[] = [
     role: "secretary",
     icon: FileText,
     color: "text-green-600 dark:text-green-400",
+    description: "secretary@insolvex.local",
   },
 ];
 
@@ -60,8 +74,9 @@ export default function DemoLoginPanel({ onLogin }: { onLogin: (email: string, p
 
   const roleLabel = (role: string): string => {
     const map: Record<string, string> = {
-      globalAdmin: t.login.demoRoleAdmin || "Admin",
-practitioner: t.login.demoRolePractitioner || "Practician",
+      globalAdmin: t.login.demoRoleAdmin || "Global Admin",
+      tenantAdmin: t.login.demoRoleTenantAdmin || "Tenant Admin",
+      practitioner: t.login.demoRolePractitioner || "Practician",
       secretary: t.login.demoRoleSecretary || "Secretar",
     };
  return map[role] || role;
@@ -78,7 +93,7 @@ practitioner: t.login.demoRolePractitioner || "Practician",
         {t.login.demoDesc || "Click any user below to log in instantly (development mode only)."}
       </p>
 
- <div className="grid gap-2 sm:grid-cols-3">
+ <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
    {DEMO_USERS.map((user) => {
      const Icon = user.icon;
         const isLoading = loading === user.email;
