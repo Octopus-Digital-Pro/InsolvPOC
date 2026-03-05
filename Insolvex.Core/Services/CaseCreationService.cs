@@ -73,6 +73,7 @@ public class CaseCreationService
     var courtName = request.CourtName ?? upload.DetectedCourtName;
     var courtSection = request.CourtSection ?? upload.DetectedCourtSection;
     var judgeSyndic = request.JudgeSyndic ?? upload.DetectedJudgeSyndic;
+    var registrar = request.Registrar ?? upload.DetectedRegistrar;
     var caseNumber = request.CaseNumber ?? upload.DetectedCaseNumber ?? "NEW";
 
     var parties = ResolveParties(request.Parties, upload.DetectedPartiesJson);
@@ -109,6 +110,7 @@ public class CaseCreationService
       CourtName = courtName,
       CourtSection = courtSection,
       JudgeSyndic = judgeSyndic,
+      Registrar = registrar,
       DebtorName = debtorName,
       DebtorCui = debtorCuiFromParties,
       ProcedureType = procedureType,
@@ -635,6 +637,7 @@ public class CaseCreationRequest
   /// <summary>Romanian CUI from AI extraction — used for company lookup/creation if not found via parties.</summary>
   public string? DebtorCui { get; set; }
   public string? JudgeSyndic { get; set; }
+  public string? Registrar { get; set; }
   public string? ProcedureType { get; set; }
   public DateTime? NoticeDate { get; set; }
   public DateTime? OpeningDate { get; set; }

@@ -48,6 +48,7 @@ export const ANNOTATABLE_FIELDS: AnnotatableField[] = [
   { field: "CourtName",              label: "Court / Tribunal",        group: "Court",       color: "#8b5cf6", textColor: "#3b0764" },
   { field: "CourtSection",           label: "Court Section",           group: "Court",       color: "#a78bfa", textColor: "#3b0764" },
   { field: "JudgeSyndic",            label: "Judge / Syndic",          group: "Court",       color: "#c4b5fd", textColor: "#3b0764" },
+  { field: "Registrar",              label: "Registrar (Grefier)",     group: "Court",       color: "#ddd6fe", textColor: "#3b0764" },
   // Dates
   { field: "OpeningDate",            label: "Opening Date",            group: "Dates",       color: "#22c55e", textColor: "#14532d" },
   { field: "ClaimsDeadline",         label: "Claims Deadline",         group: "Dates",       color: "#4ade80", textColor: "#14532d" },

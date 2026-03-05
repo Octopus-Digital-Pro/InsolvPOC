@@ -53,6 +53,7 @@ export default function DocumentReviewPage() {
   const [courtName, setCourtName] = useState("");
   const [courtSection, setCourtSection] = useState("");
   const [judgeSyndic, setJudgeSyndic] = useState("");
+  const [registrar, setRegistrar] = useState("");
   const [procedureType, setProcedureType] = useState("Other");
   const [openingDate, setOpeningDate] = useState("");
   const [nextHearingDate, setNextHearingDate] = useState("");
@@ -88,6 +89,7 @@ export default function DocumentReviewPage() {
       setCourtName(u.courtName ?? "");
       setCourtSection(u.courtSection ?? "");
       setJudgeSyndic(u.judgeSyndic ?? "");
+      setRegistrar(u.registrar ?? "");
       setProcedureType(u.procedureType ?? "Other");
       setOpeningDate(u.openingDate ? u.openingDate.split("T")[0] : "");
       setNextHearingDate(u.nextHearingDate ? u.nextHearingDate.split("T")[0] : "");
@@ -207,6 +209,7 @@ export default function DocumentReviewPage() {
         body.courtName = courtName || undefined;
         body.courtSection = courtSection || undefined;
         body.judgeSyndic = judgeSyndic || undefined;
+        body.registrar = registrar || undefined;
         body.procedureType = procedureType;
         body.openingDate = openingDate || undefined;
         body.nextHearingDate = nextHearingDate || undefined;
@@ -413,6 +416,10 @@ export default function DocumentReviewPage() {
                 <div>
                   <label className={labelCls}>{t.cases.judgeSyndic}</label>
                   <input value={judgeSyndic} onChange={e => setJudgeSyndic(e.target.value)} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>{t.cases.registrar}</label>
+                  <input value={registrar} onChange={e => setRegistrar(e.target.value)} className={inputCls} />
                 </div>
               </div>
             </div>

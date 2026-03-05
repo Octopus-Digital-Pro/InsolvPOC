@@ -292,6 +292,7 @@ export default function CaseDetailPage() {
           <InfoRow label={t.cases.court} value={caseData.courtName} />
           <InfoRow label={t.cases.courtSection} value={caseData.courtSection} />
           <InfoRow label={t.cases.judgeSyndic} value={caseData.judgeSyndic} />
+          <InfoRow label={t.cases.registrar} value={caseData.registrar} />
           <InfoRow label={t.cases.procedureType} value={caseData.procedureType} />
           <InfoRow label={t.cases.lawReference} value={caseData.lawReference} />
           <InfoRow label={t.cases.debtorCui} value={caseData.debtorCui} />

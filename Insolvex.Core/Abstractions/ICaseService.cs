@@ -60,6 +60,7 @@ public class UpdateCaseCommand
   public string? CourtName { get; init; }
   public string? CourtSection { get; init; }
   public string? JudgeSyndic { get; init; }
+  public string? Registrar { get; init; }
   public ProcedureType? ProcedureType { get; init; }
   public string? Status { get; init; }
   public string? LawReference { get; init; }

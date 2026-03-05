@@ -9,6 +9,8 @@ public class InsolvencyCase : TenantScopedEntity
     public string? CourtName { get; set; }
     public string? CourtSection { get; set; }
     public string? JudgeSyndic { get; set; }
+    /// <summary>Court registrar (Grefier) assigned to this case</summary>
+    public string? Registrar { get; set; }
 
     // ?? Debtor info (denormalized for quick display) ??
     public string DebtorName { get; set; } = string.Empty;

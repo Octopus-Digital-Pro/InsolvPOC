@@ -107,8 +107,11 @@ DocumentUploadRequest request, CancellationToken ct)
       ExtractedText = classification.ExtractedText,
       Confidence = classification.Confidence,
       DetectedProcedureType = classification.DetectedProcedureType,
-      DetectedCourtSection = classification.CourtSection,
+      DetectedCourtSection = classification.CourtSection?.Length > 512
+        ? classification.CourtSection[..512]
+        : classification.CourtSection,
       DetectedJudgeSyndic = classification.JudgeSyndic,
+      DetectedRegistrar = classification.Registrar,
       DetectedOpeningDate = classification.OpeningDate,
       DetectedNextHearingDate = classification.NextHearingDate,
       DetectedClaimsDeadline = classification.ClaimsDeadline,
@@ -222,6 +225,7 @@ DocumentUploadRequest request, CancellationToken ct)
       DebtorName = command.DebtorName,
       DebtorCui = command.DebtorCui,
       JudgeSyndic = command.JudgeSyndic,
+      Registrar = command.Registrar,
       ProcedureType = command.ProcedureType,
       NoticeDate = command.OpeningDate,
       OpeningDate = command.OpeningDate,
@@ -481,6 +485,7 @@ DocumentUploadRequest request, CancellationToken ct)
       CourtName = upload.DetectedCourtName,
       CourtSection = upload.DetectedCourtSection,
       JudgeSyndic = upload.DetectedJudgeSyndic,
+      Registrar = upload.DetectedRegistrar,
       MatchedCaseId = upload.MatchedCaseId,
       MatchedCompanyId = upload.MatchedCompanyId,
       Confidence = upload.Confidence,

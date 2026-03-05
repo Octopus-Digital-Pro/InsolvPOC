@@ -133,6 +133,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
            e.Property(c => c.CourtName).HasMaxLength(512);
            e.Property(c => c.CourtSection).HasMaxLength(256);
            e.Property(c => c.JudgeSyndic).HasMaxLength(256);
+           e.Property(c => c.Registrar).HasMaxLength(256);
            e.Property(c => c.DebtorName).HasMaxLength(512).IsRequired();
            e.Property(c => c.DebtorCui).HasMaxLength(64);
            e.Property(c => c.LawReference).HasMaxLength(256);
@@ -238,8 +239,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
    e.Property(p => p.DetectedCaseNumber).HasMaxLength(128);
    e.Property(p => p.DetectedDebtorName).HasMaxLength(512);
    e.Property(p => p.DetectedCourtName).HasMaxLength(512);
-   e.Property(p => p.DetectedCourtSection).HasMaxLength(256);
+   e.Property(p => p.DetectedCourtSection).HasMaxLength(512);
    e.Property(p => p.DetectedJudgeSyndic).HasMaxLength(256);
+   e.Property(p => p.DetectedRegistrar).HasMaxLength(256);
    e.HasIndex(p => p.TenantId);
  });
 
