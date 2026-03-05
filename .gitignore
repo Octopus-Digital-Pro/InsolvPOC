@@ -30,7 +30,7 @@ dist-ssr
 *.sw?
 /.vs
 /.vs
-/Insolvex.API/bin/Debug/net8.0
+/Insolvio.API/bin/Debug/net8.0
 /.vs
 
 # Existing entries...
@@ -69,6 +69,19 @@ artifacts/
 # Publish outputs
 publish/
 *.Publish.xml
+
+# ---- Deploy artifacts (never commit — contain secrets / machine-specific paths) ----
+deploy-ec2.ps1
+deploy-ec2.settings.ps1
+insolvex-ec2-setup.sh
+insolvio-iis-setup.ps1
+
+# Production config transform (contains DB password, JWT key, SMTP creds)
+**/appsettings.Production.json
+
+# Vite production env (may contain API keys)
+Insolvex.Web/.env.production
+Insolvex.Web/.env.*.local
 
 # EF Core Migrations temporary
 **/Migrations/*

@@ -1,6 +1,6 @@
 # Current State — Navigation-Based Feature Map (2026-03-03)
 
-> This document describes every navigable area of the Insolvex application, the functionality available under each, and the role-based permissions that govern access.
+> This document describes every navigable area of the Insolvio application, the functionality available under each, and the role-based permissions that govern access.
 
 ---
 

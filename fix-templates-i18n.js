@@ -1,5 +1,5 @@
 const fs = require('fs');
-const file = 'd:/Client/insolvex/Insolvex.Web/src/pages/TemplateSettingsPage.tsx';
+const file = 'd:/Client/insolvio/Insolvio.Web/src/pages/TemplateSettingsPage.tsx';
 let c = fs.readFileSync(file, 'utf8');
 const orig = c.length;
 

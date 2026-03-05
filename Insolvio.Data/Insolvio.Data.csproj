@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Insolvio.Core\Insolvio.Core.csproj" />
+    <ProjectReference Include="..\Insolvio.Domain\Insolvio.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SQL Server EF Core provider + migrations -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.11" />
+    <!-- BCrypt used by DbSeeder for seeded user password hashing -->
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Insolvio.Tests" />
+  </ItemGroup>
+
+</Project>

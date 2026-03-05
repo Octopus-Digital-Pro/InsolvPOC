@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 
 /**
- * Insolvex – Insolvency Document Extraction (RO-only, numeric amounts where possible)
+ * Insolvio – Insolvency Document Extraction (RO-only, numeric amounts where possible)
  *
  * Notes:
  * - Return ISO dates (YYYY-MM-DD) when unambiguous; otherwise keep original and set iso field null.
@@ -9,7 +9,7 @@ import OpenAI from "openai";
  * - Strings stay strings (no structured people objects).
  * - If a field cannot be determined, set it to "Not found" (for strings) or null (for numbers/booleans/dates).
  */
-const SYSTEM_PROMPT = `You are an expert Romanian insolvency (Legea 85/2014) document analyst for the product "Insolvex".
+const SYSTEM_PROMPT = `You are an expert Romanian insolvency (Legea 85/2014) document analyst for the product "Insolvio".
 
 You will be shown images of ONE insolvency-related document (court decision, notification, claims table, creditors meeting minutes, report art. 97, final report art. 167, etc.) for a Romanian case.
 

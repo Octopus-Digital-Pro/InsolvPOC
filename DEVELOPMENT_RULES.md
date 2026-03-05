@@ -1,4 +1,4 @@
-# Insolvex Development Rules
+# Insolvio Development Rules
 
 These rules are **mandatory** for all contributors. They enforce DDD, Clean Architecture, and maintainability across the solution.
 
@@ -8,16 +8,16 @@ These rules are **mandatory** for all contributors. They enforce DDD, Clean Arch
 
 | Layer             | Allowed dependencies               | Forbidden                                                 |
 | ----------------- | ---------------------------------- | --------------------------------------------------------- |
-| `Insolvex.Domain` | None                               | Everything above                                          |
-| `Insolvex.Core`   | `Insolvex.Domain`                  | `Insolvex.API`, EF Core, ASP.NET                          |
-| `Insolvex.API`    | `Insolvex.Core`, `Insolvex.Domain` | Direct `Insolvex.Domain` entity mutation from controllers |
+| `Insolvio.Domain` | None                               | Everything above                                          |
+| `Insolvio.Core`   | `Insolvio.Domain`                  | `Insolvio.API`, EF Core, ASP.NET                          |
+| `Insolvio.API`    | `Insolvio.Core`, `Insolvio.Domain` | Direct `Insolvio.Domain` entity mutation from controllers |
 
-- **DTOs and request/response models** live in `Insolvex.Core/DTOs/`. Never define them inline in controllers.
-- **Service interfaces** live in `Insolvex.Core/Abstractions/`. Never in `Insolvex.API`.
-- **Exception types** live in `Insolvex.Core/Exceptions/`.
-- **Service implementations** live in `Insolvex.Core/Services/`.
-- **Integration services and implementations** live in `Insolvex.Integrations/`.
-- **Domain entities** live in `Insolvex.Domain/Entities/`. Never mutated outside a service.
+- **DTOs and request/response models** live in `Insolvio.Core/DTOs/`. Never define them inline in controllers.
+- **Service interfaces** live in `Insolvio.Core/Abstractions/`. Never in `Insolvio.API`.
+- **Exception types** live in `Insolvio.Core/Exceptions/`.
+- **Service implementations** live in `Insolvio.Core/Services/`.
+- **Integration services and implementations** live in `Insolvio.Integrations/`.
+- **Domain entities** live in `Insolvio.Domain/Entities/`. Never mutated outside a service.
 
 ---
 
@@ -57,7 +57,7 @@ public async Task<IActionResult> Create([FromBody] TribunalRequest request)
 
 ## 3. Service Rules
 
-- Services are sealed classes implementing an interface from `Insolvex.Core/Abstractions/`.
+- Services are sealed classes implementing an interface from `Insolvio.Core/Abstractions/`.
 - Services own all business logic and database access.
 - Use `NotFoundException` when a requested resource does not exist.
 - Use `ForbiddenException` when a user lacks permission to access a resource.

@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-title Insolvex - Full Stack Startup
+title Insolvio - Full Stack Startup
 echo.
 echo  ============================================
 echo   INSOLVEX - Full Stack Development Startup
@@ -66,13 +66,13 @@ set MAX_RETRIES=40
 if !RETRIES! geq !MAX_RETRIES! (
     echo.
     echo [ERROR] SQL Server did not become ready within ~80 seconds.
-    echo     Check: docker logs insolvex-db
+    echo     Check: docker logs insolvio-db
     pause
     exit /b 1
 )
 
 :: Method 1: check Docker healthcheck status
-for /f "tokens=*" %%H in ('docker inspect --format "{{.State.Health.Status}}" insolvex-db 2^>nul') do (
+for /f "tokens=*" %%H in ('docker inspect --format "{{.State.Health.Status}}" insolvio-db 2^>nul') do (
     set "HEALTH=%%H"
 )
 
@@ -83,7 +83,7 @@ if "!HEALTH!"=="healthy" (
 
 :: Method 2: fallback — try a direct sqlcmd probe
 ::   (captures output to a temp file so ERRORLEVEL works in CMD)
-docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "InsolvexDev2025#Strong" -Q "SELECT 1" -C -b > "%TEMP%\insolvex_sqlcheck.tmp" 2>&1
+docker exec insolvio-db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "InsolvioDev2025#Strong" -Q "SELECT 1" -C -b > "%TEMP%\insolvio_sqlcheck.tmp" 2>&1
 if !ERRORLEVEL! equ 0 (
     echo         SQL Server is ready!  [sqlcmd]
     goto SQL_READY
@@ -103,9 +103,9 @@ goto WAIT_LOOP
 :: 4. Install npm dependencies for frontend if needed
 :: -----------------------------------------------
 echo [3/4] Checking frontend npm dependencies...
-if not exist "%~dp0Insolvex.Web\node_modules" (
-    echo Installing npm packages for Insolvex.Web...
-    pushd "%~dp0Insolvex.Web"
+if not exist "%~dp0Insolvio.Web\node_modules" (
+    echo Installing npm packages for Insolvio.Web...
+    pushd "%~dp0Insolvio.Web"
     call npm install
     popd
 )
@@ -125,9 +125,9 @@ echo  ============================================
 echo.
 echo   Demo accounts (seeded on first run):
 echo.
-echo     admin@insolvex.local        / Admin123!      (GlobalAdmin)
-echo     practitioner@insolvex.local / Pract123!      (Practitioner)
-echo     secretary@insolvex.local    / Secr123!       (Secretary)
+echo     admin@insolvio.local        / Admin123!      (GlobalAdmin)
+echo     practitioner@insolvio.local / Pract123!      (Practitioner)
+echo     secretary@insolvio.local    / Secr123!       (Secretary)
 echo.
 echo   NOTE: On first run the API will automatically apply
 echo         database migrations and seed demo data.
@@ -136,14 +136,14 @@ echo  ============================================
 echo.
 
 :: Start backend in a new window
-start "Insolvex API" cmd /k "cd /d "%~dp0Insolvex.API" && dotnet run --launch-profile Insolvex.API"
+start "Insolvio API" cmd /k "cd /d "%~dp0Insolvio.API" && dotnet run --launch-profile Insolvio.API"
 
 :: Give the API a few seconds to bind its port
 echo   Waiting for API to start...
 timeout /t 4 /nobreak >nul
 
-:: Start frontend in a new window (use Insolvex.Web project folder)
-start "Insolvex React" cmd /k "cd /d "%~dp0Insolvex.Web" && npm run dev"
+:: Start frontend in a new window (use Insolvio.Web project folder)
+start "Insolvio React" cmd /k "cd /d "%~dp0Insolvio.Web" && npm run dev"
 
 echo.
 echo   Both servers are starting in separate windows.

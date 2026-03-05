@@ -1,4 +1,4 @@
-# Insolvex Implementation Status — Complete Report
+# Insolvio Implementation Status — Complete Report
 
 ## ? COMPLETED FEATURES
 
@@ -133,8 +133,8 @@
     "Port": 587,
     "Username": "your-email@gmail.com",
     "Password": "app-password",
-    "FromEmail": "noreply@insolvex.local",
-    "FromName": "Insolvex",
+    "FromEmail": "noreply@insolvio.local",
+    "FromName": "Insolvio",
     "EnableSsl": true,
     "Enabled": true
   }
@@ -205,7 +205,7 @@
 **Required**:
 
 ```bash
-cd Insolvex.API
+cd Insolvio.API
 dotnet ef migrations add AuditLogCourtGrade --output-dir Data/Migrations
 dotnet ef database update
 ```
@@ -382,9 +382,9 @@ public async Task<IActionResult> ResetDemoData()
 6. ?? Add TribunalTab, FinanceTab, LocalGovTab to SettingsPage
 7. ?? Add `IsDemo` flag to `Tenant` entity
 8. ? Configure SMTP in `appsettings.json` (or set `Enabled = false`)
-9. ? Build backend: `dotnet build Insolvex.sln`
-10. ? Build frontend: `npm run build` (in Insolvex.Web)
-11. ? Run tests: `dotnet test Insolvex.Tests`
+9. ? Build backend: `dotnet build Insolvio.sln`
+10. ? Build frontend: `npm run build` (in Insolvio.Web)
+11. ? Run tests: `dotnet test Insolvio.Tests`
 12. ?? Deploy
 
 ---
@@ -419,7 +419,7 @@ dotnet ef database update
 
 ### CsvHelper Package
 
-Already added to `Insolvex.API.csproj`. No additional packages needed.
+Already added to `Insolvio.API.csproj`. No additional packages needed.
 
 ### Tenant Override Logic
 
@@ -488,4 +488,4 @@ Currently descriptions are in English. To support Romanian:
 ---
 
 _Document generated: 2025-01-XX_  
-_Insolvex v1.0 — Multi-Tenant Insolvency Case Management Platform_
+_Insolvio v1.0 — Multi-Tenant Insolvency Case Management Platform_

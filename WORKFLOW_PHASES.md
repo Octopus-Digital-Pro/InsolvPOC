@@ -1,4 +1,4 @@
-# Insolvex — Workflow Phases & Configuration Reference
+# Insolvio — Workflow Phases & Configuration Reference
 
 > **Legea nr. 85/2014** privind procedurile de prevenire a insolvenței și de insolvență  
 > Last updated: 2026-02-28
@@ -7,7 +7,7 @@
 
 ## 1. Overview
 
-Insolvex uses a **configurable, procedure-type-aware workflow engine** to guide practitioners through every mandatory step of a Romanian insolvency procedure.
+Insolvio uses a **configurable, procedure-type-aware workflow engine** to guide practitioners through every mandatory step of a Romanian insolvency procedure.
 
 The system has three layers:
 

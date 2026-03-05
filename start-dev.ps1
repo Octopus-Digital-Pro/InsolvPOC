@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Insolvex — Full Stack Development Startup
+# Insolvio — Full Stack Development Startup
 # Usage: ./start-dev.ps1
 
 $ErrorActionPreference = "Stop"
@@ -27,7 +27,7 @@ $ready = $false
 
 while ($retries -lt $maxRetries) {
     # Method 1: Docker healthcheck
- $health = (docker inspect --format "{{.State.Health.Status}}" insolvex-db 2>$null).Trim()
+ $health = (docker inspect --format "{{.State.Health.Status}}" insolvio-db 2>$null).Trim()
     if ($health -eq "healthy") {
       Write-Host "   SQL Server is ready! [healthy]" -ForegroundColor Green
    $ready = $true
@@ -35,7 +35,7 @@ while ($retries -lt $maxRetries) {
     }
 
     # Method 2: Direct sqlcmd probe
-    $null = docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "InsolvexDev2025#Strong" -Q "SELECT 1" -C -b 2>&1
+    $null = docker exec insolvio-db /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "InsolvioDev2025#Strong" -Q "SELECT 1" -C -b 2>&1
     if ($LASTEXITCODE -eq 0) {
    Write-Host "        SQL Server is ready! [sqlcmd]" -ForegroundColor Green
         $ready = $true
@@ -48,7 +48,7 @@ while ($retries -lt $maxRetries) {
 }
 
 if (-not $ready) {
-    Write-Host "[ERROR] SQL Server did not start in time. Check: docker logs insolvex-db" -ForegroundColor Red
+    Write-Host "[ERROR] SQL Server did not start in time. Check: docker logs insolvio-db" -ForegroundColor Red
     exit 1
 }
 
@@ -66,7 +66,7 @@ if (-not $efCheck) {
 # 4. Apply migrations
 # -----------------------------------------------
 Write-Host "[4/6] Applying database migrations..." -ForegroundColor Yellow
-Push-Location "$PSScriptRoot/Insolvex.API"
+Push-Location "$PSScriptRoot/Insolvio.API"
 dotnet ef database update
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw "Failed to apply migrations" }
 Pop-Location
@@ -95,15 +95,15 @@ Write-Host "   Frontend     : http://localhost:5173"       -ForegroundColor Whit
 Write-Host "  ============================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "   Demo accounts (seeded on first run):"       -ForegroundColor Gray
-Write-Host "     admin@insolvex.local        / Admin123!"  -ForegroundColor Gray
-Write-Host "     practitioner@insolvex.local / Pract123!" -ForegroundColor Gray
-Write-Host "     secretary@insolvex.local    / Secr123!"  -ForegroundColor Gray
+Write-Host "     admin@insolvio.local        / Admin123!"  -ForegroundColor Gray
+Write-Host "     practitioner@insolvio.local / Pract123!" -ForegroundColor Gray
+Write-Host "     secretary@insolvio.local    / Secr123!"  -ForegroundColor Gray
 Write-Host ""
 
 # Start API in background job
 $apiJob = Start-Job -ScriptBlock {
-    Set-Location "$using:PSScriptRoot/Insolvex.API"
-    dotnet run --launch-profile Insolvex.API
+    Set-Location "$using:PSScriptRoot/Insolvio.API"
+    dotnet run --launch-profile Insolvio.API
 }
 
 # Wait for API to bind on port 5000
