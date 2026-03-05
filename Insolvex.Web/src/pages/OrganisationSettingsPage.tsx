@@ -193,10 +193,6 @@ export default function OrganisationSettingsPage() {
       setTenantData(r.data);
       setTenantName(r.data.name ?? "");
       setTenantDomain(r.data.domain ?? "");
-      // Sync locale to the tenant's persisted language preference
-      if (r.data.language && ["en", "ro", "hu"].includes(r.data.language)) {
-        setLocale(r.data.language as Locale);
-      }
     }).catch(console.error);
 
     client.get("/settings/firm").then(r => {
