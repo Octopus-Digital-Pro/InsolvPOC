@@ -28,7 +28,7 @@ public class DocumentTemplatesController : ControllerBase
     private readonly ICurrentUserService _currentUser;
     private readonly TemplateGenerationService _generator;
     private readonly IFileStorageService _storage;
-    private readonly HtmlPdfService _htmlPdf;
+    private readonly IHtmlPdfService _htmlPdf;
     private readonly WordTemplateImportService _wordImport;
     private readonly IncomingDocumentProfileService _incomingProfiles;
 
@@ -37,7 +37,7 @@ public class DocumentTemplatesController : ControllerBase
         ICurrentUserService currentUser,
         TemplateGenerationService generator,
         IFileStorageService storage,
-        HtmlPdfService htmlPdf,
+        IHtmlPdfService htmlPdf,
         WordTemplateImportService wordImport,
         IncomingDocumentProfileService incomingProfiles)
     {
