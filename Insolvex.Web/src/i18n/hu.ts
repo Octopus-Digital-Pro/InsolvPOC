@@ -72,6 +72,7 @@ export const hu: Translations = {
     demoDesc: "Kattintson bármely felhasználóra az azonnali bejelentkezéshez (csak fejlesztői módban).",
     demoNote: "Minden demó fiók előre betöltött adatokkal rendelkezik.",
     demoRoleAdmin: "Adminisztrátor",
+    demoRoleTenantAdmin: "Bérlő Admin",
     demoRolePractitioner: "Szakértő",
     demoRoleSecretary: "Titkár",
   },

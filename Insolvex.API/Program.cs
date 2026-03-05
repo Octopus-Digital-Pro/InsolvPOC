@@ -5,6 +5,7 @@ using Amazon;
 using Amazon.S3;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Insolvex.Data;
@@ -46,7 +47,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         {
             sql.MigrationsAssembly("Insolvex.Data");
             sql.CommandTimeout(300); // 5 min — allows large import batches to complete
-        }));
+        })
+    // The global tenant query filter is intentional; suppress the EF Core navigation-interaction advisory.
+    .ConfigureWarnings(w => w.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning)));
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
 // ----- Authentication -----
@@ -279,17 +282,21 @@ app.UseMiddleware<AuditMiddleware>();
 
 app.MapControllers();
 
-// ----- SPA static files (production) -----
-app.UseStaticFiles();
-app.MapFallbackToFile("index.html");
+// ----- SPA static files (production only — Vite dev server handles the SPA in development) -----
+if (!app.Environment.IsDevelopment())
+{
+    app.UseStaticFiles();
+    app.MapFallbackToFile("index.html");
+}
 
-// ----- Auto-migrate in Development -----
-if (app.Environment.IsDevelopment())
+// ----- Migrate and seed on first start (all environments) -----
+// MigrateAsync is idempotent; seed methods check for existing data and skip when the DB already has records.
 {
     using var scope = app.Services.CreateScope();
-  var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
     await DbSeeder.SeedAsync(db);
+    await DbSeeder.EnsureDemoUsersAsync(db);   // upserts demo accounts on every startup
     await DbSeeder.SeedSystemTemplatesAsync(db);
     await DbSeeder.SeedWorkflowStagesAsync(db);
 }

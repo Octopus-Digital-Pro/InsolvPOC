@@ -68,6 +68,23 @@ public static class DbSeeder
     };
     db.Users.Add(admin);
 
+    // Tenant admin user
+    var tenantAdminId = Guid.NewGuid();
+    var tenantAdmin = new User
+    {
+      Id = tenantAdminId,
+      TenantId = tenantId,
+      Email = "tenantadmin@insolvex.local",
+      FirstName = "Tenant",
+      LastName = "Admin",
+      PasswordHash = BCrypt.Net.BCrypt.HashPassword("TAdmin123!", 12),
+      Role = UserRole.TenantAdmin,
+      IsActive = true,
+      CreatedOn = DateTime.UtcNow,
+      CreatedBy = "System"
+    };
+    db.Users.Add(tenantAdmin);
+
     // Practitioner user
     var practitionerId = Guid.NewGuid();
     var practitioner = new User
@@ -701,6 +718,55 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
         existingTpl.IsActive = true;
         changed = true;
       }
+    }
+
+    if (changed) await db.SaveChangesAsync();
+  }
+
+  // ── Ensure demo users always exist (idempotent, safe on existing DBs) ────────
+  /// <summary>
+  /// Creates the four demo login accounts if any of them are missing.
+  /// Safe to call on every startup — checks each user by email before inserting.
+  /// </summary>
+  public static async Task EnsureDemoUsersAsync(ApplicationDbContext db)
+  {
+    // Demo users require a tenant to exist (SeedAsync must have run first).
+    var tenant = await db.Tenants.IgnoreQueryFilters()
+        .OrderBy(t => t.CreatedOn)
+        .FirstOrDefaultAsync();
+    if (tenant == null) return;
+
+    var now = DateTime.UtcNow;
+
+    var demoUsers = new[]
+    {
+      new { Email = "admin@insolvex.local",          Password = "Admin123!",   First = "Admin",  Last = "User",  Role = UserRole.GlobalAdmin  },
+      new { Email = "tenantadmin@insolvex.local",    Password = "TAdmin123!",  First = "Tenant", Last = "Admin", Role = UserRole.TenantAdmin  },
+      new { Email = "practitioner@insolvex.local",   Password = "Pract123!",   First = "Jon",    Last = "Doe",   Role = UserRole.Practitioner },
+      new { Email = "secretary@insolvex.local",      Password = "Secr123!",    First = "Gipsz",  Last = "Jakab", Role = UserRole.Secretary    },
+    };
+
+    bool changed = false;
+    foreach (var u in demoUsers)
+    {
+      var exists = await db.Users.IgnoreQueryFilters()
+          .AnyAsync(x => x.Email == u.Email);
+      if (exists) continue;
+
+      db.Users.Add(new User
+      {
+        Id         = Guid.NewGuid(),
+        TenantId   = tenant.Id,
+        Email      = u.Email,
+        FirstName  = u.First,
+        LastName   = u.Last,
+        PasswordHash = BCrypt.Net.BCrypt.HashPassword(u.Password, 12),
+        Role       = u.Role,
+        IsActive   = true,
+        CreatedOn  = now,
+        CreatedBy  = "System",
+      });
+      changed = true;
     }
 
     if (changed) await db.SaveChangesAsync();
