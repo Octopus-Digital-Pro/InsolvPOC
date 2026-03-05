@@ -45,7 +45,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"),
         sql =>
         {
-            sql.MigrationsAssembly("Insolvex.Data");
+            sql.MigrationsAssembly("Insolvex.API");
             sql.CommandTimeout(300); // 5 min — allows large import batches to complete
         })
     // The global tenant query filter is intentional; suppress the EF Core navigation-interaction advisory.

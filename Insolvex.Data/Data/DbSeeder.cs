@@ -119,177 +119,6 @@ public static class DbSeeder
     };
     db.Users.Add(secretary);
 
-    // Demo debtor company
-    var debtorCompanyId = Guid.NewGuid();
-    var debtorCompany = new Company
-    {
-      Id = debtorCompanyId,
-      TenantId = tenantId,
-      Name = "SC Example Debtor SRL",
-      CuiRo = "RO12345678",
-      TradeRegisterNo = "J12/1234/2018",
-      Address = "Str. Exemplu nr. 1",
-      County = "Cluj",
-      Locality = "Cluj-Napoca",
-      Country = "Romania",
-      Caen = "4120",
-      IncorporationYear = "2018",
-      AssignedToUserId = practitionerId,
-      CreatedOn = DateTime.UtcNow,
-      CreatedBy = "System"
-    };
-    db.Companies.Add(debtorCompany);
-
-    // Demo creditor company
-    var creditorCompanyId = Guid.NewGuid();
-    db.Companies.Add(new Company
-    {
-      Id = creditorCompanyId,
-      TenantId = tenantId,
-      Name = "SC Furnizor Total SA",
-      CuiRo = "RO55667788",
-      Address = "Bd. Independentei nr. 55",
-      County = "Cluj",
-      Locality = "Cluj-Napoca",
-      Country = "Romania",
-      Phone = "+40 264 333 444",
-      Email = "contact@furnizor.ro",
-      CreatedOn = DateTime.UtcNow,
-      CreatedBy = "System"
-    });
-
-    // Demo practitioner company (the firm itself as a company)
-    var practFirmCompanyId = Guid.NewGuid();
-    db.Companies.Add(new Company
-    {
-      Id = practFirmCompanyId,
-      TenantId = tenantId,
-      Name = "Cabinet Insolvex IPURL",
-      CuiRo = "RO99887766",
-      TradeRegisterNo = "J12/9999/2020",
-      Address = "Str. Avram Iancu nr. 10, Et. 2",
-      County = "Cluj",
-      Locality = "Cluj-Napoca",
-      Country = "Romania",
-      CreatedOn = DateTime.UtcNow,
-      CreatedBy = "System"
-    });
-
-    // Demo case
-    var caseId = Guid.NewGuid();
-    var insolvencyCase = new InsolvencyCase
-    {
-      Id = caseId,
-      TenantId = tenantId,
-      CaseNumber = "1234/1285/2025",
-      CourtName = "Tribunalul Cluj",
-      CourtSection = "Sectia a II-a Civila",
-      JudgeSyndic = "Pop Maria",
-      DebtorName = "SC Example Debtor SRL",
-      DebtorCui = "RO12345678",
-      ProcedureType = ProcedureType.FalimentSimplificat,
-      Status = "Active",
-      LawReference = "Legea 85/2014",
-      PractitionerName = "Cabinet Insolvex IPURL",
-      PractitionerRole = "lichidator_judiciar",
-      PractitionerFiscalId = "RO99887766",
-      CompanyId = debtorCompanyId,
-      AssignedToUserId = practitionerId,
-      OpeningDate = DateTime.UtcNow.AddDays(-30),
-      NextHearingDate = DateTime.UtcNow.AddDays(14),
-      ClaimsDeadline = DateTime.UtcNow.AddDays(45),
-      BpiPublicationNo = "BPI 12345/2025",
-      BpiPublicationDate = DateTime.UtcNow.AddDays(-28),
-      OpeningDecisionNo = "Sent. Civ. 999/2025",
-      CreatedOn = DateTime.UtcNow,
-      CreatedBy = "System"
-    };
-    db.InsolvencyCases.Add(insolvencyCase);
-
-    // Case parties
-    db.CaseParties.AddRange(
-            new CaseParty
-            {
-              Id = Guid.NewGuid(),
-              TenantId = tenantId,
-              CaseId = caseId,
-              CompanyId = debtorCompanyId,
-              Role = CasePartyRole.Debtor,
-              JoinedDate = DateTime.UtcNow.AddDays(-30),
-              CreatedOn = DateTime.UtcNow,
-              CreatedBy = "System"
-            },
-       new CaseParty
-       {
-         Id = Guid.NewGuid(),
-         TenantId = tenantId,
-         CaseId = caseId,
-         CompanyId = practFirmCompanyId,
-         Role = CasePartyRole.InsolvencyPractitioner,
-         RoleDescription = "Lichidator judiciar",
-         JoinedDate = DateTime.UtcNow.AddDays(-30),
-         CreatedOn = DateTime.UtcNow,
-         CreatedBy = "System"
-       },
-       new CaseParty
-       {
-         Id = Guid.NewGuid(),
-         TenantId = tenantId,
-         CaseId = caseId,
-         CompanyId = creditorCompanyId,
-         Role = CasePartyRole.UnsecuredCreditor,
-         RoleDescription = "Creditor chirografar",
-         ClaimAmountRon = 125000.00m,
-         ClaimAccepted = true,
-         JoinedDate = DateTime.UtcNow.AddDays(-15),
-         CreatedOn = DateTime.UtcNow,
-         CreatedBy = "System"
-       }
-          );
-
-    // Demo tasks
-    db.CompanyTasks.AddRange(
-     new CompanyTask
-     {
-       Id = Guid.NewGuid(),
-       TenantId = tenantId,
-       CompanyId = debtorCompanyId,
-       Title = "File opening notification to ONRC",
-       Description = "Notify trade register of insolvency opening",
-       Deadline = DateTime.UtcNow.AddDays(7),
-       Status = Domain.Enums.TaskStatus.Open,
-       AssignedToUserId = practitionerId,
-       CreatedOn = DateTime.UtcNow,
-       CreatedBy = "System"
-     },
-             new CompanyTask
-             {
-               Id = Guid.NewGuid(),
-               TenantId = tenantId,
-               CompanyId = debtorCompanyId,
-               Title = "Prepare Art. 97 Report",
-               Description = "Draft the initial report on causes of insolvency",
-               Labels = "report, urgent",
-               Deadline = DateTime.UtcNow.AddDays(21),
-               Status = Domain.Enums.TaskStatus.Open,
-               AssignedToUserId = practitionerId,
-               CreatedOn = DateTime.UtcNow,
-               CreatedBy = "System"
-             },
-    new CompanyTask
-    {
-      Id = Guid.NewGuid(),
-      TenantId = tenantId,
-      CompanyId = debtorCompanyId,
-      Title = "Publish opening in BPI",
-      Deadline = DateTime.UtcNow.AddDays(-2),
-      Status = Domain.Enums.TaskStatus.Done,
-      AssignedToUserId = secretaryId,
-      CreatedOn = DateTime.UtcNow,
-      CreatedBy = "System"
-    }
-         );
-
     // System configuration defaults
     db.Set<SystemConfig>().AddRange(
     new SystemConfig
@@ -792,8 +621,14 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
   /// </summary>
   public static async Task SeedWorkflowStagesAsync(ApplicationDbContext db)
   {
-    if (await db.WorkflowStageDefinitions.IgnoreQueryFilters().AnyAsync(s => s.TenantId == null))
-      return;
+    // Upsert by StageKey — seed any global stage that is missing.
+    // This is resilient to partial states (e.g. earlier crash mid-seed).
+    var existingKeys = (await db.WorkflowStageDefinitions
+      .IgnoreQueryFilters()
+      .Where(s => s.TenantId == null)
+      .Select(s => s.StageKey)
+      .ToListAsync())
+      .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     // ── Local helpers ──────────────────────────────────────────────────────
     static string J(params string[] items) =>
@@ -1588,7 +1423,10 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
       },
     };
 
-    db.WorkflowStageDefinitions.AddRange(stages);
+    var toAdd = stages.Where(s => !existingKeys.Contains(s.StageKey)).ToList();
+    if (toAdd.Count == 0) return;
+
+    db.WorkflowStageDefinitions.AddRange(toAdd);
     await db.SaveChangesAsync();
   }
 }
