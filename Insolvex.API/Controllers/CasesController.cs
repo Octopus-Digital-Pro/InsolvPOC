@@ -79,6 +79,7 @@ public class CasesController : ControllerBase
       CourtName = body.CourtName,
       CourtSection = body.CourtSection,
       JudgeSyndic = body.JudgeSyndic,
+      Registrar = body.Registrar,
       ProcedureType = body.ProcedureType,
       Status = body.Status,
       LawReference = body.LawReference,
@@ -141,7 +142,7 @@ public record CreateCaseBody(
 
 public record UpdateCaseBody(
     string? CaseNumber = null, string? CourtName = null, string? CourtSection = null,
-    string? JudgeSyndic = null, ProcedureType? ProcedureType = null, string? Status = null,
+    string? JudgeSyndic = null, string? Registrar = null, ProcedureType? ProcedureType = null, string? Status = null,
     string? LawReference = null, string? PractitionerName = null, string? PractitionerRole = null,
     string? PractitionerFiscalId = null, string? PractitionerDecisionNo = null,
     DateTime? NoticeDate = null, DateTime? OpeningDate = null, DateTime? NextHearingDate = null,

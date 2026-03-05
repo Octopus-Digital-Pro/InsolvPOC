@@ -55,6 +55,7 @@ public sealed class AiDocumentAnalysisService
         string? CourtName,
         string? CourtSection,
         string? JudgeSyndic,
+        string? Registrar,
         string? ProcedureType,
         DateTime? OpeningDate,
         DateTime? NextHearingDate,
@@ -171,6 +172,7 @@ public sealed class AiDocumentAnalysisService
             CourtName = specialized.CourtName ?? baseline.CourtName,
             CourtSection = specialized.CourtSection ?? baseline.CourtSection,
             JudgeSyndic = specialized.JudgeSyndic ?? baseline.JudgeSyndic,
+            Registrar = specialized.Registrar ?? baseline.Registrar,
             OpeningDate = specialized.OpeningDate ?? baseline.OpeningDate,
             NextHearingDate = specialized.NextHearingDate ?? baseline.NextHearingDate,
             ClaimsDeadline = specialized.ClaimsDeadline ?? baseline.ClaimsDeadline,
@@ -218,6 +220,7 @@ public sealed class AiDocumentAnalysisService
               "courtName": "full court/tribunal name in source language or null",
               "courtSection": "section name or null",
               "judgeSyndic": "judge syndic full name or null",
+              "registrar": "court registrar (Grefier) full name or null",
               "procedureType": "FalimentSimplificat|Faliment|Insolventa|Reorganizare|ConcordatPreventiv|MandatAdHoc|Other",
               "openingDate": "YYYY-MM-DD or null",
               "nextHearingDate": "YYYY-MM-DD or null",
@@ -239,7 +242,9 @@ public sealed class AiDocumentAnalysisService
             - "termen contestatii" = contestation deadline
             - "urmatorul termen" / "urmatoare sedinta" = next hearing date
             - "lichidator judiciar" / "administrator judiciar" = InsolvencyPractitioner
-            - "judecator sindic" = JudgeSyndic (also add as a party with role JudgeSyndic if mentioned by name)
+            - "judecător sindic" / "JUDECĂTOR SINDIC" → the name that follows on the same line is judgeSyndic (also add as a party with role JudgeSyndic if mentioned by name)
+            - "grefier" / "GREFIER" → the name that follows on the same line is registrar
+            - "Sec\u021bia" / "Sectia" keyword \u2192 skip any leading ordinal (e.g. "a II-a", "I", "II") and use only the descriptive name as courtSection (e.g. "Sec\u021bia a II-a Civil\u0103" \u2192 courtSection = "Civil\u0103"; "Sec\u021bia civil\u0103" \u2192 courtSection = "civil\u0103")
             - For debtorCui: scan for labels CIF, CUI, "Cod Unic de Inregistrare", "Cod de Identificare Fiscala". The value is 2-10 digits, optionally prefixed with "RO" — if "RO" is present in the source text keep it (e.g. "RO12345678"), otherwise return only the digits. Never confuse it with trade registry numbers (e.g. J40/1234/2020), EUID, CNP (13 digits), or other countries' VAT.
             - Document file name hint: {{fileName}}
 
@@ -568,6 +573,7 @@ public sealed class AiDocumentAnalysisService
             CourtName:             GetString(root, "courtName"),
             CourtSection:          GetString(root, "courtSection"),
             JudgeSyndic:           GetString(root, "judgeSyndic"),
+            Registrar:             GetString(root, "registrar"),
             ProcedureType:         GetString(root, "procedureType"),
             OpeningDate:           ParseDate(root, "openingDate"),
             NextHearingDate:       ParseDate(root, "nextHearingDate"),

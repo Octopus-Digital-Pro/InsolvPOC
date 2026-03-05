@@ -95,14 +95,26 @@ If not explicit: "Not found".
 CANONICAL KEY NAMES (use these so the review UI can read fields):
 - document: use "docType" (not "type"), "documentDate" (not "issuanceDate"), "documentNumber".
 - case: use "caseNumber" (not "fileNumber"); use "court" as an object with "name", "section", "registryAddress", "registryPhone", "registryHours" (not a string).
+  - For court.section: find the keyword "Secția" or "Sectia" in the document, skip any leading ordinal (e.g. "a II-a", "I", "II"), then record ONLY the descriptive name that follows. Examples: "Secția civilă" → section = "civilă"; "Secția a II-a Civilă" → section = "Civilă".
 - parties: use "debtor" as an object with "name", "cui", "tradeRegisterNo", "address", "locality", "county", "administrator", etc.; use "practitioner" (not "appointedLiquidator") with "name", "fiscalId", "rfo", "address", "role".
 
 CUI/CIF EXTRACTION RULES (for parties.debtor.cui):
 - Look for labels: "CIF", "CUI", "Cod Unic de Înregistrare", "Cod de Identificare Fiscală", or "RO" followed by digits.
-- The value contains ONLY digits (2–10 digits). Strip the "RO" prefix if present — return only the digits.
+- The value is 2–10 digits, optionally prefixed with "RO". If "RO" is present in the source, keep it (e.g. "RO12345678"); otherwise return only the digits.
 - Do NOT confuse with: Nr. Reg. Com. (e.g. J40/1234/2020), EUID, CNP (13 digits starting with 1-9), or foreign VAT codes.
 - If both CIF and CUI labels appear, use the one explicitly labelled; if the same number, return it once.
 - If no CUI/CIF is found, set "cui" to "Not found".
+
+JUDGE SYNDIC EXTRACTION RULES (for case.judgeSyndic):
+- Look for the label "judecător sindic", "judecator sindic", or "JUDECĂTOR SINDIC" (case-insensitive, with or without diacritics).
+- The value is the full name that follows on the same line, after any colon or whitespace.
+- Do NOT include role titles, punctuation, or text that starts a new concept.
+- If not found, set "judgeSyndic" to "Not found".
+
+REGISTRAR EXTRACTION RULES (for case.registrar):
+- Look for the label "grefier" or "GREFIER" (case-insensitive).
+- The value is the full name that follows on the same line, after any colon or whitespace.
+- If not found, set "registrar" to "Not found".
 
 Now output JSON with EXACTLY this schema:
 { ... }`;
@@ -365,6 +377,7 @@ function normalizeExtraction(
         : str(caseData.fileNumber),
     court,
     judgeSyndic: str(caseData.judgeSyndic),
+    registrar: str(caseData.registrar),
     procedure,
     importantDates,
   };

@@ -34,6 +34,7 @@ public class PendingUpload : BaseEntity
     public ProcedureType? DetectedProcedureType { get; set; }
     public string? DetectedCourtSection { get; set; }
     public string? DetectedJudgeSyndic { get; set; }
+    public string? DetectedRegistrar { get; set; }
     public DateTime? DetectedOpeningDate { get; set; }
     public DateTime? DetectedNextHearingDate { get; set; }
     public DateTime? DetectedClaimsDeadline { get; set; }

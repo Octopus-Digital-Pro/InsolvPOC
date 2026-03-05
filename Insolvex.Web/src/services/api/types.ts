@@ -58,6 +58,7 @@ export interface CaseDto {
   courtName: string | null;
   courtSection: string | null;
   judgeSyndic: string | null;
+  registrar: string | null;
   debtorName: string;
   debtorCui: string | null;
   procedureType: string;
@@ -295,6 +296,7 @@ export interface UploadData {
   courtName: string | null;
   courtSection: string | null;
   judgeSyndic: string | null;
+  registrar: string | null;
   matchedCaseId: string | null;
   matchedCompanyId: string | null;
   confidence: number;

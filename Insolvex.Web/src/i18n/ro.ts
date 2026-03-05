@@ -109,6 +109,7 @@ export const ro: Translations = {
     court: "Instanță",
     courtSection: "Secție",
     judgeSyndic: "Judecător Sindic",
+    registrar: "Grefier",
     debtorName: "Denumire Debitor",
     debtorCui: "CUI Debitor",
     procedureType: "Tip Procedură",

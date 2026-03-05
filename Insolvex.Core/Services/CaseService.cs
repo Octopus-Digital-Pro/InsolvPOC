@@ -201,6 +201,7 @@ public sealed class CaseService : ICaseService
           if (cmd.CourtName != null) c.CourtName = cmd.CourtName;
           if (cmd.CourtSection != null) c.CourtSection = cmd.CourtSection;
           if (cmd.JudgeSyndic != null) c.JudgeSyndic = cmd.JudgeSyndic;
+          if (cmd.Registrar != null) c.Registrar = cmd.Registrar;
           if (cmd.ProcedureType.HasValue) c.ProcedureType = cmd.ProcedureType.Value;
           if (cmd.Status != null)
           {
@@ -304,6 +305,7 @@ public sealed class CaseService : ICaseService
                c.CourtName,
                c.CourtSection,
                c.JudgeSyndic,
+               c.Registrar,
                c.PractitionerName,
                c.PractitionerRole,
                c.LawReference,

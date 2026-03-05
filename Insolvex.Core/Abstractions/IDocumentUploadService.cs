@@ -71,6 +71,7 @@ public class DocumentUploadResult
     public string? CourtName { get; init; }
     public string? CourtSection { get; init; }
     public string? JudgeSyndic { get; init; }
+    public string? Registrar { get; init; }
     public Guid? MatchedCaseId { get; init; }
     public Guid? MatchedCompanyId { get; init; }
     public double Confidence { get; init; }
@@ -107,6 +108,7 @@ public class ConfirmUploadCommand
     public string? CourtSection { get; init; }
     public string? DebtorName { get; init; }
     public string? JudgeSyndic { get; init; }
+    public string? Registrar { get; init; }
     public string? ProcedureType { get; init; }
     public DateTime? OpeningDate { get; init; }
     public DateTime? NextHearingDate { get; init; }

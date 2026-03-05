@@ -109,6 +109,7 @@ quickUploadDesc: "Drop insolvency documents here for AI classification and autom
  court: "Court",
     courtSection: "Court Section",
     judgeSyndic: "Judge Syndic",
+    registrar: "Registrar",
     debtorName: "Debtor Name",
     debtorCui: "Debtor CUI",
 procedureType: "Procedure Type",

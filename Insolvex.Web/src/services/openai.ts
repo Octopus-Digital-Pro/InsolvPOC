@@ -30,6 +30,7 @@ export type InsolvencyExtractionResult = {
       registryHours: string;
     };
     judgeSyndic: string;
+    registrar: string;
     procedure: {
       law: string;
       procedureType:

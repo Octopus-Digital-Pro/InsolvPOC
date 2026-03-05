@@ -84,6 +84,7 @@ public class DocumentClassificationService
           JudgeSyndic          = aiResult.JudgeSyndic,
           CourtSection         = normalizedCourtAi.CourtSection,
           DebtorCui            = aiResult.DebtorCui,
+          Registrar            = aiResult.Registrar,
           IsAiExtracted        = true,
         };
       }
@@ -152,6 +153,7 @@ public class DocumentClassificationService
       JudgeSyndic = dates.JudgeSyndic,
       CourtSection = normalizedCourt.CourtSection,
       DebtorCui = debtorCui,
+      Registrar = dates.Registrar,
     };
   }
 
@@ -628,19 +630,31 @@ RegexOptions.IgnoreCase);
       dates.ContestationsDeadline = dates.ClaimsDeadline.Value.AddDays(int.Parse(contestMatch.Groups[1].Value));
     }
 
-    // Judge sindic
+    // Judge sindic — match "JUDECĂTOR SINDIC" / "judecator sindic" (with or without diacritic)
+    // Capture the name that follows on the same line, stopping at end-of-line or a digit run (case number)
     var judgeMatch = Regex.Match(text,
-        @"(?:judecator\s+sindic|judecator\s+sindic)[:\s]*(.+?)(?:\n|$)",
-  RegexOptions.IgnoreCase);
-    if (judgeMatch.Success)
-      dates.JudgeSyndic = judgeMatch.Groups[1].Value.Trim();
-
-    // Court section
-    var sectionMatch = Regex.Match(text,
-   @"(Secția\s+.+?)(?:\n|$)",
+        @"judec[ăa]tor\s+sindic[:\s]*([^\r\n\d][^\r\n]{1,120})",
         RegexOptions.IgnoreCase);
+    if (judgeMatch.Success)
+      dates.JudgeSyndic = judgeMatch.Groups[1].Value.Trim().TrimEnd(',', ';', '.');
+
+    // Registrar (Grefier)
+    var registrarMatch = Regex.Match(text,
+        @"grefier[:\s]*([^\r\n\d][^\r\n]{1,120})",
+        RegexOptions.IgnoreCase);
+    if (registrarMatch.Success)
+      dates.Registrar = registrarMatch.Groups[1].Value.Trim().TrimEnd(',', ';', '.');
+
+    // Court section — find "Secția" and capture only the descriptive name,
+    // skipping any leading ordinal like "a II-a", "I", "II", etc.
+    // Stop at the first digit or known doc-structure keyword (e.g. "Dosar", "Completul", "Nr.").
+    // e.g. "Secția a II-a Civilă"  → "Civilă"
+    //      "Secția civilăDosar nr" → "civilă"
+    var sectionMatch = Regex.Match(text,
+      @"Sec[t\u0163\u021b]ia[:\s]*(?:a\s+[IVXivx]+\s*[-\u2013]\s*a\s+|[IVXivx]+\s+)?([^\r\n\d]{2,80})",
+      RegexOptions.IgnoreCase);
     if (sectionMatch.Success)
-      dates.CourtSection = sectionMatch.Groups[1].Value.Trim();
+      dates.CourtSection = sectionMatch.Groups[1].Value.Trim().TrimEnd(',', ';', '.', ' ');
 
     return dates;
   }
@@ -708,6 +722,7 @@ public class ClassificationResult
   public string? JudgeSyndic { get; set; }
   public string? CourtSection { get; set; }
   public string? DebtorCui { get; set; }
+  public string? Registrar { get; set; }
   public bool IsAiExtracted { get; set; }
 }
 
@@ -727,4 +742,4 @@ public class ClassificationExtractedDates
   public DateTime? ContestationsDeadline { get; set; }
   public string? JudgeSyndic { get; set; }
   public string? CourtSection { get; set; }
-}
+  public string? Registrar { get; set; }}
