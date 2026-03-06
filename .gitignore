@@ -85,7 +85,6 @@ Insolvex.Web/.env.*.local
 
 # Local development secrets
 **/appsettings.Development.json
-/Insolvio.API/appsettings.Development.json
 
 # EF Core Migrations temporary
 **/Migrations/*
