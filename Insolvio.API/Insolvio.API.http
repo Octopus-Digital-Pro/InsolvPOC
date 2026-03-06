@@ -1,0 +1,6 @@
+@Insolvio.API_HostAddress = http://localhost:5132
+
+GET {{Insolvio.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

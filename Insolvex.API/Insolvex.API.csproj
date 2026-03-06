@@ -4,8 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-<!-- SPA integration: Insolvex.Web React project -->
-    <SpaRoot>..\Insolvex.Web\</SpaRoot>
+<!-- SPA integration: Insolvio.Web React project -->
+    <SpaRoot>..\Insolvio.Web\</SpaRoot>
     <SpaProxyServerUrl>http://localhost:5173</SpaProxyServerUrl>
     <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
   </PropertyGroup>
@@ -21,10 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Insolvex.Core\Insolvex.Core.csproj" />
-    <ProjectReference Include="..\Insolvex.Data\Insolvex.Data.csproj" />
-    <ProjectReference Include="..\Insolvex.Domain\Insolvex.Domain.csproj" />
-    <ProjectReference Include="..\Insolvex.Integrations\Insolvex.Integrations.csproj" />
+    <ProjectReference Include="..\Insolvio.Core\Insolvio.Core.csproj" />
+    <ProjectReference Include="..\Insolvio.Data\Insolvio.Data.csproj" />
+    <ProjectReference Include="..\Insolvio.Domain\Insolvio.Domain.csproj" />
+    <ProjectReference Include="..\Insolvio.Integrations\Insolvio.Integrations.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -32,7 +32,28 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Insolvex.Tests" />
+    <InternalsVisibleTo Include="Insolvio.Tests" />
   </ItemGroup>
+
+  <!--
+    SPA publish target: builds the React/Vite frontend and includes its dist/
+    output as wwwroot files in the publish package.
+    Runs only during 'dotnet publish' (not 'dotnet build'), so dev inner-loop is unaffected.
+  -->
+  <Target Name="PublishSpa" AfterTargets="ComputeFilesToPublish" Condition="'$(ASPNETCORE_ENVIRONMENT)' != 'Development'">
+    <Message Importance="high" Text="Installing npm dependencies for SPA..." />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm ci" />
+    <Message Importance="high" Text="Building SPA for production..." />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
+    <ItemGroup>
+      <!-- Include everything under Insolvio.Web/dist/ into the publish wwwroot -->
+      <SpaDist Include="$(SpaRoot)dist\**\*.*" />
+      <ResolvedFileToPublish Include="@(SpaDist)" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(FileName)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
 </Project>

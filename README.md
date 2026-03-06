@@ -1,4 +1,4 @@
-# Insolvex — Insolvency Case Management Platform
+# Insolvio — Insolvency Case Management Platform
 
 Multi-tenant SaaS application for Romanian insolvency practitioners. Built with **.NET 8** backend, **React + TypeScript** frontend, and **SQL Server** database.
 
@@ -7,36 +7,36 @@ Multi-tenant SaaS application for Romanian insolvency practitioners. Built with 
 ```bash
 # Clone
 git clone https://github.com/Octopus-Digital-Pro/InsolvPOC.git
-cd insolvex
+cd insolvio
 
 # Run everything (applies migrations, seeds data, starts API + frontend)
 start-app.cmd
 ```
 
-**Demo credentials**: `admin@insolvex.local` / `Admin123!`
+**Demo credentials**: `admin@insolvio.local` / `Admin123!`
 
 ---
 
 ## Architecture
 
 ```
-Insolvex.sln
-├── Insolvex.Domain/       # Entities, Enums (Permission, CaseStage, UserRole, etc.)
-├── Insolvex.Core/         # DTOs, Abstractions (IAuditService, ICurrentUserService), Mapping
-├── Insolvex.API/      # ASP.NET 8 Web API
+Insolvio.sln
+├── Insolvio.Domain/       # Entities, Enums (Permission, CaseStage, UserRole, etc.)
+├── Insolvio.Core/         # DTOs, Abstractions (IAuditService, ICurrentUserService), Mapping
+├── Insolvio.API/      # ASP.NET 8 Web API
 │   ├── Controllers/          # 20 controllers with granular RBAC
 │   ├── Services/ # Auth, Audit, Workflow, Classification, Signing
 │   ├── Authorization/        # Permission-based policy system
 │   ├── Middleware/         # Audit, Error, Tenant, Security Headers
 │ └── Data/        # EF Core DbContext, Migrations, Seeder
-├── Insolvex.Web/   # React 18 + Vite + Tailwind CSS
+├── Insolvio.Web/   # React 18 + Vite + Tailwind CSS
 │   └── src/
 │       ├── pages/            # 12 pages (Dashboard, Cases, Companies, Tasks, Settings, etc.)
 │       ├── components/     # 32 components + 9 UI primitives
 │     ├── services/api/     # 12 API client files (Axios)
 │       ├── contexts/         # Auth, Language, Tenant
 │       └── i18n/             # English, Romanian, Hungarian
-├── Insolvex.Tests/   # Unit tests
+├── Insolvio.Tests/   # Unit tests
 └── netlify/functions/        # Serverless AI document extraction
 ```
 
@@ -125,18 +125,18 @@ Insolvex.sln
 
 ```bash
 # Backend
-cd Insolvex.API
+cd Insolvio.API
 dotnet run
 
 # Frontend
-cd Insolvex.Web
+cd Insolvio.Web
 npm run dev
 
 # Run tests
-dotnet test Insolvex.Tests
+dotnet test Insolvio.Tests
 
 # Add migration
-cd Insolvex.API
+cd Insolvio.API
 dotnet ef migrations add <Name> --output-dir Data/Migrations
 
 # Apply migrations
@@ -156,7 +156,7 @@ Requires:
 
 # Current State — Navigation-Based Feature Map (2026-03-03)
 
-> This document describes every navigable area of the Insolvex application, the functionality available under each, and the role-based permissions that govern access.
+> This document describes every navigable area of the Insolvio application, the functionality available under each, and the role-based permissions that govern access.
 
 ---
 

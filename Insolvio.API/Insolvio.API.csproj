@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+<!-- SPA integration: Insolvio.Web React project -->
+    <SpaRoot>..\Insolvio.Web\</SpaRoot>
+    <SpaProxyServerUrl>http://localhost:5173</SpaProxyServerUrl>
+    <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.21" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Insolvio.Core\Insolvio.Core.csproj" />
+    <ProjectReference Include="..\Insolvio.Data\Insolvio.Data.csproj" />
+    <ProjectReference Include="..\Insolvio.Domain\Insolvio.Domain.csproj" />
+    <ProjectReference Include="..\Insolvio.Integrations\Insolvio.Integrations.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Insolvio.Tests" />
+  </ItemGroup>
+
+  <!--
+    SPA publish target: builds the React/Vite frontend and includes its dist/
+    output as wwwroot files in the publish package.
+    Runs only during 'dotnet publish' (not 'dotnet build'), so dev inner-loop is unaffected.
+  -->
+  <Target Name="PublishSpa" AfterTargets="ComputeFilesToPublish" Condition="'$(ASPNETCORE_ENVIRONMENT)' != 'Development' AND '$(SkipSpaBuild)' != 'true'">
+    <Message Importance="high" Text="Installing npm dependencies for SPA..." />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
+    <Message Importance="high" Text="Building SPA for production..." />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
+    <ItemGroup>
+      <!-- Include everything under Insolvio.Web/dist/ into the publish wwwroot -->
+      <SpaDist Include="$(SpaRoot)dist\**\*.*" />
+      <ResolvedFileToPublish Include="@(SpaDist)" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(FileName)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+</Project>

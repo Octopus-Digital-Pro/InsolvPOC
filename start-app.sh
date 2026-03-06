@@ -104,27 +104,27 @@ MAX_RETRIES=40
 while true; do
     if [[ $RETRIES -ge $MAX_RETRIES ]]; then
    echo ""
-    die "SQL Server did not become ready within ~80 seconds.\n    Check: docker logs insolvex-db"
+    die "SQL Server did not become ready within ~80 seconds.\n    Check: docker logs insolvio-db"
     fi
 
  # Method 1: check Docker healthcheck status
-  HEALTH=$(docker inspect --format "{{.State.Health.Status}}" insolvex-db 2>/dev/null || true)
+  HEALTH=$(docker inspect --format "{{.State.Health.Status}}" insolvio-db 2>/dev/null || true)
     if [[ "$HEALTH" == "healthy" ]]; then
         success "SQL Server is ready!  [healthy]"
      break
     fi
 
     # Method 2: fallback — direct sqlcmd probe
-    if docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd \
-        -S localhost -U sa -P "InsolvexDev2025#Strong" \
+    if docker exec insolvio-db /opt/mssql-tools18/bin/sqlcmd \
+        -S localhost -U sa -P "InsolvioDev2025#Strong" \
         -Q "SELECT 1" -C -b &>/dev/null; then
         success "SQL Server is ready!  [sqlcmd]"
         break
     fi
 
     # Method 2: fallback — direct sqlcmd probe
-    if docker exec insolvex-db /opt/mssql-tools18/bin/sqlcmd \
-        -S localhost -U sa -P "InsolvexDev2025#Strong" \
+    if docker exec insolvio-db /opt/mssql-tools18/bin/sqlcmd \
+        -S localhost -U sa -P "InsolvioDev2025#Strong" \
         -Q "SELECT 1" -C -b &>/dev/null 2>&1; then
         success "SQL Server is ready!  [sqlcmd]"
      break
@@ -142,7 +142,7 @@ done
 # 3. Install npm dependencies for frontend
 # -----------------------------------------------
 info "[3/4] Checking frontend npm dependencies..."
-cd "$SCRIPT_DIR/Insolvex.Web"
+cd "$SCRIPT_DIR/Insolvio.Web"
 if [[ ! -d "node_modules" ]]; then
     warn "node_modules not found. Running npm install..."
   npm install
@@ -165,9 +165,9 @@ echo -e "${BOLD} ============================================${NC}"
 echo ""
 echo "  Demo accounts (seeded on first run):"
 echo ""
-echo "    admin@insolvex.local        / Admin123!      (GlobalAdmin)"
-echo "    practitioner@insolvex.local / Pract123!      (Practitioner)"
-echo "    secretary@insolvex.local    / Secr123!       (Secretary)"
+echo "    admin@insolvio.local        / Admin123!      (GlobalAdmin)"
+echo "    practitioner@insolvio.local / Pract123!      (Practitioner)"
+echo "    secretary@insolvio.local    / Secr123!       (Secretary)"
 echo ""
 echo "  NOTE: On first run the API will automatically apply"
 echo "        database migrations and seed demo data."
@@ -178,8 +178,8 @@ echo ""
 # Start backend in a new Terminal window
 osascript \
   -e 'tell application "Terminal"' \
-  -e "  do script \"cd '$SCRIPT_DIR/Insolvex.API' && dotnet run --launch-profile Insolvex.API\"" \
-  -e '  set custom title of front window to "Insolvex API"' \
+  -e "  do script \"cd '$SCRIPT_DIR/Insolvio.API' && dotnet run --launch-profile Insolvio.API\"" \
+  -e '  set custom title of front window to "Insolvio API"' \
   -e 'end tell'
 
 # Give the API a few seconds to bind its port
@@ -189,8 +189,8 @@ sleep 4
 # Start frontend in a new Terminal window
 osascript \
   -e 'tell application "Terminal"' \
-  -e "  do script \"cd '$SCRIPT_DIR/Insolvex.Web' && npm run dev\"" \
-  -e '  set custom title of front window to "Insolvex React"' \
+  -e "  do script \"cd '$SCRIPT_DIR/Insolvio.Web' && npm run dev\"" \
+  -e '  set custom title of front window to "Insolvio React"' \
   -e 'end tell'
 
 echo ""
