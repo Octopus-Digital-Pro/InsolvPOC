@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
-import { Loader2, FileText, Briefcase, FolderOpen, Sparkles, Users, CalendarDays, GitBranch, Trash2, Plus } from "lucide-react";
+import { Loader2, FileText, Briefcase, FolderOpen, Sparkles, Users, CalendarDays, GitBranch, Trash2, Plus, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import client from "@/services/api/client";
 import { casesApi, tribunalsApi, companiesApi } from "@/services/api";
 import type { CaseDto, UploadData, ExtractedParty, CompanyDto } from "@/services/api/types";
@@ -27,6 +27,15 @@ const PARTY_ROLES = [
   "CreditorsCommittee", "SpecialAdministrator", "Guarantor", "ThirdParty",
 ];
 
+/** Strips the optional "RO" prefix from a CUI/CIF string, returning only the digits. */
+const stripRoPrefix = (v?: string | null): string => v?.replace(/^RO/i, "").trim() ?? "";
+
+/** Returns extra className tokens to visually highlight a field pre-filled by AI extraction. */
+const aiField = (value: string, isAiExtracted: boolean): string =>
+  isAiExtracted && value.trim() !== ""
+    ? " border-primary/40 bg-primary/5 focus:ring-primary/60"
+    : "";
+
 export default function DocumentReviewPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -41,8 +50,10 @@ export default function DocumentReviewPage() {
 
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [selectedCaseId, setSelectedCaseId] = useState<string>("");
   const [action, setAction] = useState<"newCase" | "filing">("newCase");
+  const [showExtractedSummary, setShowExtractedSummary] = useState(false);
 
   const [selectedTribunalId, setSelectedTribunalId] = useState<string>("");
   const [selectedDebtorCompanyId, setSelectedDebtorCompanyId] = useState<string>("");
@@ -64,6 +75,7 @@ export default function DocumentReviewPage() {
   useEffect(() => {
     if (!id) return;
 
+    setLoading(true);
     Promise.all([
       client.get<UploadData>(`/documents/upload/${id}`),
       casesApi.getAll(),
@@ -120,7 +132,11 @@ export default function DocumentReviewPage() {
       }
     }).catch(console.error)
       .finally(() => setLoading(false));
-  }, [id, prefillCaseId]);
+  }, [id, prefillCaseId, refreshKey]);
+
+  const handleReanalyze = useCallback(() => {
+    setRefreshKey(k => k + 1);
+  }, []);
 
   const handleSearchDebtorMatches = async () => {
     const query = debtorName.trim() || upload?.debtorName?.trim();
@@ -154,7 +170,7 @@ export default function DocumentReviewPage() {
 
       setSelectedDebtorCompanyId(res.data.id);
       setDebtorName(res.data.name);
-      setDebtorCui(res.data.cuiRo ?? "");
+      setDebtorCui(stripRoPrefix(res.data.cuiRo));
     } catch (err) {
       console.error("Create debtor failed", err);
     }
@@ -243,19 +259,25 @@ export default function DocumentReviewPage() {
 
   const inputCls = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
   const labelCls = "mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground";
+  const isAi = upload?.isAiExtracted ?? false;
 
   useEffect(() => {
     if (!selectedDebtor) return;
     setDebtorName(selectedDebtor.name ?? "");
-    setDebtorCui(selectedDebtor.cuiRo ?? "");
-  }, [selectedDebtor]);
+    // Prefer the company's stored CUI; fall back to the document-extracted CUI
+    // so the AI analysis result is never silently cleared when the company record
+    // has no CUI on file yet.
+    setDebtorCui(stripRoPrefix(selectedDebtor.cuiRo) || upload?.debtorCui || "");
+  }, [selectedDebtor, upload]);
 
   useEffect(() => {
     const tribunal = tribunals.find((x) => x.id === selectedTribunalId);
     if (!tribunal) return;
     setCourtName(tribunal.name ?? "");
-    setCourtSection(tribunal.section ?? "");
-  }, [selectedTribunalId, tribunals]);
+    // Prefer the tribunal record's section; fall back to the AI-extracted section
+    // so the document analysis result isn't cleared when the record has no section.
+    setCourtSection(tribunal.section || upload?.courtSection || "");
+  }, [selectedTribunalId, tribunals, upload]);
 
   if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   if (!upload) return <p className="p-8 text-muted-foreground">{t.common.noResults}</p>;
@@ -275,6 +297,10 @@ export default function DocumentReviewPage() {
             <h1 className="text-xl font-bold text-foreground">{t.docReview.title}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{t.docReview.subtitle}</p>
           </div>
+          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleReanalyze} disabled={loading}>
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            {loading ? t.common.loading ?? "Loading…" : "Re-analyze"}
+          </Button>
           <Badge variant={confidencePct >= 80 ? "success" : "warning"} className="text-xs">
             {confidencePct}% {t.docReview.confidence}
           </Badge>
@@ -322,6 +348,46 @@ export default function DocumentReviewPage() {
         </div>
       )}
 
+      {action === "filing" && (upload.debtorName || upload.openingDate || upload.judgeSyndic || (upload.parties?.length ?? 0) > 0) && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-primary"
+            onClick={() => setShowExtractedSummary(v => !v)}
+          >
+            <span className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" /> Extracted Document Data
+            </span>
+            {showExtractedSummary ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          </button>
+          {showExtractedSummary && (
+            <div className="mt-3 space-y-2 text-sm">
+              {upload.debtorName && <div className="flex justify-between"><span className="text-muted-foreground">Debtor</span><span className="font-medium">{upload.debtorName}{upload.debtorCui ? ` (CUI: ${upload.debtorCui})` : ""}</span></div>}
+              {upload.courtName && <div className="flex justify-between"><span className="text-muted-foreground">Court</span><span className="font-medium">{upload.courtName}{upload.courtSection ? ` — ${upload.courtSection}` : ""}</span></div>}
+              {upload.judgeSyndic && <div className="flex justify-between"><span className="text-muted-foreground">Judge Syndic</span><span className="font-medium">{upload.judgeSyndic}</span></div>}
+              {upload.registrar && <div className="flex justify-between"><span className="text-muted-foreground">Registrar</span><span className="font-medium">{upload.registrar}</span></div>}
+              {upload.openingDate && <div className="flex justify-between"><span className="text-muted-foreground">Opening Date</span><span className="font-medium">{upload.openingDate.split("T")[0]}</span></div>}
+              {upload.nextHearingDate && <div className="flex justify-between"><span className="text-muted-foreground">Next Hearing</span><span className="font-medium">{upload.nextHearingDate.split("T")[0]}</span></div>}
+              {upload.claimsDeadline && <div className="flex justify-between"><span className="text-muted-foreground">Claims Deadline</span><span className="font-medium">{upload.claimsDeadline.split("T")[0]}</span></div>}
+              {upload.contestationsDeadline && <div className="flex justify-between"><span className="text-muted-foreground">Contestations Deadline</span><span className="font-medium">{upload.contestationsDeadline.split("T")[0]}</span></div>}
+              {(upload.parties?.length ?? 0) > 0 && (
+                <div>
+                  <p className="text-muted-foreground mb-1">Parties ({upload.parties.length})</p>
+                  <div className="space-y-1">
+                    {upload.parties.map((p, i) => (
+                      <div key={i} className="flex justify-between text-xs">
+                        <Badge variant="secondary" className="text-[10px]">{p.role}</Badge>
+                        <span className="ml-2 font-medium truncate">{p.name}{p.fiscalId ? ` (${p.fiscalId})` : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {action === "newCase" && (
         <>
           <div className="grid gap-5 lg:grid-cols-2">
@@ -347,7 +413,7 @@ export default function DocumentReviewPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
                   <label className={labelCls}>{t.cases.caseNumber}</label>
-                  <input value={caseNumber} onChange={e => setCaseNumber(e.target.value)} className={inputCls} placeholder="1234/1285/2025" />
+                  <input value={caseNumber} onChange={e => setCaseNumber(e.target.value)} className={inputCls + aiField(caseNumber, isAi)} placeholder="1234/1285/2025" />
                 </div>
                 <div>
                   <label className={labelCls}>{t.cases.procedureType}</label>
@@ -378,12 +444,12 @@ export default function DocumentReviewPage() {
 
                 <div className="sm:col-span-2">
                   <label className={labelCls}>{t.cases.debtorName}</label>
-                  <input value={debtorName} onChange={e => setDebtorName(e.target.value)} className={inputCls} />
+                  <input value={debtorName} onChange={e => setDebtorName(e.target.value)} className={inputCls + aiField(debtorName, isAi)} />
                 </div>
 
                 <div>
                   <label className={labelCls}>{t.cases.debtorCui}</label>
-                  <input value={debtorCui} onChange={e => setDebtorCui(e.target.value)} className={inputCls} placeholder="e.g. 12345678" />
+                  <input value={debtorCui} onChange={e => setDebtorCui(stripRoPrefix(e.target.value))} className={inputCls + aiField(debtorCui, isAi)} placeholder="e.g. 12345678" />
                 </div>
 
                 <div className="sm:col-span-2 rounded-lg border border-border p-3 bg-muted/20 space-y-2">
@@ -407,19 +473,19 @@ export default function DocumentReviewPage() {
 
                 <div>
                   <label className={labelCls}>{t.cases.court}</label>
-                  <input value={courtName} onChange={e => setCourtName(e.target.value)} className={inputCls} />
+                  <input value={courtName} onChange={e => setCourtName(e.target.value)} className={inputCls + aiField(courtName, isAi)} />
                 </div>
                 <div>
                   <label className={labelCls}>{t.cases.courtSection}</label>
-                  <input value={courtSection} onChange={e => setCourtSection(e.target.value)} className={inputCls} />
+                  <input value={courtSection} onChange={e => setCourtSection(e.target.value)} className={inputCls + aiField(courtSection, isAi)} />
                 </div>
                 <div>
                   <label className={labelCls}>{t.cases.judgeSyndic}</label>
-                  <input value={judgeSyndic} onChange={e => setJudgeSyndic(e.target.value)} className={inputCls} />
+                  <input value={judgeSyndic} onChange={e => setJudgeSyndic(e.target.value)} className={inputCls + aiField(judgeSyndic, isAi)} />
                 </div>
                 <div>
                   <label className={labelCls}>{t.cases.registrar}</label>
-                  <input value={registrar} onChange={e => setRegistrar(e.target.value)} className={inputCls} />
+                  <input value={registrar} onChange={e => setRegistrar(e.target.value)} className={inputCls + aiField(registrar, isAi)} />
                 </div>
               </div>
             </div>
@@ -428,23 +494,26 @@ export default function DocumentReviewPage() {
           <div className="rounded-xl border border-border bg-card p-4">
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
               <CalendarDays className="h-3.5 w-3.5" /> {t.docReview.keyDates}
+              {isAi && (openingDate || nextHearingDate || claimsDeadline || contestationsDeadline) && (
+                <Badge variant="success" className="text-[9px] ml-1"><Sparkles className="h-2.5 w-2.5 mr-0.5 inline" />AI</Badge>
+              )}
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className={labelCls}>{t.cases.openingDate}</label>
-                <input type="date" value={openingDate} onChange={e => setOpeningDate(e.target.value)} className={inputCls} />
+                <input type="date" value={openingDate} onChange={e => setOpeningDate(e.target.value)} className={inputCls + aiField(openingDate, isAi)} />
               </div>
               <div>
                 <label className={labelCls}>{t.cases.nextHearing}</label>
-                <input type="date" value={nextHearingDate} onChange={e => setNextHearingDate(e.target.value)} className={inputCls} />
+                <input type="date" value={nextHearingDate} onChange={e => setNextHearingDate(e.target.value)} className={inputCls + aiField(nextHearingDate, isAi)} />
               </div>
               <div>
                 <label className={labelCls}>{t.cases.claimsDeadline}</label>
-                <input type="date" value={claimsDeadline} onChange={e => setClaimsDeadline(e.target.value)} className={inputCls} />
+                <input type="date" value={claimsDeadline} onChange={e => setClaimsDeadline(e.target.value)} className={inputCls + aiField(claimsDeadline, isAi)} />
               </div>
               <div>
                 <label className={labelCls}>{t.docReview.contestationsDeadline}</label>
-                <input type="date" value={contestationsDeadline} onChange={e => setContestationsDeadline(e.target.value)} className={inputCls} />
+                <input type="date" value={contestationsDeadline} onChange={e => setContestationsDeadline(e.target.value)} className={inputCls + aiField(contestationsDeadline, isAi)} />
               </div>
             </div>
           </div>
@@ -453,6 +522,9 @@ export default function DocumentReviewPage() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                 <Users className="h-3.5 w-3.5" /> {t.docReview.partiesTitle} ({parties.length})
+                {isAi && parties.length > 0 && (
+                  <Badge variant="success" className="text-[9px] ml-1"><Sparkles className="h-2.5 w-2.5 mr-0.5 inline" />AI</Badge>
+                )}
               </h2>
               <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5" onClick={addParty}>
                 <Plus className="h-3 w-3" /> {t.docReview.addParty}

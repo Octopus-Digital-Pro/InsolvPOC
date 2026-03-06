@@ -129,6 +129,9 @@ interface SelectedDebtor {
   companyId?: string;
 }
 
+/** Strips the optional "RO" prefix from a CUI/CIF string, returning only the digits. */
+const stripRoPrefix = (v?: string | null): string => v?.replace(/^RO/i, "").trim() ?? "";
+
 function DebtorSelector({
   companies,
   onSelect,
@@ -208,9 +211,9 @@ function DebtorSelector({
   };
 
   const selectExisting = (c: CompanyDto) => {
-    const sel: SelectedDebtor = { name: c.name, cui: c.cuiRo ?? "", source: "existing", companyId: c.id };
+    const sel: SelectedDebtor = { name: c.name, cui: stripRoPrefix(c.cuiRo), source: "existing", companyId: c.id };
     setSelected(sel);
-    onSelect(c.name, c.cuiRo ?? "", c.id);
+    onSelect(c.name, stripRoPrefix(c.cuiRo), c.id);
     setQuery(""); setOnrcResults([]); setLocalResults([]); setShowDropdown(false);
   };
 
@@ -490,7 +493,7 @@ export default function NewCasePage() {
               companies={companies}
               onSelect={(name, cui, cid) => {
                 setDebtorName(name);
-                setDebtorCui(cui);
+                setDebtorCui(stripRoPrefix(cui));
                 setCompanyId(cid ?? "");
               }}
             />
@@ -502,7 +505,7 @@ export default function NewCasePage() {
             </div>
             <div>
               <label className={labelCls}>Debtor CUI</label>
-              <input value={debtorCui} onChange={e => setDebtorCui(e.target.value)} className={inputCls} placeholder="e.g. RO12345678" />
+              <input value={debtorCui} onChange={e => setDebtorCui(stripRoPrefix(e.target.value))} className={inputCls} placeholder="e.g. 12345678" />
             </div>
           </div>
         </div>

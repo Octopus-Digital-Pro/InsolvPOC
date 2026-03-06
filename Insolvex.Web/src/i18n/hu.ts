@@ -110,6 +110,7 @@ export const hu: Translations = {
     court: "Bíróság",
     courtSection: "Szekció",
     judgeSyndic: "Csődbíró",
+    registrar: "Bírósági ügyintéző",
     debtorName: "Adós Neve",
     debtorCui: "Adós CUI",
     procedureType: "Eljárás Típusa",

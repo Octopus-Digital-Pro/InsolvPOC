@@ -83,7 +83,8 @@ public class DocumentClassificationService
           ContestationsDeadline = aiResult.ContestationsDeadline ?? extractedDatesAi.ContestationsDeadline,
           JudgeSyndic          = aiResult.JudgeSyndic,
           CourtSection         = normalizedCourtAi.CourtSection,
-          DebtorCui            = aiResult.DebtorCui,
+          DebtorCui            = StripRoPrefix(aiResult.DebtorCui)
+                                 ?? StripRoPrefix(aiResult.Parties.FirstOrDefault(p => p.Role == "Debtor")?.FiscalId),
           Registrar            = aiResult.Registrar,
           IsAiExtracted        = true,
         };
@@ -253,6 +254,13 @@ public class DocumentClassificationService
   /// strips the optional "RO" prefix, returning only the digits.
   /// Never returns trade registry numbers (J../../../..), EUID, or CNP (13 digits).
   /// </summary>
+  /// <summary>Strips the optional "RO" prefix from a CUI string, returning only the digits.</summary>
+  private static string? StripRoPrefix(string? cui)
+  {
+    if (string.IsNullOrWhiteSpace(cui)) return null;
+    return Regex.IsMatch(cui, @"^RO\d+$", RegexOptions.IgnoreCase) ? cui[2..] : cui;
+  }
+
   private static string? ExtractDebtorCui(string text)
   {
     // Priority 1: Explicit CIF/CUI label — capture optional "RO" prefix together with digits
@@ -271,8 +279,8 @@ public class DocumentClassificationService
         // Exclude CNP (exactly 13 digits starting with 1-9)
         if (digits.Length == 13 && Regex.IsMatch(digits, @"^[1-9]"))
           continue;
-        var roPrefix = m.Groups[1].Value.Trim();
-        return string.IsNullOrEmpty(roPrefix) ? digits : $"RO{digits}";
+        // Always return digits only — no RO prefix in the CUI field
+        return digits;
       }
     }
 
@@ -282,7 +290,7 @@ public class DocumentClassificationService
     {
       var digits = roVatMatch.Groups[2].Value;
       if (digits.Length != 13)
-        return $"RO{digits}";
+        return digits;
     }
 
     return null;
@@ -466,21 +474,36 @@ public class DocumentClassificationService
 
   private static string? ExtractDebtorName(string text)
   {
-    // Try "SC ... SRL/SA" pattern
-    var match = Regex.Match(text,
-     @"(?:SC|S\.C\.?)\s+(.+?)\s+(?:SRL|S\.R\.L|SA|S\.A)",
-RegexOptions.IgnoreCase);
-    if (match.Success)
-      return "SC " + match.Groups[1].Value.Trim() +
-   (text.ToLowerInvariant().Contains("srl") ? " SRL" : " SA");
+    // Supported legal-form suffixes for Romanian entities
+    const string legalForms = @"SRL-D|S\.R\.L\.-D|SRL|S\.R\.L\.?|SA|S\.A\.?|SNC|S\.N\.C\.?|SCS|S\.C\.S\.?|RA|R\.A\.?|REGIE AUTONOM[Ăă]|REGIE NATIONALA|SPRL|S\.P\.R\.L\.?|PFA|P\.F\.A\.?|\bII\b|\bIF\b";
 
-    // Try "Debitor:" / "Debitoare:" pattern
-    match = Regex.Match(text,
-        @"(?:debitor|debitoare)[:\s]+(.+?)(?:\n|,|;|CUI|$)",
-RegexOptions.IgnoreCase);
+    // Priority 1: explicit company prefix "SC ... SRL/SA/..." 
+    var match = Regex.Match(text,
+      $@"(?:SC|S\.C\.?)\s+(.+?)\s+({legalForms})",
+      RegexOptions.IgnoreCase);
     if (match.Success)
     {
-      var name = match.Groups[1].Value.Trim();
+      var suffix = match.Groups[2].Value.Trim().ToUpper().Replace(".", "");
+      return "SC " + match.Groups[1].Value.Trim() + " " + suffix;
+    }
+
+    // Priority 2: bare company name ending with legal-form suffix
+    match = Regex.Match(text,
+      $@"([A-ZĂÂÎȘȚŞŢ][A-ZĂÂÎȘȚŞŢa-zăâîșțţ -]{{2,}}?)\s+({legalForms})(?:[^A-Za-z]|$)",
+      RegexOptions.IgnoreCase);
+    if (match.Success)
+    {
+      var suffix = match.Groups[2].Value.Trim().ToUpper().Replace(".", "");
+      return match.Groups[1].Value.Trim() + " " + suffix;
+    }
+
+    // Priority 3: explicit "Debitor:" / "Debitoare:" label — stop at newline, comma, CUI keyword
+    match = Regex.Match(text,
+      @"(?:debitor|debitoare)[:\s]+(.+?)(?:\r?\n|,|;|\bCUI\b|\bCIF\b|$)",
+      RegexOptions.IgnoreCase);
+    if (match.Success)
+    {
+      var name = match.Groups[1].Value.Trim().TrimEnd(',', ';', '.');
       if (name.Length >= 3) return name;
     }
 
@@ -630,20 +653,20 @@ RegexOptions.IgnoreCase);
       dates.ContestationsDeadline = dates.ClaimsDeadline.Value.AddDays(int.Parse(contestMatch.Groups[1].Value));
     }
 
-    // Judge sindic — match "JUDECĂTOR SINDIC" / "judecator sindic" (with or without diacritic)
-    // Capture the name that follows on the same line, stopping at end-of-line or a digit run (case number)
+    // Judge sindic — capture the personal name that follows on the SAME LINE
+    // Pattern: label + optional colon/space, then 1-4 name words (ALL_CAPS or Title_Case)
     var judgeMatch = Regex.Match(text,
-        @"judec[ăa]tor\s+sindic[:\s]*([^\r\n\d][^\r\n]{1,120})",
-        RegexOptions.IgnoreCase);
+      @"judec[ăa]tor\s*[-–]?\s*sindic[:\s,]+([^\r\n]{1,120})",
+      RegexOptions.IgnoreCase);
     if (judgeMatch.Success)
-      dates.JudgeSyndic = judgeMatch.Groups[1].Value.Trim().TrimEnd(',', ';', '.');
+      dates.JudgeSyndic = ExtractPersonNameFromRaw(judgeMatch.Groups[1].Value);
 
-    // Registrar (Grefier)
+    // Registrar (Grefier) — same approach
     var registrarMatch = Regex.Match(text,
-        @"grefier[:\s]*([^\r\n\d][^\r\n]{1,120})",
-        RegexOptions.IgnoreCase);
+      @"grefier(?:-Șef|-Sef|-sef)?[:\s,]+([^\r\n]{1,120})",
+      RegexOptions.IgnoreCase);
     if (registrarMatch.Success)
-      dates.Registrar = registrarMatch.Groups[1].Value.Trim().TrimEnd(',', ';', '.');
+      dates.Registrar = ExtractPersonNameFromRaw(registrarMatch.Groups[1].Value);
 
     // Court section — find "Secția" and capture only the descriptive name,
     // skipping any leading ordinal like "a II-a", "I", "II", etc.
@@ -657,6 +680,45 @@ RegexOptions.IgnoreCase);
       dates.CourtSection = sectionMatch.Groups[1].Value.Trim().TrimEnd(',', ';', '.', ' ');
 
     return dates;
+  }
+
+  /// <summary>
+  /// Given the raw text that follows a person-name label (e.g. "GREFIER: "),
+  /// extracts 1–4 contiguous name-tokens (ALL_CAPS or Title_Case Romanian words)
+  /// and returns them joined by spaces.  Returns null if nothing name-like is found.
+  /// Stops on the first digit, purely-lowercase word, or a known role/label keyword.
+  /// </summary>
+  private static string? ExtractPersonNameFromRaw(string raw)
+  {
+    if (string.IsNullOrWhiteSpace(raw)) return null;
+
+    // Known label words that signal the end of a name run (case-insensitive)
+    var stopWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+      "GREFIER", "GREFIER-ŞEF", "GREFIER-SEF",
+      "JUDECĂTOR", "JUDECATOR", "SINDIC",
+      "DOSAR", "NR", "TRIBUNALUL", "JUDECĂTORIA",
+      "CURTEA", "SECȚIA", "SECTIA",
+    };
+
+    // Accept ALL_CAPS (POP, POPESCU-IONESCU) or Title_Case (Pop, Popescu-Ionescu)
+    var nameToken = new Regex(
+      @"^[A-ZĂÂÎȘȚŞŢ]{2,}(?:-[A-ZĂÂÎȘȚŞŢ]{2,})*$" +
+      @"|^[A-ZĂÂÎȘȚŞŢ][a-zăâîșțţ]{1,}(?:-[A-ZĂÂÎȘȚŞŢ][a-zăâîșțţ]{1,})*$");
+
+    var words = new List<string>(4);
+    foreach (var tok in raw.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+    {
+      var word = tok.TrimEnd(':', ',', '.', ';');
+      if (string.IsNullOrEmpty(word)) continue;
+      // Stop at stop-words, digits, or lowercase-starting tokens
+      if (stopWords.Contains(word)) break;
+      if (char.IsDigit(word[0]) || char.IsLower(word[0])) break;
+      if (!nameToken.IsMatch(word)) break;
+      words.Add(word);
+      if (words.Count == 4) break;
+    }
+    return words.Count > 0 ? string.Join(" ", words) : null;
   }
 
   private static DateTime? ParseRomanianDate(string dateStr)
