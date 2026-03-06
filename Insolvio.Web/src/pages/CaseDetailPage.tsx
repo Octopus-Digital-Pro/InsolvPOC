@@ -25,6 +25,7 @@ import CaseTasksTab from "@/components/CaseTasksTab";
 import CaseEmailsTab from "@/components/CaseEmailsTab";
 import CaseWorkflowPanel from "@/components/CaseWorkflowPanel";
 import CaseAssetsTab from "@/components/CaseAssetsTab";
+import CaseClaimsTab from "@/components/CaseClaimsTab";
 import TemplatePreviewModal from "@/components/TemplatePreviewModal";
 import EmailComposeModal from "@/components/EmailComposeModal";
 import { CloseCaseModal } from "@/components/CloseCaseModal";
@@ -34,7 +35,7 @@ import {
   Loader2, FileText, Upload, Users,
   Brain, CalendarDays, RefreshCw, Layers,
   ListChecks, Mail, Download, FileOutput,
-  History, Plus, Search, X, Building2, Package, Eye, Trash2, Lock, ClipboardList, Bot,
+  History, Plus, Search, X, Building2, Package, Eye, Trash2, Lock, ClipboardList, Bot, Receipt,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -71,7 +72,7 @@ export default function CaseDetailPage() {
   const [reopening, setReopening] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "workflow" | "tasks" | "docs" | "parties" | "assets" | "emails" | "calendar" | "templates" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "workflow" | "tasks" | "docs" | "parties" | "claims" | "assets" | "emails" | "calendar" | "templates" | "activity">("overview");
   const [aiStatus, setAiStatus] = useState<AiEnabledStatus | null>(null);
   const [caseTasks, setCaseTasks] = useState<TaskDto[]>([]);
   const [caseEmails, setCaseEmails] = useState<CaseEmailDto[]>([]);
@@ -408,6 +409,7 @@ export default function CaseDetailPage() {
               { id: "tasks" as const, label: `Tasks (${caseTasks.length})`, icon: ListChecks },
               { id: "docs" as const, label: t.cases.documents, icon: FileText },
               { id: "parties" as const, label: "Parties", icon: Users },
+              { id: "claims" as const, label: "Claims", icon: Receipt },
               { id: "assets" as const, label: "Assets", icon: Package },
               { id: "emails" as const, label: `Emails (${caseEmails.length})`, icon: Mail },
               { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
@@ -585,6 +587,11 @@ export default function CaseDetailPage() {
     )}
               </div>
             </div>
+          )}
+
+          {/* Claims Tab */}
+          {activeTab === "claims" && (
+            <CaseClaimsTab caseId={id!} parties={parties} readOnly={isClosed} />
           )}
 
           {/* Assets Tab */}

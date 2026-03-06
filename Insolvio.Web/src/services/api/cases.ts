@@ -46,6 +46,23 @@ export const casesApi = {
   deleteAsset: (caseId: string, assetId: string) =>
     client.delete(`/cases/${caseId}/assets/${assetId}`),
 
+  // Claims (Creditor Outlay)
+  getClaims: (caseId: string) =>
+    client.get<import("./types").CreditorClaimDto[]>(`/cases/${caseId}/claims`),
+
+  createClaim: (caseId: string, data: Record<string, unknown>) =>
+    client.post<import("./types").CreditorClaimDto>(`/cases/${caseId}/claims`, data),
+
+  updateClaim: (caseId: string, claimId: string, data: Record<string, unknown>) =>
+    client.put<import("./types").CreditorClaimDto>(`/cases/${caseId}/claims/${claimId}`, data),
+
+  deleteClaim: (caseId: string, claimId: string) =>
+    client.delete(`/cases/${caseId}/claims/${claimId}`),
+
+  // Individual party (for non-company creditors)
+  addIndividualParty: (caseId: string, data: Record<string, unknown>) =>
+    client.post<import("./types").CasePartyDto>(`/cases/${caseId}/parties/individual`, data),
+
   // Export helpers (use raw fetch with auth for file downloads)
   exportCsvUrl: "/cases/export-csv",
   downloadZipUrl: (caseId: string) => `/cases/${caseId}/documents/download-zip`,

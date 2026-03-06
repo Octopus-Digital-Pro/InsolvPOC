@@ -11,7 +11,7 @@ public class CaseParty : TenantScopedEntity
   public Guid CaseId { get; set; }
   public virtual InsolvencyCase? Case { get; set; }
 
-  public Guid CompanyId { get; set; }
+  public Guid? CompanyId { get; set; }
   public virtual Company? Company { get; set; }
 
   public CasePartyRole Role { get; set; }

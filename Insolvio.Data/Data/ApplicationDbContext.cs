@@ -163,8 +163,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
              e.Property(p => p.ClaimAmountRon).HasColumnType("decimal(18,2)");
              e.Property(p => p.Notes).HasMaxLength(2000);
              e.HasOne(p => p.Case).WithMany(c => c.Parties).HasForeignKey(p => p.CaseId).OnDelete(DeleteBehavior.Cascade);
-             e.HasOne(p => p.Company).WithMany(c => c.CaseParties).HasForeignKey(p => p.CompanyId).OnDelete(DeleteBehavior.Restrict);
-             e.HasIndex(p => new { p.CaseId, p.CompanyId, p.Role }).IsUnique();
+             e.HasOne(p => p.Company).WithMany(c => c.CaseParties).HasForeignKey(p => p.CompanyId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
+             e.HasIndex(p => new { p.CaseId, p.CompanyId, p.Role }).IsUnique().HasFilter("[CompanyId] IS NOT NULL");
            });
 
     // CompanyTask

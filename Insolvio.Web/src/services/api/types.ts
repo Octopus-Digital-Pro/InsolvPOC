@@ -98,7 +98,7 @@ export interface CaseDto {
 export interface CasePartyDto {
   id: string;
   caseId: string;
-  companyId: string;
+  companyId: string | null;
   companyName: string | null;
   email: string | null;
   role: string;
@@ -107,6 +107,26 @@ export interface CasePartyDto {
   claimAccepted: boolean | null;
   joinedDate: string | null;
   notes: string | null;
+  name: string | null;
+  identifier: string | null;
+}
+
+export interface CreditorClaimDto {
+  id: string;
+  caseId: string;
+  creditorPartyId: string;
+  creditorName: string;
+  creditorIdentifier: string | null;
+  creditorRole: string;
+  rowNumber: number;
+  declaredAmount: number;
+  admittedAmount: number | null;
+  rank: string;
+  natureDescription: string | null;
+  status: string;
+  receivedAt: string | null;
+  notes: string | null;
+  createdOn: string;
 }
 
 export interface AssetDto {

@@ -34,8 +34,8 @@ public sealed class CompanyService : ICompanyService
     var companyIds = companies.Select(c => c.Id).ToList();
 
     var caseNumbersByCompany = await _db.CaseParties
-      .Where(p => companyIds.Contains(p.CompanyId))
-      .Join(_db.InsolvencyCases, p => p.CaseId, c => c.Id, (p, c) => new { p.CompanyId, c.CaseNumber })
+      .Where(p => p.CompanyId.HasValue && companyIds.Contains(p.CompanyId!.Value))
+      .Join(_db.InsolvencyCases, p => p.CaseId, c => c.Id, (p, c) => new { CompanyId = p.CompanyId!.Value, c.CaseNumber })
       .GroupBy(x => x.CompanyId)
       .ToDictionaryAsync(
         g => g.Key,
@@ -67,8 +67,8 @@ public sealed class CompanyService : ICompanyService
 
     var companyIds = matched.Select(c => c.Id).ToList();
     var caseNumbersByCompany = await _db.CaseParties
-      .Where(p => companyIds.Contains(p.CompanyId))
-      .Join(_db.InsolvencyCases, p => p.CaseId, c => c.Id, (p, c) => new { p.CompanyId, c.CaseNumber })
+      .Where(p => p.CompanyId.HasValue && companyIds.Contains(p.CompanyId!.Value))
+      .Join(_db.InsolvencyCases, p => p.CaseId, c => c.Id, (p, c) => new { CompanyId = p.CompanyId!.Value, c.CaseNumber })
       .GroupBy(x => x.CompanyId)
       .ToDictionaryAsync(
         g => g.Key,

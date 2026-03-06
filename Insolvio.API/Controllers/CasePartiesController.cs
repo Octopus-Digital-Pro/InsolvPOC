@@ -34,6 +34,11 @@ public class CasePartiesController : ControllerBase
     public async Task<IActionResult> Create(Guid caseId, [FromBody] CreateCasePartyRequest req, CancellationToken ct)
         => Ok(await _parties.CreateAsync(caseId, req, ct));
 
+    [HttpPost("individual")]
+    [RequirePermission(Permission.PartyCreate)]
+    public async Task<IActionResult> CreateIndividual(Guid caseId, [FromBody] CreateIndividualPartyRequest req, CancellationToken ct)
+        => Ok(await _parties.CreateIndividualAsync(caseId, req, ct));
+
     [HttpPut("{id:guid}")]
     [RequirePermission(Permission.PartyEdit)]
     public async Task<IActionResult> Update(Guid caseId, Guid id, [FromBody] UpdateCasePartyRequest req, CancellationToken ct)

@@ -206,23 +206,14 @@ export type InsolvencyExtractionResult = {
   rawJson: string;
 };
 
+import client from "./api/client";
+
 export async function extractInsolvencyInfo(
   base64Images: string[],
 ): Promise<InsolvencyExtractionResult> {
-  const response = await fetch("/.netlify/functions/extract", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({images: base64Images}),
-  });
-
-  if (!response.ok) {
-    const err = await response
-      .json()
-      .catch(() => ({error: response.statusText}));
-    throw new Error(
-      (err as {error?: string}).error || `Server error ${response.status}`,
-    );
-  }
-
-  return (await response.json()) as InsolvencyExtractionResult;
+  const response = await client.post<InsolvencyExtractionResult>(
+    "/documents/ai-extract",
+    { images: base64Images },
+  );
+  return response.data;
 }

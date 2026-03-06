@@ -81,6 +81,32 @@ public sealed class CasePartyService : ICasePartyService
         return party.ToDto();
     }
 
+    public async Task<CasePartyDto> CreateIndividualAsync(Guid caseId, CreateIndividualPartyRequest request, CancellationToken ct = default)
+    {
+        var party = new CaseParty
+        {
+            Id = Guid.NewGuid(),
+            CaseId = caseId,
+            CompanyId = null,
+            Name = request.Name.Trim(),
+            Identifier = request.Identifier?.Trim(),
+            Email = request.Email?.Trim(),
+            Phone = request.Phone?.Trim(),
+            Address = request.Address?.Trim(),
+            Role = Enum.Parse<CasePartyRole>(request.Role, true),
+            RoleDescription = request.RoleDescription,
+            ClaimAmountRon = request.ClaimAmountRon,
+            Notes = request.Notes,
+        };
+
+        _db.CaseParties.Add(party);
+        await _db.SaveChangesAsync(ct);
+        await _audit.LogEntityAsync("Individual Party Added", "CaseParty", party.Id,
+            newValues: new { caseId, request.Name, role = request.Role });
+
+        return party.ToDto();
+    }
+
     public async Task DeleteAsync(Guid caseId, Guid partyId, CancellationToken ct = default)
     {
         var party = await _db.CaseParties

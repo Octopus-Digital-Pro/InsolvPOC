@@ -3,7 +3,7 @@ namespace Insolvio.Core.DTOs;
 public record CasePartyDto(
     Guid Id,
     Guid CaseId,
-    Guid CompanyId,
+    Guid? CompanyId,
     string? CompanyName,
     string? Email,
  string Role,
@@ -11,7 +11,9 @@ public record CasePartyDto(
     decimal? ClaimAmountRon,
     bool? ClaimAccepted,
     DateTime? JoinedDate,
-    string? Notes
+    string? Notes,
+    string? Name,
+    string? Identifier
 );
 
 /// <summary>CasePartyDto enriched with case-level info, used when querying all parties by company.</summary>
@@ -20,7 +22,7 @@ public record CompanyCasePartyDto(
     Guid CaseId,
     string? CaseNumber,
     string? DebtorName,
-    Guid CompanyId,
+    Guid? CompanyId,
     string? CompanyName,
     string Role,
     string? RoleDescription,
@@ -38,6 +40,18 @@ public record CreateCasePartyRequest(
     decimal? ClaimAmountRon,
     bool? ClaimAccepted,
   DateTime? JoinedDate,
+    string? Notes
+);
+
+public record CreateIndividualPartyRequest(
+    string Name,
+    string? Identifier,
+    string Role,
+    string? RoleDescription,
+    string? Email,
+    string? Phone,
+    string? Address,
+    decimal? ClaimAmountRon,
     string? Notes
 );
 

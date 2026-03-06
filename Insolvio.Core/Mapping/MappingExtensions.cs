@@ -189,13 +189,33 @@ log.Id,
  p.CaseId,
       p.CompanyId,
     p.Company?.Name,
-    p.Company?.Email,
+    p.Email ?? p.Company?.Email,
   p.Role.ToString(),
       p.RoleDescription,
   p.ClaimAmountRon,
     p.ClaimAccepted,
       p.JoinedDate,
-      p.Notes
+      p.Notes,
+      p.Name,
+      p.Identifier
+  );
+
+  public static CreditorClaimDto ToDto(this CreditorClaim c) => new(
+      c.Id,
+      c.CaseId,
+      c.CreditorPartyId,
+      c.CreditorParty?.Name ?? c.CreditorParty?.Company?.Name ?? "Unknown",
+      c.CreditorParty?.Identifier,
+      c.CreditorParty?.Role.ToString() ?? "",
+      c.RowNumber,
+      c.DeclaredAmount,
+      c.AdmittedAmount,
+      c.Rank,
+      c.NatureDescription,
+      c.Status,
+      c.ReceivedAt,
+      c.Notes,
+      c.CreatedOn
   );
 
   public static AssetDto ToDto(this Asset a) => new(

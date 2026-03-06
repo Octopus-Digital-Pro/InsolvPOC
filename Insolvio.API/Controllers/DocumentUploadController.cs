@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Insolvio.API.Authorization;
 using Insolvio.Core.Abstractions;
 using Insolvio.Core.Exceptions;
+using Insolvio.Core.Services;
 using Insolvio.Domain.Enums;
 
 namespace Insolvio.API.Controllers;
@@ -17,10 +18,14 @@ namespace Insolvio.API.Controllers;
 public class DocumentUploadController : ControllerBase
 {
     private readonly IDocumentUploadService _uploadService;
+    private readonly DocumentVisionExtractionService _visionExtraction;
 
-    public DocumentUploadController(IDocumentUploadService uploadService)
+    public DocumentUploadController(
+        IDocumentUploadService uploadService,
+        DocumentVisionExtractionService visionExtraction)
     {
         _uploadService = uploadService;
+        _visionExtraction = visionExtraction;
     }
 
     /// <summary>
@@ -98,6 +103,28 @@ public class DocumentUploadController : ControllerBase
         var result = await _uploadService.ConfirmUploadAsync(id, command, ct);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Run rich AI extraction on document page images using the tenant/global-configured AI provider.
+    /// Accepts base64 data URLs. Returns the full InsolvencyExtractionResult JSON.
+    /// </summary>
+    [HttpPost("ai-extract")]
+    [RequirePermission(Permission.DocumentUpload)]
+    [RequestSizeLimit(20_000_000)]
+    public async Task<IActionResult> AiExtract(
+        [FromBody] AiExtractRequest body,
+        CancellationToken ct)
+    {
+        if (body.Images is null || body.Images.Count == 0)
+            return BadRequest(new { message = "At least one image is required." });
+
+        var result = await _visionExtraction.ExtractFromImagesAsync(body.Images, ct);
+
+        if (result is null)
+            return StatusCode(503, new { message = "AI extraction is not available. Verify that AI is enabled and an API key is configured." });
+
+        return Content(result.Value.GetRawText(), "application/json");
+    }
 }
 
 // 📝 Request body (API contract only — no business logic) ────
@@ -126,3 +153,5 @@ public record ConfirmUploadPartyBody(
 string? FiscalId = null,
     decimal? ClaimAmount = null
 );
+
+public record AiExtractRequest(List<string> Images);
