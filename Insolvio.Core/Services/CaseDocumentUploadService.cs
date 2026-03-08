@@ -33,7 +33,7 @@ public sealed class CaseDocumentUploadService : ICaseDocumentUploadService
     private readonly IAuditService _audit;
     private readonly IFileStorageService _storage;
     private readonly IncomingDocumentProfileService _profiles;
-    private readonly AiDocumentAnalysisService _aiAnalysis;
+    private readonly IDocumentAiService _aiService;
     private readonly ILogger<CaseDocumentUploadService> _logger;
 
     public CaseDocumentUploadService(
@@ -42,7 +42,7 @@ public sealed class CaseDocumentUploadService : ICaseDocumentUploadService
         IAuditService audit,
         IFileStorageService storage,
         IncomingDocumentProfileService profiles,
-        AiDocumentAnalysisService aiAnalysis,
+        IDocumentAiService aiService,
         ILogger<CaseDocumentUploadService> logger)
     {
         _db = db;
@@ -50,7 +50,7 @@ public sealed class CaseDocumentUploadService : ICaseDocumentUploadService
         _audit = audit;
         _storage = storage;
         _profiles = profiles;
-        _aiAnalysis = aiAnalysis;
+        _aiService = aiService;
         _logger = logger;
     }
 
@@ -151,12 +151,12 @@ public sealed class CaseDocumentUploadService : ICaseDocumentUploadService
         }
 
         // 6. AI analysis
-        AiDocumentAnalysisService.AiAnalysisResult? aiResult = null;
+        AiDocumentTextResult? aiResult = null;
         if (!string.IsNullOrWhiteSpace(extractedText))
         {
             try
             {
-                aiResult = await _aiAnalysis.AnalyzeAsync(extractedText, fileName, annotationContext, ct);
+                aiResult = await _aiService.AnalyzeTextAsync(extractedText, fileName, annotationContext, ct);
             }
             catch (Exception ex)
             {
@@ -301,7 +301,7 @@ public sealed class CaseDocumentUploadService : ICaseDocumentUploadService
     }
 
     private static string BuildSummary(
-        AiDocumentAnalysisService.AiAnalysisResult ai, InsolvencyCase existingCase)
+        AiDocumentTextResult ai, InsolvencyCase existingCase)
     {
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(ai.DocType))    parts.Add($"Type: {ai.DocType}");

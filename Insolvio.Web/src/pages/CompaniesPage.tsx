@@ -5,15 +5,14 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import type { CompanyDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Building2, Plus, Landmark, Scale, DollarSign, Flag, MoreHorizontal, Download } from "lucide-react";
+import { Loader2, Building2, Plus, Landmark, DollarSign, Flag, MoreHorizontal, Download } from "lucide-react";
 import { downloadAuthFile } from "@/utils/downloadAuthFile";
 
-type CompanyTab = "all" | "Debtor" | "InsolvencyPractitioner" | "Creditor" | "Court" | "GovernmentAgency" | "Other";
+type CompanyTab = "all" | "Debtor" | "Creditor" | "Court" | "GovernmentAgency" | "Other";
 
 const TAB_CONFIG: { id: CompanyTab; icon: React.ElementType; color: string }[] = [
   { id: "all", icon: Building2, color: "" },
   { id: "Debtor", icon: Building2, color: "text-red-500" },
-  { id: "InsolvencyPractitioner", icon: Scale, color: "text-blue-500" },
   { id: "Creditor", icon: DollarSign, color: "text-amber-500" },
   { id: "Court", icon: Landmark, color: "text-purple-500" },
   { id: "GovernmentAgency", icon: Flag, color: "text-green-500" },
@@ -50,7 +49,6 @@ export default function CompaniesPage() {
   const typeBadgeVariant = (type: string | undefined): "default" | "destructive" | "success" | "secondary" | "warning" => {
     switch (type) {
       case "Debtor": return "destructive";
-      case "InsolvencyPractitioner": return "default";
       case "Creditor": return "warning";
       case "Court": return "secondary";
       default: return "secondary";

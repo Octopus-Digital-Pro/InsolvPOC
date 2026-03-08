@@ -21,18 +21,31 @@ public sealed class TenantService : ITenantService
 
     public async Task<List<TenantSummaryDto>> GetAllAsync(CancellationToken ct = default)
     {
-        var tenants = await _db.Tenants.IgnoreQueryFilters().ToListAsync(ct);
-        var result = new List<TenantSummaryDto>(tenants.Count);
-        foreach (var t in tenants)
-        {
-            var userCount = await _db.Users.IgnoreQueryFilters().CountAsync(u => u.TenantId == t.Id, ct);
-            var companyCount = await _db.Companies.IgnoreQueryFilters().CountAsync(c => c.TenantId == t.Id, ct);
-            var caseCount = await _db.InsolvencyCases.IgnoreQueryFilters().CountAsync(c => c.TenantId == t.Id, ct);
-            result.Add(new TenantSummaryDto(t.Id, t.Name, t.Domain, t.IsActive,
-                t.SubscriptionExpiry, t.PlanName, t.Region.ToString(),
-                userCount, companyCount, caseCount));
-        }
-        return result;
+        var tenants = await _db.Tenants.AsNoTracking().IgnoreQueryFilters().ToListAsync(ct);
+        if (tenants.Count == 0) return [];
+
+        // Run sequentially — DbContext does not support concurrent operations
+        var userCounts = await _db.Users.AsNoTracking().IgnoreQueryFilters()
+            .GroupBy(u => u.TenantId)
+            .Select(g => new { TenantId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Count, ct);
+
+        var companyCounts = await _db.Companies.AsNoTracking().IgnoreQueryFilters()
+            .GroupBy(c => c.TenantId)
+            .Select(g => new { TenantId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Count, ct);
+
+        var caseCounts = await _db.InsolvencyCases.AsNoTracking().IgnoreQueryFilters()
+            .GroupBy(c => c.TenantId)
+            .Select(g => new { TenantId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.TenantId, x => x.Count, ct);
+
+        return tenants.Select(t => new TenantSummaryDto(
+            t.Id, t.Name, t.Domain, t.IsActive,
+            t.SubscriptionExpiry, t.PlanName, t.Region.ToString(),
+            userCounts.GetValueOrDefault(t.Id, 0),
+            companyCounts.GetValueOrDefault(t.Id, 0),
+            caseCounts.GetValueOrDefault(t.Id, 0))).ToList();
     }
 
     public async Task<TenantDto> GetByIdAsync(Guid id, CancellationToken ct = default)

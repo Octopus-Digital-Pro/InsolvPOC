@@ -114,6 +114,8 @@ public class ConfirmUploadCommand
     public DateTime? NextHearingDate { get; init; }
     public DateTime? ClaimsDeadline { get; init; }
     public DateTime? ContestationsDeadline { get; init; }
+    public DateTime? DefinitiveTableDate { get; init; }
+    public DateTime? ReorganizationPlanDeadline { get; init; }
     public Guid? CompanyId { get; init; }
     public Guid? CaseId { get; init; }
     public List<ExtractedPartyResult>? Parties { get; init; }

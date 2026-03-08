@@ -101,6 +101,13 @@ public class CaseCreationService
     claimsDeadline ??= baselineDeadlines.GetValueOrDefault("claimDeadline");
     contestationsDeadline ??= baselineDeadlines.GetValueOrDefault("objectionDeadline");
 
+    // Merge confirmed/AI-extracted dates back into the deadline map so KeyDeadlinesJson reflects
+    // the actual case dates (not just the statutory baseline approximations).
+    baselineDeadlines["openingDate"] = openingDate;
+    if (claimsDeadline.HasValue) baselineDeadlines["claimDeadline"] = claimsDeadline.Value;
+    if (contestationsDeadline.HasValue) baselineDeadlines["objectionDeadline"] = contestationsDeadline.Value;
+    if (nextHearing.HasValue) baselineDeadlines["nextHearing"] = nextHearing.Value;
+
     // Step 3: Create the InsolvencyCase
     var newCase = new InsolvencyCase
     {
@@ -117,10 +124,10 @@ public class CaseCreationService
       Status = "Active",
       StatusChangedAt = DateTime.UtcNow,
       LawReference = "Legea 85/2014",
-      PractitionerName = parties.FirstOrDefault(p => p.Role == "InsolvencyPractitioner")?.Name,
+      // PractitionerName/Role/FiscalId come from the tenant profile, not from a case party.
+      // The insolvency practitioner IS the system user — not a separate party type.
       PractitionerRole = procedureType is ProcedureType.FalimentSimplificat or ProcedureType.Faliment
             ? "lichidator_judiciar" : "administrator_judiciar",
-      PractitionerFiscalId = parties.FirstOrDefault(p => p.Role == "InsolvencyPractitioner")?.FiscalId,
       CompanyId = debtorCompanyId,
       AssignedToUserId = userId,
       NoticeDate = noticeDate,
@@ -128,6 +135,8 @@ public class CaseCreationService
       NextHearingDate = nextHearing,
       ClaimsDeadline = claimsDeadline,
       ContestationsDeadline = contestationsDeadline,
+      DefinitiveTableDate = request.DefinitiveTableDate,
+      ReorganizationPlanDeadline = request.ReorganizationPlanDeadline,
       KeyDeadlinesJson = JsonSerializer.Serialize(baselineDeadlines),
     };
     _db.InsolvencyCases.Add(newCase);
@@ -195,6 +204,42 @@ public class CaseCreationService
     var emails = GenerateReminderEmails(newCase, tenantId ?? Guid.Empty,
  noticeDate, claimsDeadline, contestationsDeadline, nextHearing, email);
     _db.ScheduledEmails.AddRange(emails);
+
+    // Step 7b: Create CaseDeadline tracking records for the key confirmed dates.
+    // These surface on the case's Deadlines tab so users can track and mark each one complete.
+    var caseDeadlines = new List<CaseDeadline>();
+    caseDeadlines.Add(new CaseDeadline
+    {
+      Id = Guid.NewGuid(), TenantId = tenantId ?? Guid.Empty,
+      CaseId = newCase.Id, Label = "Data deschiderii procedurii",
+      DueDate = openingDate, RelativeTo = "caseCreation",
+      Notes = "Data deschiderii procedurii de insolventa.",
+    });
+    if (claimsDeadline.HasValue)
+      caseDeadlines.Add(new CaseDeadline
+      {
+        Id = Guid.NewGuid(), TenantId = tenantId ?? Guid.Empty,
+        CaseId = newCase.Id, Label = "Termen depunere creante",
+        DueDate = claimsDeadline.Value, RelativeTo = "caseCreation",
+        Notes = "Termenul limita pentru depunerea tabelului de creante.",
+      });
+    if (contestationsDeadline.HasValue)
+      caseDeadlines.Add(new CaseDeadline
+      {
+        Id = Guid.NewGuid(), TenantId = tenantId ?? Guid.Empty,
+        CaseId = newCase.Id, Label = "Termen contestatii",
+        DueDate = contestationsDeadline.Value, RelativeTo = "caseCreation",
+        Notes = "Termenul limita pentru contestarea tabelului de creante.",
+      });
+    if (nextHearing.HasValue)
+      caseDeadlines.Add(new CaseDeadline
+      {
+        Id = Guid.NewGuid(), TenantId = tenantId ?? Guid.Empty,
+        CaseId = newCase.Id, Label = "Prima sedinta de judecata",
+        DueDate = nextHearing.Value, RelativeTo = "caseCreation",
+        Notes = "Data primei sedinte de judecata.",
+      });
+    _db.CaseDeadlines.AddRange(caseDeadlines);
 
     await _db.SaveChangesAsync();
 
@@ -644,6 +689,8 @@ public class CaseCreationRequest
   public DateTime? NextHearingDate { get; set; }
   public DateTime? ClaimsDeadline { get; set; }
   public DateTime? ContestationsDeadline { get; set; }
+  public DateTime? DefinitiveTableDate { get; set; }
+  public DateTime? ReorganizationPlanDeadline { get; set; }
   public Guid? CompanyId { get; set; }
   public List<CaseCreationParty>? Parties { get; set; }
 }

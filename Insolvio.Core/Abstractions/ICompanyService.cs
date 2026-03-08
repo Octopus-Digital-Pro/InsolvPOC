@@ -8,7 +8,7 @@ namespace Insolvio.Core.Abstractions;
 /// </summary>
 public interface ICompanyService
 {
-    Task<List<CompanyDto>> GetAllAsync(CancellationToken ct = default);
+    Task<List<CompanyDto>> GetAllAsync(int page = 0, int pageSize = 200, CancellationToken ct = default);
     /// <summary>Search companies by name, CUI, or trade register number. Returns up to maxResults matches.</summary>
     Task<List<CompanyDto>> SearchAsync(string query, int maxResults = 10, CancellationToken ct = default);
     Task<CompanyDto?> GetByIdAsync(Guid id, CancellationToken ct = default);

@@ -36,6 +36,7 @@ import {
   Brain, CalendarDays, RefreshCw, Layers,
   ListChecks, Mail, Download, FileOutput,
   History, Plus, Search, X, Building2, Package, Eye, Trash2, Lock, ClipboardList, Bot, Receipt,
+  Pencil, Check,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -84,6 +85,9 @@ export default function CaseDetailPage() {
   const [removingPartyId, setRemovingPartyId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserDto[]>([]);
   const [assigningCase, setAssigningCase] = useState(false);
+  const [editingDates, setEditingDates] = useState(false);
+  const [savingDates, setSavingDates] = useState(false);
+  const [datesForm, setDatesForm] = useState({ openingDate: "", nextHearingDate: "", claimsDeadline: "", contestationsDeadline: "" });
   // Email compose state
   const [composeEmailOpen, setComposeEmailOpen] = useState(false);
   const [composeEmailInitialSubject, setComposeEmailInitialSubject] = useState("");
@@ -167,6 +171,17 @@ export default function CaseDetailPage() {
   }, [id]);
 
   useEffect(() => { load(); }, [id]);
+
+  // Sync the dates form whenever case data refreshes.
+  useEffect(() => {
+    if (!caseData) return;
+    setDatesForm({
+      openingDate: caseData.openingDate ? caseData.openingDate.split("T")[0] : "",
+      nextHearingDate: caseData.nextHearingDate ? caseData.nextHearingDate.split("T")[0] : "",
+      claimsDeadline: caseData.claimsDeadline ? caseData.claimsDeadline.split("T")[0] : "",
+      contestationsDeadline: caseData.contestationsDeadline ? caseData.contestationsDeadline.split("T")[0] : "",
+    });
+  }, [caseData]);
 
   useEffect(() => {
     usersApi.getAll().then(r => setUsers(r.data)).catch(console.error);
@@ -323,6 +338,70 @@ export default function CaseDetailPage() {
           {caseData.openingDate && <InfoRow label={t.cases.openingDate} value={format(new Date(caseData.openingDate), "dd MMM yyyy")} />}
           {caseData.nextHearingDate && <InfoRow label={t.cases.nextHearing} value={format(new Date(caseData.nextHearingDate), "dd MMM yyyy")} />}
           {caseData.claimsDeadline && <InfoRow label={t.cases.claimsDeadline} value={format(new Date(caseData.claimsDeadline), "dd MMM yyyy")} />}
+          {caseData.contestationsDeadline && <InfoRow label={t.cases.contestationsDeadline} value={format(new Date(caseData.contestationsDeadline), "dd MMM yyyy")} />}
+          {(isTenantAdmin || isGlobalAdmin) && !isClosed && (
+            editingDates ? (
+              <div className="col-span-full space-y-2 pt-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.cases.editKeyDates}</p>
+                {(["openingDate", "nextHearingDate", "claimsDeadline", "contestationsDeadline"] as const).map(field => {
+                  const labels: Record<string, string> = {
+                    openingDate: t.cases.openingDate,
+                    nextHearingDate: t.cases.nextHearing,
+                    claimsDeadline: t.cases.claimsDeadline,
+                    contestationsDeadline: t.cases.contestationsDeadline,
+                  };
+                  return (
+                    <div key={field} className="flex items-center gap-2">
+                      <label className="text-xs text-muted-foreground w-40 shrink-0">{labels[field]}</label>
+                      <input
+                        type="date"
+                        value={datesForm[field]}
+                        onChange={e => setDatesForm(prev => ({ ...prev, [field]: e.target.value }))}
+                        className="text-sm bg-transparent border-b border-dashed border-border/60 hover:border-primary/50 focus:outline-none focus:border-primary transition-colors"
+                      />
+                    </div>
+                  );
+                })}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs gap-1"
+                    disabled={savingDates}
+                    onClick={async () => {
+                      setSavingDates(true);
+                      try {
+                        const toDate = (s: string) => s ? new Date(s).toISOString() : null;
+                        await casesApi.update(id!, {
+                          openingDate: toDate(datesForm.openingDate) ?? undefined,
+                          nextHearingDate: toDate(datesForm.nextHearingDate) ?? undefined,
+                          claimsDeadline: toDate(datesForm.claimsDeadline) ?? undefined,
+                          contestationsDeadline: toDate(datesForm.contestationsDeadline) ?? undefined,
+                        } as Partial<CaseDto>);
+                        setEditingDates(false);
+                        load();
+                      } catch (err) { console.error(err); }
+                      finally { setSavingDates(false); }
+                    }}
+                  >
+                    {savingDates ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    Save
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-xs" onClick={() => setEditingDates(false)} disabled={savingDates}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setEditingDates(true)}
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors mt-1"
+              >
+                <Pencil className="h-3 w-3" />
+                {t.cases.editKeyDates}
+              </button>
+            )
+          )}
           <InfoRow label="BPI" value={caseData.bpiPublicationNo} />
           {caseData.openingDecisionNo && <InfoRow label="Opening Decision" value={caseData.openingDecisionNo} />}
         </div>
@@ -1200,7 +1279,6 @@ function TemplatesTab({ caseId, readOnly = false }: { caseId: string; readOnly?:
 /* ── Add Party Modal Component ─────────────────────────── */
 const PARTY_ROLES: { value: string; translationKey: keyof import("@/i18n/types").Translations["partyRoles"] }[] = [
   { value: "Debtor", translationKey: "debtor" },
-  { value: "InsolvencyPractitioner", translationKey: "insolvencyPractitioner" },
   { value: "SecuredCreditor", translationKey: "securedCreditor" },
   { value: "UnsecuredCreditor", translationKey: "unsecuredCreditor" },
   { value: "BudgetaryCreditor", translationKey: "budgetaryCreditor" },

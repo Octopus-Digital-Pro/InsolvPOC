@@ -5,8 +5,8 @@ export const authApi = {
   login: (data: LoginRequest) =>
     client.post<LoginResponse>("/auth/login", data),
 
-  getCurrentUser: () =>
-    client.get<UserDto>("/auth/me"),
+  getCurrentUser: (signal?: AbortSignal) =>
+    client.get<UserDto>("/auth/me", { signal }),
 
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     client.post("/auth/change-password", data),

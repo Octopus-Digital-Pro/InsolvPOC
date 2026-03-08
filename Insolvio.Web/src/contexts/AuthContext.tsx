@@ -19,26 +19,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
 const [loading, setLoading] = useState(true);
 
-  const checkAuth = useCallback(async () => {
+  const checkAuth = useCallback(async (signal?: AbortSignal) => {
     const token = localStorage.getItem("authToken");
     if (!token) {
       setLoading(false);
- return;
+      return;
     }
     try {
-      const res = await authApi.getCurrentUser();
-      setUser(res.data);
+      const res = await authApi.getCurrentUser(signal);
+      if (!signal?.aborted) setUser(res.data);
     } catch {
-      localStorage.removeItem("authToken");
-      setUser(null);
+      if (!signal?.aborted) {
+        localStorage.removeItem("authToken");
+        setUser(null);
+      }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-  checkAuth();
+    const controller = new AbortController();
+    checkAuth(controller.signal);
+    return () => controller.abort();
   }, [checkAuth]);
+
+  // Listen for 401 responses emitted by the axios interceptor so that
+  // expired-token redirects go through React Router instead of a hard reload.
+  useEffect(() => {
+    const handler = () => {
+      setUser(null);
+    };
+    window.addEventListener("auth:unauthorized", handler);
+    return () => window.removeEventListener("auth:unauthorized", handler);
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await authApi.login({ email, password });

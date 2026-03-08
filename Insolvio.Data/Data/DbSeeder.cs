@@ -663,7 +663,7 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
         SortOrder = 10,
         ApplicableProcedureTypes = ALL4,
         RequiredFieldsJson       = J("CaseNumber","DebtorName","CourtName","OpeningDate"),
-        RequiredPartyRolesJson   = J("Debtor","InsolvencyPractitioner"),
+        RequiredPartyRolesJson   = J("Debtor"),
         RequiredDocTypesJson     = "[]",
         OutputDocTypesJson       = J("NotificareCreditori","NotificareDebitor","NotificareBPI","NotificareORC","NotificareANAF"),
         OutputTasksJson          = T(
@@ -690,7 +690,7 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
         SortOrder = 20,
         ApplicableProcedureTypes = NO_FS,
         RequiredFieldsJson       = J("NoticeDate"),
-        RequiredPartyRolesJson   = J("Debtor","InsolvencyPractitioner"),
+        RequiredPartyRolesJson   = J("Debtor"),
         RequiredDocTypesJson     = "[]",
         OutputDocTypesJson       = "[]",
         OutputTasksJson          = T(
@@ -811,7 +811,7 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
         SortOrder = 70,
         ApplicableProcedureTypes = ALL4,
         RequiredFieldsJson       = "[]",
-        RequiredPartyRolesJson   = J("Debtor","InsolvencyPractitioner"),
+        RequiredPartyRolesJson   = J("Debtor"),
         RequiredDocTypesJson     = "[]",
         OutputDocTypesJson       = J("ConvocareAGC","ProcesVerbalAGC"),
         OutputTasksJson          = T(
@@ -864,7 +864,7 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
         SortOrder = 90,
         ApplicableProcedureTypes = REORG,
         RequiredFieldsJson       = J("ReorganizationPlanDeadline"),
-        RequiredPartyRolesJson   = J("Debtor","InsolvencyPractitioner"),
+        RequiredPartyRolesJson   = J("Debtor"),
         RequiredDocTypesJson     = J("TabelDefinitiv"),
         OutputDocTypesJson       = J("PlanReorganizare"),
         OutputTasksJson          = T(

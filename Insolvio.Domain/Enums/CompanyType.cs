@@ -8,9 +8,6 @@ public enum CompanyType
     /// <summary>Debtor / insolvent company being administered</summary>
     Debtor,
 
-    /// <summary>Insolvency practitioner firm (IPURL / SPRL / cabinet individual)</summary>
-    InsolvencyPractitioner,
-
     /// <summary>Creditor company</summary>
     Creditor,
 

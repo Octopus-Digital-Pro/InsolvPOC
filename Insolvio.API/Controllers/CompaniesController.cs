@@ -16,8 +16,11 @@ public class CompaniesController : ControllerBase
   public CompaniesController(ICompanyService companies) => _companies = companies;
 
   [HttpGet]
-  public async Task<IActionResult> GetAll(CancellationToken ct)
-      => Ok(await _companies.GetAllAsync(ct));
+  public async Task<IActionResult> GetAll(
+      [FromQuery] int page = 0,
+      [FromQuery] int pageSize = 200,
+      CancellationToken ct = default)
+      => Ok(await _companies.GetAllAsync(page, Math.Min(pageSize, 500), ct));
 
   /// <summary>Search companies by name, CUI, or trade register number.</summary>
   [HttpGet("search")]

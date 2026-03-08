@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { casesApi, companiesApi } from "@/services/api";
 import { tribunalsApi } from "@/services/api/authorities";
 import type { AuthorityRecord } from "@/services/api/authorities";
+import { deadlineSettingsApi } from "@/services/api/deadlineSettings";
 import { onrcApi } from "@/services/api/onrc";
 import type { ONRCFirmResult } from "@/services/api/onrc";
 import type { CompanyDto } from "@/services/api/types";
@@ -382,6 +383,20 @@ export default function NewCasePage() {
     companiesApi.getAll().then(r => setCompanies(r.data)).catch(console.error);
     tribunalsApi.getAll().then(r => setTribunals(r.data)).catch(console.error);
   }, []);
+
+  // Auto-populate deadline fields from noticeDate (or openingDate) when they are empty
+  useEffect(() => {
+    const dateToPreview = noticeDate || openingDate;
+    if (!dateToPreview) return;
+    deadlineSettingsApi.preview(dateToPreview)
+      .then(res => {
+        const d = res.data;
+        setClaimsDeadline(prev => prev || (d.claimDeadline?.split("T")[0] ?? ""));
+        setContestationsDeadline(prev => prev || (d.objectionDeadline?.split("T")[0] ?? ""));
+      })
+      .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noticeDate, openingDate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

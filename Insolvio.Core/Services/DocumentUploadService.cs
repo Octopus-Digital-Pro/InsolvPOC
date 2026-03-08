@@ -232,6 +232,8 @@ DocumentUploadRequest request, CancellationToken ct)
       NextHearingDate = command.NextHearingDate,
       ClaimsDeadline = command.ClaimsDeadline,
       ContestationsDeadline = command.ContestationsDeadline,
+      DefinitiveTableDate = command.DefinitiveTableDate,
+      ReorganizationPlanDeadline = command.ReorganizationPlanDeadline,
       CompanyId = command.CompanyId,
       Parties = parties,
     };

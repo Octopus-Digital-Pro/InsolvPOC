@@ -121,6 +121,8 @@ export const ro: Translations = {
     openingDate: "Data Deschiderii",
     nextHearing: "Următorul Termen",
     claimsDeadline: "Termen Creanțe",
+    contestationsDeadline: "Termen Contestații",
+    editKeyDates: "Editează date cheie",
     company: "Companie",
     assignedTo: "Alocat lui",
     documents: "Documente",
@@ -410,7 +412,6 @@ export const ro: Translations = {
   },
   partyRoles: {
     debtor: "Debitor",
-    insolvencyPractitioner: "Practician în Insolvență",
     securedCreditor: "Creditor Garantat",
     unsecuredCreditor: "Creditor Chirografar",
     budgetaryCreditor: "Creditor Bugetar",

@@ -34,7 +34,10 @@ client.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("authToken");
-      window.location.href = "/login";
+      // Dispatch a custom event so AuthContext can clear state and let
+      // React Router navigate to /login — avoids a full page reload which
+      // would wipe React state mid-login and cause a redirect loop.
+      window.dispatchEvent(new Event("auth:unauthorized"));
     }
     return Promise.reject(error);
   }

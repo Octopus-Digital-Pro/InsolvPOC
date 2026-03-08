@@ -132,6 +132,8 @@ export interface Translations {
     openingDate: string;
     nextHearing: string;
     claimsDeadline: string;
+    contestationsDeadline: string;
+    editKeyDates: string;
     company: string;
     assignedTo: string;
     documents: string;
@@ -168,7 +170,6 @@ export interface Translations {
   // Party roles
   partyRoles: {
     debtor: string;
-    insolvencyPractitioner: string;
     securedCreditor: string;
     unsecuredCreditor: string;
     budgetaryCreditor: string;

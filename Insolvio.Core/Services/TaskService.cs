@@ -28,10 +28,11 @@ public sealed class TaskService : ITaskService
         _caseEvents = caseEvents;
     }
 
-    public async Task<List<TaskDto>> GetAllAsync(Guid? companyId, bool? myTasks, CancellationToken ct)
+    public async Task<List<TaskDto>> GetAllAsync(Guid? companyId, bool? myTasks, int page, int pageSize, CancellationToken ct)
     {
         var tenantId = _currentUser.TenantId;
         var query = _db.CompanyTasks
+    .AsNoTracking()
     .Include(t => t.Company).Include(t => t.AssignedTo).Include(t => t.Case)
      .Where(t => tenantId == null || t.TenantId == tenantId);
 
@@ -39,7 +40,12 @@ public sealed class TaskService : ITaskService
         if (myTasks == true && _currentUser.UserId.HasValue)
             query = query.Where(t => t.AssignedToUserId == _currentUser.UserId);
 
-        return await query.OrderBy(t => t.Deadline).Select(t => t.ToDto()).ToListAsync(ct);
+        return await query
+            .OrderBy(t => t.Deadline)
+            .Skip(page * pageSize)
+            .Take(pageSize)
+            .Select(t => t.ToDto())
+            .ToListAsync(ct);
     }
 
     public async Task<TaskDto?> GetByIdAsync(Guid id, CancellationToken ct)

@@ -10,7 +10,7 @@ namespace Insolvio.Core.Abstractions;
 /// </summary>
 public interface ITaskService
 {
-    Task<List<TaskDto>> GetAllAsync(Guid? companyId = null, bool? myTasks = null, CancellationToken ct = default);
+    Task<List<TaskDto>> GetAllAsync(Guid? companyId = null, bool? myTasks = null, int page = 0, int pageSize = 200, CancellationToken ct = default);
     Task<TaskDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<TaskDto> CreateAsync(CreateTaskCommand command, CancellationToken ct = default);
     Task<TaskDto> UpdateAsync(Guid id, UpdateTaskCommand command, CancellationToken ct = default);

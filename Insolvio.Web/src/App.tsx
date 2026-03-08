@@ -183,14 +183,14 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <LanguageProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <BrowserRouter>
           <ErrorBoundary>
             <AppRoutes />
           </ErrorBoundary>
-        </LanguageProvider>
-      </BrowserRouter>
-    </AuthProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }

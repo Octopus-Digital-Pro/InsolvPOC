@@ -20,16 +20,16 @@ public class DocumentClassificationService
 {
   private readonly IApplicationDbContext _db;
   private readonly ICurrentUserService _currentUser;
-  private readonly AiDocumentAnalysisService? _aiAnalysis;
+  private readonly IDocumentAiService? _aiService;
 
   public DocumentClassificationService(
     IApplicationDbContext db,
     ICurrentUserService currentUser,
-    AiDocumentAnalysisService? aiAnalysis = null)
+    IDocumentAiService? aiService = null)
   {
     _db = db;
     _currentUser = currentUser;
-    _aiAnalysis = aiAnalysis;
+    _aiService = aiService;
   }
 
   public async Task<ClassificationResult> ClassifyAsync(string filePath, string originalFileName)
@@ -38,9 +38,24 @@ public class DocumentClassificationService
     var extractedText = await ExtractTextAsync(filePath, originalFileName);
 
     // Step 2: Try AI-powered extraction first (when AI is configured and enabled)
-    if (_aiAnalysis != null)
+    if (_aiService != null)
     {
-      var aiResult = await _aiAnalysis.AnalyzeAsync(extractedText, originalFileName);
+      // Load annotation context from the reference profile for this document type —
+      // this tells the AI exactly where each field appears in this document layout.
+      var heuristicType = MapDocTypeToProfileType(DetectDocType(originalFileName, extractedText));
+      string? annotationContext = null;
+      if (heuristicType is not null)
+      {
+        var refProfile = await _db.IncomingDocumentProfiles
+            .AsNoTracking()
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p => p.DocumentType == heuristicType
+                                   && p.AnnotationsJson != null);
+        if (refProfile?.AnnotationsJson is not null)
+          annotationContext = IncomingDocumentProfileService.BuildAnnotationSummary(refProfile.AnnotationsJson);
+      }
+
+      var aiResult = await _aiService.AnalyzeTextAsync(extractedText, originalFileName, annotationContext);
       if (aiResult != null)
       {
         var normalizedCourtAi = await NormalizeCourtAsync(aiResult.CourtName, aiResult.CourtSection);
@@ -57,8 +72,8 @@ public class DocumentClassificationService
 
         var partiesAi = aiResult.Parties.Select(p => new ClassificationExtractedParty
         {
-          Role    = p.Role,
-          Name    = p.Name,
+          Role     = p.Role,
+          Name     = p.Name,
           FiscalId = p.FiscalId,
         }).ToList();
 
@@ -441,6 +456,21 @@ public class DocumentClassificationService
     return sb.ToString();
   }
 
+  /// <summary>
+  /// Maps the short heuristic/AI doc-type string to the IncomingDocumentProfile.DocumentType
+  /// key stored in the DB (which matches the IncomingDocumentType values used by the frontend).
+  /// Returns null when no annotated profile is expected for that type.
+  /// </summary>
+  private static string? MapDocTypeToProfileType(string docType) => docType switch
+  {
+    "court_decision"  => "CourtOpeningDecision",
+    "bpi_publication" => "BpiPublication",
+    "notification"    => "CreditorNotification",
+    "claims_table"    => "CreditorClaim",
+    "report"          => "PractitionerReport",
+    _                 => null,
+  };
+
   private static string DetectDocType(string fileName, string text)
   {
     var lower = (fileName + " " + text).ToLowerInvariant();
@@ -569,18 +599,7 @@ public class DocumentClassificationService
       });
     }
 
-    // Insolvency practitioner
-    var practMatch = Regex.Match(text,
-@"(?:lichidator|administrator)\s+(?:judiciar)[:\s]*(.+?)(?:\n|,|;|CUI|RFO|$)",
-        RegexOptions.IgnoreCase);
-    if (practMatch.Success)
-    {
-      parties.Add(new ClassificationExtractedParty
-      {
-        Role = "InsolvencyPractitioner",
-        Name = practMatch.Groups[1].Value.Trim(),
-      });
-    }
+    // Note: "lichidator/administrator judiciar" is the system user (practitioner) — not extracted as a party.
 
     // Budgetary creditor (ANAF is almost always a party)
     if (text.Contains("ANAF", StringComparison.OrdinalIgnoreCase) ||

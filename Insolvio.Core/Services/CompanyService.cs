@@ -22,14 +22,17 @@ public sealed class CompanyService : ICompanyService
     _audit = audit;
   }
 
-  public async Task<List<CompanyDto>> GetAllAsync(CancellationToken ct)
+  public async Task<List<CompanyDto>> GetAllAsync(int page, int pageSize, CancellationToken ct)
   {
     var tenantId = _currentUser.TenantId;
-    var query = _db.Companies
-.Include(c => c.AssignedTo)
-.Where(c => tenantId == null || c.TenantId == tenantId);
-
-    var companies = await query.OrderBy(c => c.Name).ToListAsync(ct);
+    var companies = await _db.Companies
+      .AsNoTracking()
+      .Include(c => c.AssignedTo)
+      .Where(c => tenantId == null || c.TenantId == tenantId)
+      .OrderBy(c => c.Name)
+      .Skip(page * pageSize)
+      .Take(pageSize)
+      .ToListAsync(ct);
 
     var companyIds = companies.Select(c => c.Id).ToList();
 

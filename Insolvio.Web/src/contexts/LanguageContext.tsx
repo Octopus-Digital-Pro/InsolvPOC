@@ -44,6 +44,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export function useTranslation() {
   const ctx = useContext(LanguageContext);
-  if (!ctx) throw new Error("useTranslation must be used within LanguageProvider");
+  // Fallback to English if somehow rendered outside the provider (should not happen
+  // now that LanguageProvider is the outermost wrapper, but prevents a hard crash).
+  if (!ctx) return { locale: "en" as const, t: TRANSLATIONS["en"], setLocale: () => {} };
   return ctx;
 }

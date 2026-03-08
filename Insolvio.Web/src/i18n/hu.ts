@@ -121,6 +121,8 @@ export const hu: Translations = {
     openingDate: "Megnyitás Dátuma",
     nextHearing: "Következő Tárgyalás",
     claimsDeadline: "Követelések Határideje",
+    contestationsDeadline: "Kifogások Határideje",
+    editKeyDates: "Kulcsdátumok szerkesztése",
     company: "Cég",
     assignedTo: "Hozzárendelve",
     documents: "Dokumentumok",
@@ -412,7 +414,7 @@ searchPlaceholder: "Keresés műveletek, emailek, útvonalak...",
   },
   partyRoles: {
     debtor: "Adós",
-    insolvencyPractitioner: "Csődszakértő",
+
     securedCreditor: "Biztosított Hitelező",
     unsecuredCreditor: "Fedezetlen Hitelező",
     budgetaryCreditor: "Költségvetési Hitelező",

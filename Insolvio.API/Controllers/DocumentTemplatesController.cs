@@ -31,6 +31,7 @@ public class DocumentTemplatesController : ControllerBase
     private readonly IHtmlPdfService _htmlPdf;
     private readonly WordTemplateImportService _wordImport;
     private readonly IncomingDocumentProfileService _incomingProfiles;
+    private readonly IDocumentAiService _documentAi;
 
     public DocumentTemplatesController(
         ApplicationDbContext db,
@@ -39,7 +40,8 @@ public class DocumentTemplatesController : ControllerBase
         IFileStorageService storage,
         IHtmlPdfService htmlPdf,
         WordTemplateImportService wordImport,
-        IncomingDocumentProfileService incomingProfiles)
+        IncomingDocumentProfileService incomingProfiles,
+        IDocumentAiService documentAi)
     {
         _db = db;
         _currentUser = currentUser;
@@ -48,6 +50,7 @@ public class DocumentTemplatesController : ControllerBase
         _htmlPdf = htmlPdf;
         _wordImport = wordImport;
         _incomingProfiles = incomingProfiles;
+        _documentAi = documentAi;
     }
 
     // ── Word document import ──────────────────────────────────────────────────
@@ -691,16 +694,31 @@ public class DocumentTemplatesController : ControllerBase
     public async Task<IActionResult> GetIncomingAnnotations(string type, CancellationToken ct)
     {
         // Try DB first
-        var profile = await _incomingProfiles.GetProfileAsync(type, ct);
-        if (profile?.AnnotationsJson is not null)
+        try
         {
-            // Return in the shape the frontend expects: { annotations, notes }
-            return Ok(new
+            var profile = await _incomingProfiles.GetProfileAsync(type, ct);
+            if (profile?.AnnotationsJson is not null)
             {
-                annotations = System.Text.Json.JsonSerializer.Deserialize<object[]>(profile.AnnotationsJson)
-                              ?? Array.Empty<object>(),
-                notes = profile.AnnotationNotes,
-            });
+                IncomingAnnotationItem[] annotations;
+                try
+                {
+                    // Use case-insensitive deserialization to handle both old PascalCase
+                    // and new camelCase stored JSON.
+                    var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    annotations = System.Text.Json.JsonSerializer.Deserialize<IncomingAnnotationItem[]>(profile.AnnotationsJson, opts)
+                                  ?? Array.Empty<IncomingAnnotationItem>();
+                }
+                catch
+                {
+                    // Malformed or legacy JSON — return empty rather than 500
+                    annotations = Array.Empty<IncomingAnnotationItem>();
+                }
+                return Ok(new { annotations, notes = profile.AnnotationNotes });
+            }
+        }
+        catch
+        {
+            // DB unavailable — fall through to storage
         }
 
         // Fall back to storage JSON file (legacy path)
@@ -731,8 +749,10 @@ public class DocumentTemplatesController : ControllerBase
         using var ms = new MemoryStream(bytes);
         await _storage.UploadAsync(storageKey, ms, "application/json", ct);
 
-        // Persist annotations array to DB (for matching queries)
-        var annotationsJson = System.Text.Json.JsonSerializer.Serialize(req.Annotations);
+        // Persist annotations array to DB — serialize with camelCase so the GET endpoint
+        // returns keys that match the TypeScript IncomingAnnotationItem interface.
+        var camelCase = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+        var annotationsJson = System.Text.Json.JsonSerializer.Serialize(req.Annotations, camelCase);
         await _incomingProfiles.SaveAnnotationsAsync(type, annotationsJson, req.Notes, ct);
 
         return Ok(new { message = "Annotations saved." });
@@ -803,6 +823,25 @@ public class DocumentTemplatesController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Ask AI to locate verbatim text for each annotatable field within the supplied
+    /// extracted document text. Returns a map of fieldName → exact verbatim substring.
+    /// </summary>
+    [HttpPost("incoming-reference/{type}/suggest-annotations")]
+    [RequirePermission(Permission.TemplateManage)]
+    public async Task<IActionResult> SuggestAnnotations(
+        string type, [FromBody] SuggestAnnotationsRequest req, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.ExtractedText))
+            return BadRequest(new { message = "ExtractedText is required." });
+
+        var suggestions = await _documentAi.SuggestAnnotationsAsync(req.ExtractedText, ct);
+        if (suggestions is null)
+            return Ok(new { suggestions = new Dictionary<string, string>(), aiConfigured = false });
+
+        return Ok(new { suggestions, aiConfigured = true });
+    }
+
     private static int CountAnnotations(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return 0;
@@ -824,17 +863,19 @@ public record RenderHtmlToPdfRequest(string Html, string? TemplateName);
 /// <summary>Save arbitrary HTML (already rendered and optionally signed) as a case document.</summary>
 public record SaveHtmlToCaseRequest(string Html, Guid CaseId, string TemplateName);
 
-/// <summary>A single annotated region on the reference PDF.</summary>
+/// <summary>A single text-selection annotation on the reference document.</summary>
 public record IncomingAnnotationItem(
     string Id,
     string Field,
     string Label,
-    double X,
-    double Y,
-    double W,
-    double H);
+    string SelectedText,
+    string ContextBefore,
+    string ContextAfter);
 
 /// <summary>Full set of annotations for one incoming document type reference.</summary>
 public record SaveIncomingAnnotationsRequest(
     IReadOnlyList<IncomingAnnotationItem> Annotations,
     string? Notes);
+
+/// <summary>Request body for the AI annotation suggestion endpoint.</summary>
+public record SuggestAnnotationsRequest(string ExtractedText);

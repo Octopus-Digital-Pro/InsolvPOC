@@ -17,8 +17,12 @@ public class CasesController : ControllerBase
   public CasesController(ICaseService cases) => _cases = cases;
 
   [HttpGet]
-  public async Task<IActionResult> GetAll([FromQuery] Guid? companyId, CancellationToken ct)
-      => Ok(await _cases.GetAllAsync(companyId, ct));
+  public async Task<IActionResult> GetAll(
+      [FromQuery] Guid? companyId,
+      [FromQuery] int page = 0,
+      [FromQuery] int pageSize = 200,
+      CancellationToken ct = default)
+      => Ok(await _cases.GetAllAsync(companyId, page, Math.Min(pageSize, 500), ct));
 
   [HttpGet("{id:guid}")]
   public async Task<IActionResult> GetById(Guid id, CancellationToken ct)

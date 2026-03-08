@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Insolvio.API.Authorization;
 using Insolvio.Core.Abstractions;
 using Insolvio.Core.Exceptions;
-using Insolvio.Core.Services;
 using Insolvio.Domain.Enums;
 
 namespace Insolvio.API.Controllers;
@@ -18,14 +17,14 @@ namespace Insolvio.API.Controllers;
 public class DocumentUploadController : ControllerBase
 {
     private readonly IDocumentUploadService _uploadService;
-    private readonly DocumentVisionExtractionService _visionExtraction;
+    private readonly IDocumentAiService _aiService;
 
     public DocumentUploadController(
         IDocumentUploadService uploadService,
-        DocumentVisionExtractionService visionExtraction)
+        IDocumentAiService aiService)
     {
         _uploadService = uploadService;
-        _visionExtraction = visionExtraction;
+        _aiService = aiService;
     }
 
     /// <summary>
@@ -89,6 +88,8 @@ public class DocumentUploadController : ControllerBase
             NextHearingDate = body.NextHearingDate,
             ClaimsDeadline = body.ClaimsDeadline,
             ContestationsDeadline = body.ContestationsDeadline,
+            DefinitiveTableDate = body.DefinitiveTableDate,
+            ReorganizationPlanDeadline = body.ReorganizationPlanDeadline,
             CompanyId = body.CompanyId,
             CaseId = body.CaseId,
             Parties = body.Parties?.Select(p => new ExtractedPartyResult
@@ -118,7 +119,7 @@ public class DocumentUploadController : ControllerBase
         if (body.Images is null || body.Images.Count == 0)
             return BadRequest(new { message = "At least one image is required." });
 
-        var result = await _visionExtraction.ExtractFromImagesAsync(body.Images, ct);
+        var result = await _aiService.ExtractFromImagesAsync(body.Images, ct);
 
         if (result is null)
             return StatusCode(503, new { message = "AI extraction is not available. Verify that AI is enabled and an API key is configured." });
@@ -142,6 +143,8 @@ public record ConfirmUploadBody(
     DateTime? NextHearingDate = null,
     DateTime? ClaimsDeadline = null,
     DateTime? ContestationsDeadline = null,
+    DateTime? DefinitiveTableDate = null,
+    DateTime? ReorganizationPlanDeadline = null,
     Guid? CompanyId = null,
     Guid? CaseId = null,
     List<ConfirmUploadPartyBody>? Parties = null

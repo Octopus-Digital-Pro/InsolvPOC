@@ -103,10 +103,14 @@ export interface IncomingAnnotationItem {
   id: string;
   field: string;
   label: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  /** Exact text the user selected in the document. */
+  selectedText: string;
+  /** Text immediately before the selection (for identification context). */
+  contextBefore: string;
+  /** Text immediately after the selection (for identification context). */
+  contextAfter: string;
+  /** True when the annotation was pre-filled by AI and not yet manually confirmed. */
+  aiSuggested?: boolean;
 }
 
 export interface IncomingAnnotationsPayload {
@@ -448,6 +452,13 @@ export const documentTemplatesApi = {
   /** Trigger AI analysis: generates EN/RO/HU summaries + structured field parameters and saves to DB. */
   analyseIncomingDocument: (type: IncomingDocumentType) =>
     client.post<AiDocumentProfileResult>(`/document-templates/incoming-reference/${type}/analyse`),
+
+  /** Ask AI to locate verbatim text for each annotatable field within the extracted document text. */
+  suggestAnnotations: (type: IncomingDocumentType, extractedText: string) =>
+    client.post<{ suggestions: Record<string, string>; aiConfigured: boolean }>(
+      `/document-templates/incoming-reference/${type}/suggest-annotations`,
+      { extractedText },
+    ),
   /**
    * Convert arbitrary HTML (already rendered + optionally signed) to a PDF download.
    * Used after the user edits the preview-modal content.

@@ -30,10 +30,11 @@ public sealed class CaseService : ICaseService
           _caseCreation = caseCreation;
      }
 
-     public async Task<List<CaseDto>> GetAllAsync(Guid? companyId, CancellationToken ct)
+     public async Task<List<CaseDto>> GetAllAsync(Guid? companyId, int page, int pageSize, CancellationToken ct)
      {
           var tenantId = _currentUser.TenantId;
           var query = _db.InsolvencyCases
+          .AsNoTracking()
           .Include(c => c.Company)
      .Include(c => c.AssignedTo)
        .Where(c => tenantId == null || c.TenantId == tenantId);
@@ -41,7 +42,11 @@ public sealed class CaseService : ICaseService
           if (companyId.HasValue)
                query = query.Where(c => c.CompanyId == companyId);
 
-          var cases = await query.OrderByDescending(c => c.CreatedOn).ToListAsync(ct);
+          var cases = await query
+               .OrderByDescending(c => c.CreatedOn)
+               .Skip(page * pageSize)
+               .Take(pageSize)
+               .ToListAsync(ct);
 
           var caseIds = cases.Select(c => c.Id).ToList();
           var docCounts = await _db.InsolvencyDocuments

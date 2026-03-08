@@ -17,8 +17,13 @@ public class TasksController : ControllerBase
     public TasksController(ITaskService tasks) => _tasks = tasks;
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] Guid? companyId, [FromQuery] bool? myTasks, CancellationToken ct)
-        => Ok(await _tasks.GetAllAsync(companyId, myTasks, ct));
+    public async Task<IActionResult> GetAll(
+        [FromQuery] Guid? companyId,
+        [FromQuery] bool? myTasks,
+        [FromQuery] int page = 0,
+        [FromQuery] int pageSize = 200,
+        CancellationToken ct = default)
+        => Ok(await _tasks.GetAllAsync(companyId, myTasks, page, Math.Min(pageSize, 500), ct));
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)

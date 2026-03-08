@@ -8,7 +8,11 @@ public enum CasePartyRole
   /// <summary>Debtor / Insolvent company</summary>
   Debtor,
 
-  /// <summary>Insolvency practitioner (administrator judiciar / lichidator judiciar)</summary>
+  /// <summary>
+  /// Insolvency practitioner — the system user. Kept for backward DB compatibility only.
+  /// Do NOT assign new parties with this role; the practitioner is the logged-in tenant.
+  /// </summary>
+  [Obsolete("The insolvency practitioner is the system user/tenant. Do not use for new party records.")]
   InsolvencyPractitioner,
 
   /// <summary>Creditor with secured claims (creditor garantat)</summary>

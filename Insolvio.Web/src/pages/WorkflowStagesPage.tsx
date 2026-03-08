@@ -249,7 +249,6 @@ const REQUIRED_FIELDS_OPTIONS = [
 
 const PARTY_ROLE_OPTIONS = [
   { value: "Debtor", label: "Debtor" },
-  { value: "InsolvencyPractitioner", label: "InsolvencyPractitioner" },
   { value: "SecuredCreditor", label: "SecuredCreditor" },
   { value: "UnsecuredCreditor", label: "UnsecuredCreditor" },
   { value: "BudgetaryCreditor", label: "BudgetaryCreditor" },

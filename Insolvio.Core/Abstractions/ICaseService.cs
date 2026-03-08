@@ -9,8 +9,8 @@ namespace Insolvio.Core.Abstractions;
 /// </summary>
 public interface ICaseService
 {
-  /// <summary>List all cases, optionally filtered by linked company.</summary>
-  Task<List<CaseDto>> GetAllAsync(Guid? companyId = null, CancellationToken ct = default);
+  /// <summary>List all cases, optionally filtered by linked company. Results are paged.</summary>
+  Task<List<CaseDto>> GetAllAsync(Guid? companyId = null, int page = 0, int pageSize = 200, CancellationToken ct = default);
 
   /// <summary>Retrieve a single case with phases, documents, and parties.</summary>
   Task<CaseDto?> GetByIdAsync(Guid id, CancellationToken ct = default);

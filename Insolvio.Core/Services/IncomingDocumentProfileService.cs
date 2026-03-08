@@ -208,7 +208,7 @@ public sealed class IncomingDocumentProfileService
         => _db.IncomingDocumentProfiles
               .FirstOrDefaultAsync(p => p.DocumentType == documentType, ct);
 
-    private static string BuildAnnotationSummary(string? annotationsJson)
+    internal static string BuildAnnotationSummary(string? annotationsJson)
     {
         if (string.IsNullOrWhiteSpace(annotationsJson)) return "(no annotations saved yet)";
 
@@ -235,15 +235,19 @@ public sealed class IncomingDocumentProfileService
             var lines = new List<string>();
             foreach (var item in arrEl.EnumerateArray())
             {
-                var field = item.TryGetProperty("field", out var f) ? f.GetString() : null;
-                var label = item.TryGetProperty("label", out var l) ? l.GetString() : null;
-                var x     = item.TryGetProperty("x", out var xp) ? xp.GetDouble() : 0;
-                var y     = item.TryGetProperty("y", out var yp) ? yp.GetDouble() : 0;
-                var w     = item.TryGetProperty("w", out var wp) ? wp.GetDouble() : 0;
-                var h     = item.TryGetProperty("h", out var hp) ? hp.GetDouble() : 0;
+                var field        = item.TryGetProperty("field",         out var f)  ? f.GetString()  : null;
+                var label        = item.TryGetProperty("label",         out var l)  ? l.GetString()  : null;
+                var selectedText = item.TryGetProperty("selectedText",  out var st) ? st.GetString() : null;
+                var ctxBefore    = item.TryGetProperty("contextBefore", out var cb) ? cb.GetString() : null;
+                var ctxAfter     = item.TryGetProperty("contextAfter",  out var ca) ? ca.GetString() : null;
 
                 if (field is not null)
-                    lines.Add($"- {label ?? field}: position ({x:P0} from left, {y:P0} from top), size ({w:P0} wide, {h:P0} tall)");
+                {
+                    if (selectedText is not null)
+                        lines.Add($"- {label ?? field}: \"{selectedText}\" (context: …{ctxBefore}[{selectedText}]{ctxAfter}…)");
+                    else
+                        lines.Add($"- {label ?? field}: (no text captured)");
+                }
             }
 
             return lines.Count == 0

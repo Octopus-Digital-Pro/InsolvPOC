@@ -91,7 +91,6 @@ MockBehavior.Loose, db, storage.Object, Mock.Of<ILogger<TemplateGenerationServic
       Parties = new()
     {
        new() { Role = "Debtor", Name = "SC Test Debtor SRL", FiscalId = "RO12345" },
-      new() { Role = "InsolvencyPractitioner", Name = "Cabinet IP SRL", FiscalId = "RO99999" },
   },
     };
 
@@ -124,23 +123,20 @@ MockBehavior.Loose, db, storage.Object, Mock.Of<ILogger<TemplateGenerationServic
           {
           new() { Role = "Debtor", Name = "Debtor SRL", FiscalId = "RO111" },
     new() { Role = "SecuredCreditor", Name = "Creditor SA", FiscalId = "RO222" },
-     new() { Role = "InsolvencyPractitioner", Name = "IP Cabinet", FiscalId = "RO333" },
             },
     };
 
     var result = await svc.CreateFromUploadAsync(upload, request);
 
-    result.CompaniesCreated.Should().Be(3);
-    result.PartiesCreated.Should().Be(3);
+    result.CompaniesCreated.Should().Be(2);
+    result.PartiesCreated.Should().Be(2);
 
     var companies = db.Companies.ToList();
-    companies.Should().HaveCount(3);
+    companies.Should().HaveCount(2);
 
-    // CompanyType was removed — verify parties carry the correct roles instead
     var parties = db.CaseParties.Where(p => p.CaseId == result.CaseId).ToList();
     parties.Should().Contain(p => p.Role == CasePartyRole.Debtor);
     parties.Should().Contain(p => p.Role == CasePartyRole.SecuredCreditor);
-    parties.Should().Contain(p => p.Role == CasePartyRole.InsolvencyPractitioner);
   }
 
   [Fact]

@@ -7,6 +7,7 @@ import BackButton from "@/components/ui/BackButton";
 import { Loader2, FileText, Briefcase, FolderOpen, Sparkles, Users, CalendarDays, GitBranch, Trash2, Plus, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import client from "@/services/api/client";
 import { casesApi, tribunalsApi, companiesApi } from "@/services/api";
+import { deadlineSettingsApi } from "@/services/api/deadlineSettings";
 import type { CaseDto, UploadData, ExtractedParty, CompanyDto } from "@/services/api/types";
 import type { AuthorityRecord } from "@/services/api/authorities";
 
@@ -21,7 +22,7 @@ const PROCEDURE_TYPES = [
 ];
 
 const PARTY_ROLES = [
-  "Debtor", "InsolvencyPractitioner", "Court",
+  "Debtor", "Court",
   "SecuredCreditor", "UnsecuredCreditor", "BudgetaryCreditor",
   "EmployeeCreditor", "JudgeSyndic", "CourtExpert",
   "CreditorsCommittee", "SpecialAdministrator", "Guarantor", "ThirdParty",
@@ -70,6 +71,8 @@ export default function DocumentReviewPage() {
   const [nextHearingDate, setNextHearingDate] = useState("");
   const [claimsDeadline, setClaimsDeadline] = useState("");
   const [contestationsDeadline, setContestationsDeadline] = useState("");
+  const [definitiveTableDate, setDefinitiveTableDate] = useState("");
+  const [reorganizationPlanDeadline, setReorganizationPlanDeadline] = useState("");
   const [parties, setParties] = useState<ExtractedParty[]>([]);
 
   useEffect(() => {
@@ -103,10 +106,21 @@ export default function DocumentReviewPage() {
       setJudgeSyndic(u.judgeSyndic ?? "");
       setRegistrar(u.registrar ?? "");
       setProcedureType(u.procedureType ?? "Other");
-      setOpeningDate(u.openingDate ? u.openingDate.split("T")[0] : "");
-      setNextHearingDate(u.nextHearingDate ? u.nextHearingDate.split("T")[0] : "");
-      setClaimsDeadline(u.claimsDeadline ? u.claimsDeadline.split("T")[0] : "");
-      setContestationsDeadline(u.contestationsDeadline ? u.contestationsDeadline.split("T")[0] : "");
+
+      // Key dates: document extraction first, then fall back to matched/prefilled case's stored dates
+      const fallbackCaseId = u.matchedCaseId ?? (prefillCaseId ?? null);
+      const fallbackCase = fallbackCaseId
+        ? casesRes.data.find((c) => c.id === fallbackCaseId) ?? null
+        : null;
+      const pickDate = (docDate: string | null, caseDate: string | null | undefined): string =>
+        docDate ? docDate.split("T")[0] : (caseDate ? caseDate.split("T")[0] : "");
+
+      setOpeningDate(pickDate(u.openingDate, fallbackCase?.openingDate));
+      setNextHearingDate(pickDate(u.nextHearingDate, fallbackCase?.nextHearingDate));
+      setClaimsDeadline(pickDate(u.claimsDeadline, fallbackCase?.claimsDeadline));
+      setContestationsDeadline(pickDate(u.contestationsDeadline, fallbackCase?.contestationsDeadline));
+      setDefinitiveTableDate(pickDate(null, fallbackCase?.definitiveTableDate));
+      setReorganizationPlanDeadline(pickDate(null, fallbackCase?.reorganizationPlanDeadline));
       setParties(u.parties ?? []);
 
       if (u.matchedCaseId) setSelectedCaseId(u.matchedCaseId);
@@ -231,6 +245,8 @@ export default function DocumentReviewPage() {
         body.nextHearingDate = nextHearingDate || undefined;
         body.claimsDeadline = claimsDeadline || undefined;
         body.contestationsDeadline = contestationsDeadline || undefined;
+        body.definitiveTableDate = definitiveTableDate || undefined;
+        body.reorganizationPlanDeadline = reorganizationPlanDeadline || undefined;
         body.parties = parties;
         body.companyId = selectedDebtorCompanyId || undefined;
       } else {
@@ -260,6 +276,19 @@ export default function DocumentReviewPage() {
   const inputCls = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
   const labelCls = "mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground";
   const isAi = upload?.isAiExtracted ?? false;
+
+  // Auto-populate deadline fields from the opening date when they are empty
+  useEffect(() => {
+    if (!openingDate) return;
+    deadlineSettingsApi.preview(openingDate)
+      .then(res => {
+        const d = res.data;
+        setClaimsDeadline(prev => prev || (d.claimDeadline?.split("T")[0] ?? ""));
+        setContestationsDeadline(prev => prev || (d.objectionDeadline?.split("T")[0] ?? ""));
+      })
+      .catch(console.error);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openingDate]);
 
   useEffect(() => {
     if (!selectedDebtor) return;
@@ -498,7 +527,7 @@ export default function DocumentReviewPage() {
                 <Badge variant="success" className="text-[9px] ml-1"><Sparkles className="h-2.5 w-2.5 mr-0.5 inline" />AI</Badge>
               )}
             </h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className={labelCls}>{t.cases.openingDate}</label>
                 <input type="date" value={openingDate} onChange={e => setOpeningDate(e.target.value)} className={inputCls + aiField(openingDate, isAi)} />
@@ -514,6 +543,14 @@ export default function DocumentReviewPage() {
               <div>
                 <label className={labelCls}>{t.docReview.contestationsDeadline}</label>
                 <input type="date" value={contestationsDeadline} onChange={e => setContestationsDeadline(e.target.value)} className={inputCls + aiField(contestationsDeadline, isAi)} />
+              </div>
+              <div>
+                <label className={labelCls}>Definitive Table Date</label>
+                <input type="date" value={definitiveTableDate} onChange={e => setDefinitiveTableDate(e.target.value)} className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>Reorganization Plan Deadline</label>
+                <input type="date" value={reorganizationPlanDeadline} onChange={e => setReorganizationPlanDeadline(e.target.value)} className={inputCls} />
               </div>
             </div>
           </div>
@@ -569,7 +606,7 @@ export default function DocumentReviewPage() {
               <Badge variant="secondary">1 Case</Badge>
               <Badge variant="secondary">1 Document</Badge>
               <Badge variant="secondary">{parties.length} {parties.length === 1 ? "Party" : "Parties"}</Badge>
-              <Badge variant="secondary">{parties.filter(p => p.role === "Debtor" || p.role === "Court" || p.role === "BudgetaryCreditor" || p.role === "InsolvencyPractitioner").length > 0 ? t.docReview.companiesAutoCreated : t.docReview.noNewCompanies}</Badge>
+              <Badge variant="secondary">{parties.filter(p => p.role === "Debtor" || p.role === "Court" || p.role === "BudgetaryCreditor").length > 0 ? t.docReview.companiesAutoCreated : t.docReview.noNewCompanies}</Badge>
               <Badge variant="secondary">Workflow</Badge>
               <Badge variant="secondary">Tasks + reminders</Badge>
               <Badge variant="secondary">Scheduled emails</Badge>
