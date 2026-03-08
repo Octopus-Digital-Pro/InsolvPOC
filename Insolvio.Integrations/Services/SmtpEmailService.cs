@@ -29,8 +29,9 @@ public class SmtpEmailService : IEmailService
         _logger = logger;
     }
 
-    public async Task SendAsync(string to, string subject, string body, string? cc = null,
-        bool isHtml = true, CancellationToken ct = default)
+    public async Task<string?> SendAsync(string to, string subject, string body, string? cc = null,
+        bool isHtml = true, string? fromEmail = null, string? fromName = null,
+        string? replyTo = null, CancellationToken ct = default)
     {
         if (!_settings.Enabled)
         {
@@ -40,7 +41,7 @@ public class SmtpEmailService : IEmailService
 
         using var message = new MailMessage
         {
-            From = new MailAddress(_settings.FromEmail, _settings.FromName),
+            From = new MailAddress(fromEmail ?? _settings.FromEmail, fromName ?? _settings.FromName),
             Subject = subject,
             Body = body,
             IsBodyHtml = isHtml,
@@ -48,15 +49,21 @@ public class SmtpEmailService : IEmailService
         message.To.Add(new MailAddress(to));
         if (!string.IsNullOrWhiteSpace(cc))
             message.CC.Add(new MailAddress(cc));
+        if (!string.IsNullOrWhiteSpace(replyTo))
+            message.ReplyToList.Add(new MailAddress(replyTo));
 
         using var client = CreateClient();
         await client.SendMailAsync(message, ct);
         _logger.LogInformation("Email sent to {To}: {Subject}", to, subject);
+
+        // Return Message-ID if available (for thread tracking)
+        return message.Headers["Message-ID"];
     }
 
-    public async Task SendWithAttachmentsAsync(string to, string subject, string body,
+    public async Task<string?> SendWithAttachmentsAsync(string to, string subject, string body,
             IEnumerable<EmailAttachment> attachments, string? cc = null,
-            bool isHtml = true, CancellationToken ct = default)
+            bool isHtml = true, string? fromEmail = null, string? fromName = null,
+            string? replyTo = null, CancellationToken ct = default)
     {
         if (!_settings.Enabled)
         {
@@ -66,7 +73,7 @@ public class SmtpEmailService : IEmailService
 
         using var message = new MailMessage
         {
-            From = new MailAddress(_settings.FromEmail, _settings.FromName),
+            From = new MailAddress(fromEmail ?? _settings.FromEmail, fromName ?? _settings.FromName),
             Subject = subject,
             Body = body,
             IsBodyHtml = isHtml,
@@ -74,6 +81,8 @@ public class SmtpEmailService : IEmailService
         message.To.Add(new MailAddress(to));
         if (!string.IsNullOrWhiteSpace(cc))
             message.CC.Add(new MailAddress(cc));
+        if (!string.IsNullOrWhiteSpace(replyTo))
+            message.ReplyToList.Add(new MailAddress(replyTo));
 
         foreach (var att in attachments)
         {
@@ -85,6 +94,8 @@ public class SmtpEmailService : IEmailService
         await client.SendMailAsync(message, ct);
         _logger.LogInformation("Email with {Count} attachments sent to {To}: {Subject}",
                message.Attachments.Count, to, subject);
+
+        return message.Headers["Message-ID"];
     }
 
     public async Task<bool> IsHealthyAsync(CancellationToken ct = default)

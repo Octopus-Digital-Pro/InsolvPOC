@@ -232,6 +232,7 @@ export interface DashboardDto {
   totalCompanies: number;
   pendingTasks: number;
   overdueTasks: number;
+  unreadEmailCount: number;
   upcomingDeadlines: UpcomingDeadlineDto[];
   calendarEvents: CalendarEventDto[];
   recentTasks: TaskDto[];

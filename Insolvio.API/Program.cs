@@ -156,6 +156,11 @@ builder.Services.AddScoped<IAiConfigService, AiConfigService>();
 builder.Services.AddScoped<ITenantAiConfigService, TenantAiConfigService>();
 builder.Services.AddScoped<ICaseAiService, CaseAiService>();
 builder.Services.AddScoped<ICaseWorkflowService, CaseWorkflowService>();
+builder.Services.AddScoped<IAiFeedbackService, AiFeedbackService>();
+builder.Services.AddScoped<ITrainingService, TrainingService>();
+builder.Services.AddScoped<ICaseEmailAddressGenerator, CaseEmailAddressGenerator>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IInboundEmailProcessorService, InboundEmailProcessorService>();
 
 // Background services
 builder.Services.AddHostedService<Insolvio.API.BackgroundServices.DeadlineReminderService>();
@@ -165,6 +170,7 @@ builder.Services.AddHostedService<Insolvio.API.BackgroundServices.TemplateEnforc
 builder.Services.Configure<Insolvio.Integrations.Services.SmtpSettings>(builder.Configuration.GetSection("Smtp"));
 builder.Services.AddScoped<IEmailService, Insolvio.Integrations.Services.SmtpEmailService>();
 builder.Services.AddHostedService<Insolvio.API.BackgroundServices.EmailBackgroundService>();
+builder.Services.AddHostedService<Insolvio.API.BackgroundServices.InboundEmailPollingService>();
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();

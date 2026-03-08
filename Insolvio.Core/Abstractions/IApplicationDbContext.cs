@@ -50,6 +50,8 @@ public interface IApplicationDbContext
     DbSet<IncomingDocumentProfile> IncomingDocumentProfiles { get; }
     DbSet<TenantAiConfig> TenantAiConfigs { get; }
     DbSet<AiChatMessage> AiChatMessages { get; }
+    DbSet<AiCorrectionFeedback> AiCorrectionFeedbacks { get; }
+    DbSet<Notification> Notifications { get; }
 
     // ----- DbContext methods used by services -----
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

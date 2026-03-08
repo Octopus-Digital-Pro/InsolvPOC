@@ -64,4 +64,7 @@ public class ScheduledEmail : TenantScopedEntity
 
   /// <summary>Per-case email address (e.g. case-12345@insolvio.ro).</summary>
   public string? CaseEmailAddress { get; set; }
+
+  /// <summary>Whether this inbound email has been read by the assigned user.</summary>
+  public bool IsRead { get; set; }
 }

@@ -17,13 +17,15 @@ public class CaseEmailsController : ControllerBase
   private readonly IFileStorageService _storage;
   private readonly IAuditService _audit;
   private readonly ICurrentUserService _currentUser;
+  private readonly ITaskService _tasks;
 
-  public CaseEmailsController(ICaseEmailService emails, IFileStorageService storage, IAuditService audit, ICurrentUserService currentUser)
+  public CaseEmailsController(ICaseEmailService emails, IFileStorageService storage, IAuditService audit, ICurrentUserService currentUser, ITaskService tasks)
   {
     _emails = emails;
     _storage = storage;
     _audit = audit;
     _currentUser = currentUser;
+    _tasks = tasks;
   }
 
   [HttpGet]
@@ -113,6 +115,36 @@ public class CaseEmailsController : ControllerBase
     return Ok(new { message = "Email cancelled." });
   }
 
+  [HttpPut("{emailId:guid}/read")]
+  public async Task<IActionResult> MarkRead(Guid caseId, Guid emailId, CancellationToken ct)
+  {
+    await _emails.MarkReadAsync(caseId, emailId, ct);
+    return NoContent();
+  }
+
+  /// <summary>Create a follow-up task linked to this email.</summary>
+  [HttpPost("{emailId:guid}/create-task")]
+  [RequirePermission(Permission.TaskCreate)]
+  public async Task<IActionResult> CreateTaskFromEmail(
+    Guid caseId, Guid emailId, [FromBody] CreateTaskFromEmailBody body, CancellationToken ct)
+  {
+    var email = await _emails.GetByIdAsync(caseId, emailId, ct);
+    if (email is null) return NotFound();
+
+    var task = await _tasks.CreateForCaseAsync(caseId, new CreateTaskCommand
+    {
+      CompanyId = body.CompanyId,
+      CaseId = caseId,
+      Title = body.Title ?? $"Reply to: {email.Subject}",
+      Description = body.Description ?? $"Follow up on email from {email.FromName ?? email.To}. Subject: {email.Subject}",
+      Category = "EmailResponse",
+      Deadline = body.Deadline,
+      AssignedToUserId = body.AssignedToUserId,
+    }, ct);
+
+    return Ok(task);
+  }
+
   private static T? ParseJson<T>(string? json)
   {
     if (string.IsNullOrWhiteSpace(json)) return default;
@@ -139,3 +171,10 @@ public class ComposeEmailForm
   public string? AttachedDocumentIdsJson { get; set; }
   public List<IFormFile>? Files { get; set; }
 }
+
+public record CreateTaskFromEmailBody(
+  Guid CompanyId,
+  string? Title = null,
+  string? Description = null,
+  DateTime? Deadline = null,
+  Guid? AssignedToUserId = null);

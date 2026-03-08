@@ -6,13 +6,15 @@ namespace Insolvio.Core.Abstractions;
 public interface IEmailService
 {
     /// <summary>Send a single email.</summary>
-    Task SendAsync(string to, string subject, string body, string? cc = null,
-        bool isHtml = true, CancellationToken ct = default);
+    Task<string?> SendAsync(string to, string subject, string body, string? cc = null,
+        bool isHtml = true, string? fromEmail = null, string? fromName = null,
+        string? replyTo = null, CancellationToken ct = default);
 
     /// <summary>Send an email with attachments.</summary>
-    Task SendWithAttachmentsAsync(string to, string subject, string body,
+    Task<string?> SendWithAttachmentsAsync(string to, string subject, string body,
       IEnumerable<EmailAttachment> attachments, string? cc = null,
- bool isHtml = true, CancellationToken ct = default);
+ bool isHtml = true, string? fromEmail = null, string? fromName = null,
+      string? replyTo = null, CancellationToken ct = default);
 
     /// <summary>Check if the email service is configured and reachable.</summary>
     Task<bool> IsHealthyAsync(CancellationToken ct = default);

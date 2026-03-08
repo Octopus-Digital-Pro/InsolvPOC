@@ -56,19 +56,10 @@ Permission.SettingsView,
           Permission.ErrorLogView,
       // Dashboard
  Permission.DashboardView,
-   }),
-
-        [UserRole.Secretary] = new(new[]
-        {
-       // Cases — view + create (no delete)
-            Permission.CaseView, Permission.CaseCreate, Permission.CaseEdit, Permission.CaseExport,
-   // Parties — view + create
-         Permission.PartyView, Permission.PartyCreate, Permission.PartyEdit,
-     // Phases — view only
-            Permission.PhaseView,
-   Permission.StageView,
-     // Documents — view, upload, download (no delete)
-        Permission.DocumentView, Permission.DocumentUpload, Permission.DocumentDownload,
+            // AI Training & Feedback
+            Permission.TrainingView, Permission.TrainingManage, Permission.AiFeedbackCreate,
+            // Notifications
+            Permission.NotificationView,
             // Signing — can manage own keys and sign
          Permission.SigningKeyManage, Permission.DocumentSign, Permission.SignatureVerify,
     // Tasks — view + create + edit (no delete)
@@ -90,6 +81,10 @@ Permission.SettingsView,
             Permission.EmailView, Permission.EmailCreate,
           // Dashboard
   Permission.DashboardView,
+            // AI Training & Feedback — view + create feedback
+            Permission.TrainingView, Permission.AiFeedbackCreate,
+            // Notifications
+            Permission.NotificationView,
         }),
     };
 

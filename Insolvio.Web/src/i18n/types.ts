@@ -108,6 +108,9 @@ export interface Translations {
     recent: string;
     newCase: string;
     fileToCase: string;
+    unreadEmails: string;
+    recentInbound: string;
+    noInbound: string;
   };
 
   // Cases
@@ -869,5 +872,70 @@ export interface Translations {
     saved: string;
     saveError: string;
     selectTenant: string;
+  };
+  training: {
+    title: string;
+    description: string;
+    uploadDocument: string;
+    documentType: string;
+    documents: string;
+    annotations: string;
+    annotate: string;
+    approve: string;
+    approved: string;
+    pending: string;
+    status: string;
+    totalDocuments: string;
+    approvedDocuments: string;
+    pendingDocuments: string;
+    canStartTraining: string;
+    needMoreDocuments: string;
+    startTraining: string;
+    feedbackStats: string;
+    acceptanceRate: string;
+    totalCorrections: string;
+    fieldAccuracy: string;
+    accepted: string;
+    corrected: string;
+    noDocuments: string;
+    saveAnnotations: string;
+    annotationsSaved: string;
+    documentApproved: string;
+  };
+
+  // Email Settings
+  emailSettings: {
+    pageTitle: string;
+    pageDesc: string;
+    autoCcUser: string;
+    autoCcUserDesc: string;
+    inboundEnabled: string;
+    inboundEnabledDesc: string;
+    adminCcAddress: string;
+    adminCcAddressDesc: string;
+    adminCcAddressPlaceholder: string;
+    save: string;
+    saved: string;
+  };
+
+  // Notifications
+  notifications: {
+    title: string;
+    markAllRead: string;
+    noNotifications: string;
+    viewAll: string;
+    unreadCount: string;
+  };
+
+  // Case email
+  caseEmail: {
+    emailAddress: string;
+    copyTooltip: string;
+    copied: string;
+    sendEmail: string;
+    createTask: string;
+    markRead: string;
+    inboundEmail: string;
+    outboundEmail: string;
   };
 }

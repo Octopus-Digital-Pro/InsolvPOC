@@ -68,12 +68,18 @@ public class EmailBackgroundService : BackgroundService
 
             try
      {
-          await emailService.SendAsync(email.To, email.Subject, email.Body, email.Cc, ct: ct);
+          var messageId = await emailService.SendAsync(
+            email.To, email.Subject, email.Body, email.Cc, ct: ct,
+            fromEmail: email.CaseEmailAddress,
+            fromName: email.FromName,
+            replyTo: email.CaseEmailAddress);
 
     email.IsSent = true;
   email.SentAt = DateTime.UtcNow;
   email.Status = "Sent";
    email.ErrorMessage = null;
+  if (messageId is not null)
+    email.ProviderMessageId = messageId;
 
              _logger.LogInformation("Email {Id} sent to {To}: {Subject}", email.Id, email.To, email.Subject);
     }

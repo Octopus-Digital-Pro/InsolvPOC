@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   Briefcase, Building2, CheckCircle2, Clock, AlertTriangle,
   ChevronLeft, ChevronRight, CalendarDays, Loader2,
-  Upload, FileUp, FileText, Sparkles, Ban,
+  Upload, FileUp, FileText, Sparkles, Ban, Mail,
 } from "lucide-react";
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -277,12 +277,13 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-5">
    {/* Stats row */}
- <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+ <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
   <StatCard icon={Briefcase} label={t.dashboard.totalCases} value={data.totalCases} />
  <StatCard icon={CheckCircle2} label={t.dashboard.openCases} value={data.openCases} accent="bg-chart-2/15 text-chart-2" />
         <StatCard icon={Building2} label={t.dashboard.companies} value={data.totalCompanies} accent="bg-chart-3/15 text-chart-3" />
         <StatCard icon={Clock} label={t.dashboard.pendingTasks} value={data.pendingTasks} accent="bg-chart-4/15 text-chart-4" />
         <StatCard icon={AlertTriangle} label={t.dashboard.overdue} value={data.overdueTasks} accent="bg-destructive/10 text-destructive" />
+        <StatCard icon={Mail} label={t.dashboard.unreadEmails} value={data.unreadEmailCount} accent="bg-primary/10 text-primary" />
       </div>
 
       {/* Calendar (8 cols) + Upload Zone (4 cols) */}

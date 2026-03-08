@@ -23,6 +23,7 @@ import {
   type IncomingDocumentProfile,
   INCOMING_DOCUMENT_LABELS,
 } from "@/services/api/documentTemplatesApi";
+import { postCorrectionFeedback, computeCorrectionDiff } from "@/services/api/aiFeedbackApi";
 import { Button } from "@/components/ui/button";
 import {
   Loader2, Save, X, Trash2, CheckCircle2, Brain, Sparkles, RefreshCw,
@@ -169,6 +170,9 @@ export function PdfAnnotatorModal({
   const [suggestNoFields,        setSuggestNoFields]        = useState(false);
   // Incrementing this counter forces the auto-suggest effect to re-run (retry)
   const [suggestTrigger,         setSuggestTrigger]         = useState(0);
+
+  // Stores the initial AI-suggested annotation values for correction diffing
+  const aiSuggestionsRef = useRef<Record<string, string>>({});
 
   // â”€â”€ Render one page to the canvas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -318,6 +322,10 @@ export function PdfAnnotatorModal({
         }
         if (items.length > 0) {
           setAnnotations(items);
+          // Snapshot AI suggestions for later correction diffing
+          const snapshot: Record<string, string> = {};
+          for (const item of items) snapshot[item.field] = item.selectedText;
+          aiSuggestionsRef.current = snapshot;
         } else {
           setSuggestNoFields(true);
         }
@@ -443,6 +451,22 @@ export function PdfAnnotatorModal({
     try {
       const payload: IncomingAnnotationsPayload = { annotations, notes: notes || null };
       await documentTemplatesApi.saveIncomingAnnotations(type, payload);
+
+      // Post correction feedback if AI suggestions were captured
+      if (Object.keys(aiSuggestionsRef.current).length > 0) {
+        const userValues: Record<string, string> = {};
+        for (const a of annotations) userValues[a.field] = a.selectedText;
+        const diffs = computeCorrectionDiff(
+          aiSuggestionsRef.current,
+          userValues,
+          type,
+          "annotation_modal",
+        );
+        if (diffs.length > 0) {
+          postCorrectionFeedback(diffs).catch(() => {/* non-critical */});
+        }
+      }
+
       setSavedOk(true);
       setTimeout(() => setSavedOk(false), 3000);
       onSaved();

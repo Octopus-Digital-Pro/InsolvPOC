@@ -9,10 +9,12 @@ namespace Insolvio.Core.Abstractions;
 public interface ICaseEmailService
 {
   Task<List<EmailDto>> GetByCaseAsync(Guid caseId, string? status = null, bool? sentOnly = null, CancellationToken ct = default);
+  Task<EmailDto?> GetByIdAsync(Guid caseId, Guid emailId, CancellationToken ct = default);
   Task<CaseEmailSummaryResult> GetSummaryAsync(Guid caseId, CancellationToken ct = default);
   Task<EmailDto> ScheduleAsync(Guid caseId, ScheduleEmailCommand command, CancellationToken ct = default);
   Task<EmailDto> ComposeAsync(Guid caseId, ComposeEmailCommand command, CancellationToken ct = default);
   Task CancelAsync(Guid caseId, Guid emailId, CancellationToken ct = default);
+  Task MarkReadAsync(Guid caseId, Guid emailId, CancellationToken ct = default);
 }
 
 /// <summary>

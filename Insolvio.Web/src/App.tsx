@@ -34,6 +34,7 @@ import TenantAiConfigPage from "./pages/TenantAiConfigPage";
 import MyAiSettingsPage from "./pages/MyAiSettingsPage";
 import WorkflowStagesPage from "./pages/WorkflowStagesPage";
 import ReportsPage from "./pages/ReportsPage";
+import EmailSettingsPage from "./pages/EmailSettingsPage";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Loader2, Menu, X } from "lucide-react";
 
@@ -157,6 +158,7 @@ function AppRoutes() {
           <Route path="templates" element={<TemplateSettingsPage />} />
           <Route path="workflow-stages" element={<WorkflowStagesPage />} />
           <Route path="emails" element={<SettingsPage tab="emails" />} />
+          <Route path="email-preferences" element={<EmailSettingsPage />} />
           <Route path="errors" element={<SettingsPage tab="errors" />} />
           <Route
             path="permissions"

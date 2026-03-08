@@ -9,6 +9,7 @@ public record DashboardDto(
     int TotalCompanies,
     int PendingTasks,
     int OverdueTasks,
+    int UnreadEmailCount,
     List<UpcomingDeadlineDto> UpcomingDeadlines,
     List<DashboardCalendarItemDto> CalendarEvents,
     List<TaskDto> RecentTasks

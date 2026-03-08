@@ -37,4 +37,14 @@ public interface IFileStorageService
   /// Safe to call repeatedly — no-op if the folder already exists.
   /// </summary>
   Task EnsureFolderAsync(string folderPrefix, CancellationToken ct = default);
+
+  /// <summary>
+  /// Lists object keys matching the given prefix. Returns at most <paramref name="maxKeys"/> keys.
+  /// </summary>
+  Task<List<string>> ListKeysAsync(string prefix, int maxKeys = 100, CancellationToken ct = default);
+
+  /// <summary>
+  /// Moves (copies + deletes) an object from <paramref name="sourceKey"/> to <paramref name="destinationKey"/>.
+  /// </summary>
+  Task MoveAsync(string sourceKey, string destinationKey, CancellationToken ct = default);
 }

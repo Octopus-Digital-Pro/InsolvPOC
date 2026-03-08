@@ -122,6 +122,7 @@ export interface InsolvencyDocument {
 export interface InsolvencyCase {
   id: string;
   caseNumber: string;
+  caseEmailAddress?: string;
   courtName: string;
   debtorName: string;
   debtorCui: string;

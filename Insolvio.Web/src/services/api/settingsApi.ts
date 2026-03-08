@@ -19,7 +19,27 @@ export interface ClientErrorLogRequest {
   additionalContext?: string;
 }
 
+export interface SystemConfigItem {
+  key: string;
+  value: string;
+  description: string | null;
+  group: string | null;
+}
+
+export interface SystemConfigUpdateItem {
+  key: string;
+  value: string;
+  description?: string;
+  group?: string;
+}
+
 export const settingsApi = {
+  emailPreferences: {
+    get: () =>
+      client.get<SystemConfigItem[]>("/settings/email-preferences"),
+    update: (items: SystemConfigUpdateItem[]) =>
+      client.put("/settings/email-preferences", { items }),
+  },
   errors: {
     logClient: (data: ClientErrorLogRequest) =>
       client.post("/settings/errors/client", data),

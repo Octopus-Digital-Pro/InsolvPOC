@@ -6,6 +6,8 @@ public class InsolvencyCase : TenantScopedEntity
 {
     // ?? Case identification ??
     public string CaseNumber { get; set; } = string.Empty;
+    /// <summary>Per-case email address (e.g. abcsol-42@insolvio.io) for inbound/outbound mail</summary>
+    public string? CaseEmailAddress { get; set; }
     public string? CourtName { get; set; }
     public string? CourtSection { get; set; }
     public string? JudgeSyndic { get; set; }
@@ -63,6 +65,10 @@ public class InsolvencyCase : TenantScopedEntity
     public string? BpiPublicationNo { get; set; }
     /// <summary>Date of BPI publication</summary>
     public DateTime? BpiPublicationDate { get; set; }
+
+    // ?? AI extraction tracking ??
+    /// <summary>JSON snapshot of the AI-extracted values at case creation time (for correction diffing)</summary>
+    public string? AiExtractionSnapshotJson { get; set; }
 
     // ?? Additional references ??
     /// <summary>Court decision number that opened the procedure</summary>

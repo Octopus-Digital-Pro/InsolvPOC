@@ -55,6 +55,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
   public DbSet<IncomingDocumentProfile> IncomingDocumentProfiles => Set<IncomingDocumentProfile>();
   public DbSet<TenantAiConfig> TenantAiConfigs => Set<TenantAiConfig>();
   public DbSet<AiChatMessage> AiChatMessages => Set<AiChatMessage>();
+  public DbSet<AiCorrectionFeedback> AiCorrectionFeedbacks => Set<AiCorrectionFeedback>();
+  public DbSet<Notification> Notifications => Set<Notification>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -153,6 +155,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
            e.HasOne(c => c.Company).WithMany().HasForeignKey(c => c.CompanyId).OnDelete(DeleteBehavior.SetNull);
            e.HasOne(c => c.AssignedTo).WithMany(u => u.AssignedCases).HasForeignKey(c => c.AssignedToUserId).OnDelete(DeleteBehavior.SetNull);
            e.HasOne(c => c.Tenant).WithMany(t => t.Cases).HasForeignKey(c => c.TenantId).OnDelete(DeleteBehavior.Restrict);
+           e.Property(c => c.CaseEmailAddress).HasMaxLength(128);
+           e.HasIndex(c => c.CaseEmailAddress).IsUnique().HasFilter("[CaseEmailAddress] IS NOT NULL");
          });
 
     // CaseParty
@@ -258,6 +262,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             e.HasOne(s => s.Case).WithMany(ic => ic.Emails).HasForeignKey(s => s.CaseId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(s => new { s.IsSent, s.ScheduledFor });
             e.HasIndex(s => s.CaseId);
+            e.Property(s => s.CaseEmailAddress).HasMaxLength(128);
+            e.Property(s => s.IsRead).HasDefaultValue(false);
           });
 
     // SystemConfig
@@ -615,6 +621,35 @@ e.HasIndex(t => new { t.TenantId, t.Name });
       e.HasIndex(m => new { m.CaseId, m.CreatedAt });
       e.HasOne(m => m.Case).WithMany().HasForeignKey(m => m.CaseId).OnDelete(DeleteBehavior.Cascade);
       e.HasOne(m => m.User).WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.SetNull);
+    });
+
+    // AiCorrectionFeedback
+    modelBuilder.Entity<AiCorrectionFeedback>(e =>
+    {
+      e.HasKey(f => f.Id);
+      e.Property(f => f.DocumentType).HasMaxLength(128).IsRequired();
+      e.Property(f => f.FieldName).HasMaxLength(128).IsRequired();
+      e.Property(f => f.AiSuggestedValue).HasMaxLength(1000);
+      e.Property(f => f.UserCorrectedValue).HasMaxLength(1000);
+      e.Property(f => f.DocumentTextSnippet).HasMaxLength(500);
+      e.Property(f => f.TenantIdHash).HasMaxLength(64).IsRequired();
+      e.Property(f => f.Source).HasMaxLength(64).IsRequired();
+      e.HasIndex(f => f.TenantIdHash);
+      e.HasIndex(f => new { f.DocumentType, f.FieldName });
+      e.HasIndex(f => f.CorrectedAt);
+    });
+
+    // Notification
+    modelBuilder.Entity<Notification>(e =>
+    {
+      e.HasKey(n => n.Id);
+      e.Property(n => n.Title).HasMaxLength(512).IsRequired();
+      e.Property(n => n.Message).HasMaxLength(2000);
+      e.Property(n => n.Category).HasMaxLength(64).IsRequired();
+      e.Property(n => n.ActionUrl).HasMaxLength(1024);
+      e.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
+      e.HasIndex(n => new { n.UserId, n.IsRead });
+      e.HasIndex(n => n.CreatedOn);
     });
 
     // ----- Tenant query filters -----

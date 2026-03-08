@@ -31,6 +31,7 @@ public class CaseCreationService
   private readonly MailMergeService _mailMerge;
   private readonly IONRCFirmService _onrc;
   private readonly IFileStorageService _storage;
+  private readonly ICaseEmailAddressGenerator _emailGen;
   private readonly ILogger<CaseCreationService> _logger;
 
   public CaseCreationService(
@@ -41,6 +42,7 @@ public class CaseCreationService
       MailMergeService mailMerge,
       IONRCFirmService onrc,
       IFileStorageService storage,
+      ICaseEmailAddressGenerator emailGen,
       ILogger<CaseCreationService> logger)
   {
     _db = db;
@@ -50,6 +52,7 @@ public class CaseCreationService
     _mailMerge = mailMerge;
     _onrc = onrc;
     _storage = storage;
+    _emailGen = emailGen;
     _logger = logger;
   }
 
@@ -138,7 +141,29 @@ public class CaseCreationService
       DefinitiveTableDate = request.DefinitiveTableDate,
       ReorganizationPlanDeadline = request.ReorganizationPlanDeadline,
       KeyDeadlinesJson = JsonSerializer.Serialize(baselineDeadlines),
+      // Store AI extraction snapshot for later correction diffing (feedback loop)
+      AiExtractionSnapshotJson = JsonSerializer.Serialize(new
+      {
+        caseNumber = upload.DetectedCaseNumber,
+        debtorName = upload.DetectedDebtorName,
+        debtorCui = (string?)null, // CUI comes from parties, not direct detection
+        courtName = upload.DetectedCourtName,
+        courtSection = upload.DetectedCourtSection,
+        judgeSyndic = upload.DetectedJudgeSyndic,
+        registrar = upload.DetectedRegistrar,
+        procedureType = upload.DetectedProcedureType,
+        openingDate = upload.DetectedOpeningDate,
+        nextHearingDate = upload.DetectedNextHearingDate,
+        claimsDeadline = upload.DetectedClaimsDeadline,
+        contestationsDeadline = upload.DetectedContestationsDeadline,
+        parties = upload.DetectedPartiesJson,
+        confidence = upload.Confidence,
+      }),
     };
+
+    // Assign per-case email address
+    newCase.CaseEmailAddress = await _emailGen.GenerateAsync(debtorName, caseNumber);
+
     _db.InsolvencyCases.Add(newCase);
 
     // Step 4: Attach the uploaded document

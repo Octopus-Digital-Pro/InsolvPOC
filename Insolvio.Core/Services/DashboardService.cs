@@ -83,8 +83,14 @@ public sealed class DashboardService : IDashboardService
            .OrderBy(t => t.Deadline).Take(20)
         .ToListAsync(ct);
 
+        // Unread inbound email count
+        var unreadEmailCount = await _db.ScheduledEmails
+            .Where(e => (tenantId == null || e.TenantId == tenantId)
+                     && e.Direction == "Inbound" && !e.IsRead)
+            .CountAsync(ct);
+
         return new DashboardDto(totalCases, openCases, totalCompanies,
-       pendingTasks, overdueTasks, allDeadlines, calendarEvents,
+       pendingTasks, overdueTasks, unreadEmailCount, allDeadlines, calendarEvents,
     recentTasks.Select(t => t.ToDto()).ToList());
     }
 }

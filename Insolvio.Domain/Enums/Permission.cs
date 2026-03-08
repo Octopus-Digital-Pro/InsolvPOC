@@ -112,4 +112,12 @@ public enum Permission
 
   // 🔑 Tenant AI key (TenantAdmin self-service) 🔑
   TenantAiKeyEdit = 1010,
+
+  // 🧠 AI Training & Feedback 🧠
+  TrainingView = 1020,
+  TrainingManage = 1021,
+  AiFeedbackCreate = 1022,
+
+  // 🔔 Notifications 🔔
+  NotificationView = 1030,
 }

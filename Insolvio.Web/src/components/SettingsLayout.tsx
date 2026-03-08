@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "@/contexts/LanguageContext";
 import {
   ArrowLeft, Building2, Users, KeyRound,
   Mail, AlertCircle, ShieldCheck, Gavel, Receipt, MapPin,
-  RotateCcw, Database, Clock, FileText, Brain, Layers, Key,
+  RotateCcw, Database, Clock, FileText, Brain, Layers, Key, Menu, X,
 } from "lucide-react";
 
 interface SettingsNavItemProps {
@@ -31,16 +32,31 @@ function SettingsNavItem({ to, icon: Icon, label }: SettingsNavItemProps) {
 export default function SettingsLayout() {
 const { isGlobalAdmin, isTenantAdmin } = useAuth();
   const { t } = useTranslation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-full -m-4 md:-m-6">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Settings sidebar */}
-      <aside className="w-64 shrink-0 border-r border-border bg-card overflow-y-auto">
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-200 ease-in-out
+        md:relative md:translate-x-0 md:z-auto
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        shrink-0 border-r border-border bg-card overflow-y-auto
+      `}>
         {/* Back button */}
  <div className="px-3 py-4 border-b border-border">
      <Link
             to="/dashboard"
           className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          onClick={() => setSidebarOpen(false)}
    >
          <ArrowLeft className="h-4 w-4" />
             {t.settings.backToApp}
@@ -73,6 +89,7 @@ const { isGlobalAdmin, isTenantAdmin } = useAuth();
     {t.nav.admin}
           </div>
      <SettingsNavItem to="/settings/emails" icon={Mail} label={t.settings.scheduledEmails} />
+       <SettingsNavItem to="/settings/email-preferences" icon={Mail} label={t.emailSettings?.pageTitle ?? "Email Preferences"} />
        <SettingsNavItem to="/settings/errors" icon={AlertCircle} label={t.settings.errorLogs} />
       <SettingsNavItem to="/settings/permissions" icon={ShieldCheck} label={t.settings.permissions} />
           {isGlobalAdmin && (
@@ -91,8 +108,20 @@ const { isGlobalAdmin, isTenantAdmin } = useAuth();
       </aside>
 
       {/* Settings content */}
- <div className="flex-1 overflow-y-auto p-6">
-    <Outlet />
+ <div className="flex-1 overflow-y-auto">
+        {/* Mobile top bar for settings */}
+        <div className="flex items-center gap-2 border-b border-border bg-background px-4 py-2 md:hidden">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent"
+          >
+            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+          <span className="text-sm font-semibold text-foreground">{t.nav.settings}</span>
+        </div>
+        <div className="p-6">
+          <Outlet />
+        </div>
       </div>
     </div>
   );

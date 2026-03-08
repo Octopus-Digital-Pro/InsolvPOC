@@ -33,6 +33,27 @@ public sealed class CaseEmailService : ICaseEmailService
         return await query.OrderByDescending(e => e.ScheduledFor).Select(e => e.ToDto()).ToListAsync(ct);
     }
 
+    public async Task<EmailDto?> GetByIdAsync(Guid caseId, Guid emailId, CancellationToken ct)
+    {
+        var tenantId = _currentUser.TenantId;
+        return await _db.ScheduledEmails
+            .Where(e => e.Id == emailId && e.CaseId == caseId && (tenantId == null || e.TenantId == tenantId))
+            .Select(e => e.ToDto())
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task MarkReadAsync(Guid caseId, Guid emailId, CancellationToken ct)
+    {
+        var tenantId = _currentUser.TenantId;
+        var email = await _db.ScheduledEmails
+            .FirstOrDefaultAsync(e => e.Id == emailId && e.CaseId == caseId
+                && (tenantId == null || e.TenantId == tenantId), ct);
+        if (email is null) return;
+        email.IsRead = true;
+        email.LastModifiedOn = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
     public async Task<CaseEmailSummaryResult> GetSummaryAsync(Guid caseId, CancellationToken ct)
     {
         var tenantId = _currentUser.TenantId;
@@ -129,8 +150,9 @@ public sealed class CaseEmailService : ICaseEmailService
         var tenantId = _currentUser.TenantId
             ?? throw new BusinessException("Tenant context is required.");
 
-        if (!await _db.InsolvencyCases.AnyAsync(c => c.Id == caseId && c.TenantId == tenantId, ct))
-            throw new BusinessException("Case not found.");
+        var insolvencyCase = await _db.InsolvencyCases
+            .FirstOrDefaultAsync(c => c.Id == caseId && c.TenantId == tenantId, ct)
+            ?? throw new BusinessException("Case not found.");
 
         if (string.IsNullOrWhiteSpace(cmd.Subject))
             throw new BusinessException("Subject is required.");
@@ -168,13 +190,24 @@ public sealed class CaseEmailService : ICaseEmailService
             ? System.Text.Json.JsonSerializer.Serialize(cmd.AttachedDocumentIds)
             : null;
 
+        // Auto-CC: add current user's email if not already a recipient
+        var ccList = new List<string>();
+        if (!string.IsNullOrWhiteSpace(cmd.Cc))
+            ccList.AddRange(cmd.Cc.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        if (!string.IsNullOrWhiteSpace(_currentUser.Email) &&
+            !toAddresses.Contains(_currentUser.Email, StringComparer.OrdinalIgnoreCase) &&
+            !ccList.Contains(_currentUser.Email, StringComparer.OrdinalIgnoreCase))
+        {
+            ccList.Add(_currentUser.Email);
+        }
+
         var email = new ScheduledEmail
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             CaseId = caseId,
             To = string.Join(", ", toAddresses),
-            Cc = cmd.Cc,
+            Cc = ccList.Count > 0 ? string.Join(", ", ccList) : null,
             Subject = cmd.Subject,
             Body = cmd.Body,
             IsHtml = cmd.IsHtml,
@@ -183,7 +216,8 @@ public sealed class CaseEmailService : ICaseEmailService
             ThreadId = threadId,
             InReplyToId = cmd.ReplyToEmailId,
             Direction = "Outbound",
-            FromName = cmd.FromName ?? _currentUser.Email,
+            FromName = _currentUser.Email,
+            CaseEmailAddress = insolvencyCase.CaseEmailAddress,
             RelatedTaskId = cmd.RelatedTaskId,
             RelatedPartyIdsJson = cmd.RecipientPartyIds.Count > 0
                 ? System.Text.Json.JsonSerializer.Serialize(cmd.RecipientPartyIds)

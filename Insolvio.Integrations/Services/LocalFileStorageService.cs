@@ -73,4 +73,27 @@ public class LocalFileStorageService : IFileStorageService
         _logger.LogDebug("Ensured local folder: {Path}", folderPath);
         return Task.CompletedTask;
     }
+
+    public Task<List<string>> ListKeysAsync(string prefix, int maxKeys = 100, CancellationToken ct = default)
+    {
+        var dir = FullPath(prefix.TrimEnd('/'));
+        if (!Directory.Exists(dir))
+            return Task.FromResult(new List<string>());
+
+        var keys = Directory.EnumerateFiles(dir, "*", SearchOption.TopDirectoryOnly)
+            .Take(maxKeys)
+            .Select(f => prefix.TrimEnd('/') + "/" + Path.GetFileName(f))
+            .ToList();
+        return Task.FromResult(keys);
+    }
+
+    public Task MoveAsync(string sourceKey, string destinationKey, CancellationToken ct = default)
+    {
+        var src = FullPath(sourceKey);
+        var dest = FullPath(destinationKey);
+        var destDir = Path.GetDirectoryName(dest)!;
+        Directory.CreateDirectory(destDir);
+        File.Move(src, dest, overwrite: true);
+        return Task.CompletedTask;
+    }
 }

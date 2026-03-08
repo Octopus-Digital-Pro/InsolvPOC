@@ -1,6 +1,7 @@
 import type {User} from "../types";
 import logo from "../assets/logo.png";
 import {Button} from "@/components/ui/button";
+import NotificationDropdown from "./NotificationDropdown";
 
 interface HeaderProps {
   user: User;
@@ -20,6 +21,7 @@ export default function Header({user, onLogout}: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-3">
+        <NotificationDropdown />
         <div className="flex items-center gap-2">
           <img
             src={user.avatar}

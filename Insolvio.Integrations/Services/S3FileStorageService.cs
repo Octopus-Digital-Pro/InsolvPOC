@@ -115,4 +115,30 @@ await _s3.GetObjectMetadataAsync(_options.BucketName, fullKey, ct);
             }, ct);
         }
     }
+
+  public async Task<List<string>> ListKeysAsync(string prefix, int maxKeys = 100, CancellationToken ct = default)
+  {
+    var fullPrefix = FullKey(prefix);
+    var request = new ListObjectsV2Request
+    {
+      BucketName = _options.BucketName,
+      Prefix = fullPrefix,
+      MaxKeys = maxKeys,
+    };
+
+    var response = await _s3.ListObjectsV2Async(request, ct);
+    return response.S3Objects
+      .Where(o => !o.Key.EndsWith("/.folder"))
+      .Select(o => o.Key)
+      .ToList();
+  }
+
+  public async Task MoveAsync(string sourceKey, string destinationKey, CancellationToken ct = default)
+  {
+    var fullSource = FullKey(sourceKey);
+    var fullDest = FullKey(destinationKey);
+
+    await _s3.CopyObjectAsync(_options.BucketName, fullSource, _options.BucketName, fullDest, ct);
+    await _s3.DeleteObjectAsync(_options.BucketName, fullSource, ct);
+  }
 }
