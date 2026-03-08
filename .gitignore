@@ -83,6 +83,9 @@ insolvio-iis-setup.ps1
 Insolvex.Web/.env.production
 Insolvex.Web/.env.*.local
 
+# Local development secrets
+**/appsettings.Development.json
+
 # EF Core Migrations temporary
 **/Migrations/*
 

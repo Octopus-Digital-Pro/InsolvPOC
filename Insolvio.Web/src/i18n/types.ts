@@ -120,6 +120,7 @@ export interface Translations {
     court: string;
     courtSection: string;
     judgeSyndic: string;
+    registrar: string;
     debtorName: string;
     debtorCui: string;
     procedureType: string;

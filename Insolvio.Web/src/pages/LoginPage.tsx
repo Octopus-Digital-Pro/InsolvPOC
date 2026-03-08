@@ -92,11 +92,11 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        {!isDevelopment && (
+        {/* {!isDevelopment && (
           <p className="text-center text-xs text-muted-foreground">
             {t.login.demoHint}
           </p>
-        )}
+        )} */}
       </div>
     </div>
   );
