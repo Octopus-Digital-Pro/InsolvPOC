@@ -19,13 +19,14 @@ import {
   Trash2,
 } from "lucide-react";
 
-type AiProvider = "OpenAI" | "AzureOpenAI" | "Anthropic" | "Google" | "Custom";
+type AiProvider = "OpenAI" | "AzureOpenAI" | "Anthropic" | "Google" | "OpenRouter" | "Custom";
 
 const PROVIDERS: { value: AiProvider; label: string; description: string }[] = [
   { value: "OpenAI", label: "OpenAI", description: "GPT-4o, GPT-4 Turbo, etc." },
   { value: "AzureOpenAI", label: "Azure OpenAI", description: "OpenAI models hosted on Azure" },
   { value: "Anthropic", label: "Anthropic", description: "Claude 3.5, Claude 3 Opus, etc." },
   { value: "Google", label: "Google Gemini", description: "Gemini 1.5 Pro, Flash, etc." },
+  { value: "OpenRouter", label: "OpenRouter", description: "300+ models via openrouter.ai" },
   { value: "Custom", label: "Custom / Self-hosted", description: "OpenAI-compatible endpoint" },
 ];
 
@@ -34,6 +35,7 @@ const DEFAULT_MODELS: Record<AiProvider, string> = {
   AzureOpenAI: "gpt-4o",
   Anthropic: "claude-3-5-sonnet-20241022",
   Google: "gemini-1.5-pro",
+  OpenRouter: "openai/gpt-4o",
   Custom: "",
 };
 
@@ -273,13 +275,15 @@ export default function MyAiSettingsPage() {
           </div>
         </SettingField>
 
-        {/* Endpoint (Azure / Custom only) */}
-        {(provider === "AzureOpenAI" || provider === "Custom") && (
+        {/* Endpoint (Azure / OpenRouter / Custom only) */}
+        {(provider === "AzureOpenAI" || provider === "OpenRouter" || provider === "Custom") && (
           <SettingField
             label="API Endpoint"
             description={
               provider === "AzureOpenAI"
                 ? "Your Azure OpenAI resource endpoint URL."
+                : provider === "OpenRouter"
+                ? "OpenRouter base URL (default: https://openrouter.ai/api/v1)."
                 : "Your custom OpenAI-compatible endpoint URL."
             }
           >
@@ -287,7 +291,13 @@ export default function MyAiSettingsPage() {
               <Server className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="https://your-resource.openai.azure.com/…"
+                placeholder={
+                  provider === "AzureOpenAI"
+                    ? "https://your-resource.openai.azure.com/…"
+                    : provider === "OpenRouter"
+                    ? "https://openrouter.ai/api/v1"
+                    : "https://your-endpoint/v1"
+                }
                 value={apiEndpoint}
                 onChange={(e) => setApiEndpoint(e.target.value)}
                 className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"

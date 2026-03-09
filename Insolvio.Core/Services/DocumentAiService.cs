@@ -194,7 +194,7 @@ public sealed class DocumentAiService : IDocumentAiService
         CancellationToken ct, string? modelOverride = null)
     {
         var baseUrl = string.IsNullOrWhiteSpace(config.ApiEndpoint)
-            ? "https://api.openai.com"
+            ? (config.Provider == "OpenRouter" ? "https://openrouter.ai/api/v1" : "https://api.openai.com")
             : config.ApiEndpoint.TrimEnd('/');
         var model = modelOverride ?? config.ModelName ?? "gpt-4o";
 
@@ -214,7 +214,10 @@ public sealed class DocumentAiService : IDocumentAiService
         var httpClient = _http.CreateClient();
         httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
-        return await PostAndReadChoiceAsync(httpClient, $"{baseUrl}/v1/chat/completions", body, ct);
+        var chatUrl = baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+            ? $"{baseUrl}/chat/completions"
+            : $"{baseUrl}/v1/chat/completions";
+        return await PostAndReadChoiceAsync(httpClient, chatUrl, body, ct);
     }
 
     private async Task<string?> CallAzureTextAsync(
@@ -313,7 +316,7 @@ public sealed class DocumentAiService : IDocumentAiService
         AiConfigDto config, string apiKey, IReadOnlyList<string> images, CancellationToken ct)
     {
         var baseUrl = string.IsNullOrWhiteSpace(config.ApiEndpoint)
-            ? "https://api.openai.com"
+            ? (config.Provider == "OpenRouter" ? "https://openrouter.ai/api/v1" : "https://api.openai.com")
             : config.ApiEndpoint.TrimEnd('/');
         var model = config.ModelName ?? "gpt-4o";
 
@@ -328,7 +331,10 @@ public sealed class DocumentAiService : IDocumentAiService
         var httpClient = _http.CreateClient();
         httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
-        return await PostAndReadChoiceAsync(httpClient, $"{baseUrl}/v1/chat/completions", body, ct);
+        var chatUrl = baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+            ? $"{baseUrl}/chat/completions"
+            : $"{baseUrl}/v1/chat/completions";
+        return await PostAndReadChoiceAsync(httpClient, chatUrl, body, ct);
     }
 
     private async Task<string?> CallAzureVisionAsync(
@@ -449,6 +455,157 @@ public sealed class DocumentAiService : IDocumentAiService
             .GetProperty("message")
             .GetProperty("content")
             .GetString();
+    }
+
+    /// <summary>
+    /// Like <see cref="PostAndReadChoiceAsync"/> but returns the raw HTTP error body
+    /// as the second tuple element instead of swallowing it. Used only by
+    /// <see cref="SuggestAnnotationsAsync"/> so the failure reason can be surfaced
+    /// to the user without changing any other AI call path.
+    /// </summary>
+    private async Task<(string? content, string? error)> PostAndReadChoiceDetailedAsync(
+        HttpClient httpClient, string url, object body, CancellationToken ct)
+    {
+        var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        var response = await httpClient.PostAsync(url, content, ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var err = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogWarning("AI API at {Url} returned {StatusCode}: {Error}",
+                url, response.StatusCode, err[..Math.Min(500, err.Length)]);
+            var shortErr = err.Length > 300 ? err[..300] + "…" : err;
+            return (null, $"HTTP {(int)response.StatusCode} {response.StatusCode}: {shortErr}");
+        }
+
+        var json = await response.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(json);
+        return (doc.RootElement
+            .GetProperty("choices")[0]
+            .GetProperty("message")
+            .GetProperty("content")
+            .GetString(), null);
+    }
+
+    /// <summary>
+    /// Dispatches to the correct provider and returns <c>(rawJson, errorMessage)</c>.
+    /// Captures the HTTP error body so <see cref="SuggestAnnotationsAsync"/> can
+    /// surface the real failure reason.
+    /// </summary>
+    private async Task<(string? rawJson, string? error)> CallTextDetailedAsync(
+        AiConfigDto config, string apiKey,
+        string prompt, string systemInstruction,
+        CancellationToken ct)
+    {
+        var httpClient = _http.CreateClient();
+
+        switch (config.Provider)
+        {
+            case "AzureOpenAI":
+            {
+                var baseUrl = config.ApiEndpoint?.TrimEnd('/') ?? throw new InvalidOperationException("Azure OpenAI requires ApiEndpoint.");
+                var deployment = config.DeploymentName ?? config.ModelName ?? "gpt-4o";
+                var url = $"{baseUrl}/openai/deployments/{deployment}/chat/completions?api-version=2024-02-01";
+                var body = new
+                {
+                    response_format = new { type = "json_object" },
+                    messages = new[]
+                    {
+                        new { role = "system", content = systemInstruction },
+                        new { role = "user",   content = prompt },
+                    },
+                    max_tokens = 2000,
+                    temperature = 0.1,
+                };
+                httpClient.DefaultRequestHeaders.Add("api-key", apiKey);
+                return await PostAndReadChoiceDetailedAsync(httpClient, url, body, ct);
+            }
+
+            case "Anthropic":
+            {
+                var baseUrl = string.IsNullOrWhiteSpace(config.ApiEndpoint)
+                    ? "https://api.anthropic.com"
+                    : config.ApiEndpoint.TrimEnd('/');
+                var model = config.ModelName ?? "claude-3-5-sonnet-20241022";
+                var body = new
+                {
+                    model,
+                    max_tokens = 2000,
+                    messages = new[]
+                    {
+                        new { role = "user", content = systemInstruction + "\n\n" + prompt + "\n\nRespond with valid JSON only." },
+                    },
+                };
+                httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
+                httpClient.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+                var reqContent = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+                var response = await httpClient.PostAsync($"{baseUrl}/v1/messages", reqContent, ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var err = await response.Content.ReadAsStringAsync(ct);
+                    _logger.LogWarning("Anthropic API returned {StatusCode}: {Error}", response.StatusCode, err[..Math.Min(500, err.Length)]);
+                    var shortErr = err.Length > 300 ? err[..300] + "…" : err;
+                    return (null, $"HTTP {(int)response.StatusCode} {response.StatusCode}: {shortErr}");
+                }
+                var json = await response.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(json);
+                return (doc.RootElement.GetProperty("content")[0].GetProperty("text").GetString(), null);
+            }
+
+            case "Google":
+            {
+                var model = config.ModelName ?? "gemini-1.5-pro";
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
+                var body = new
+                {
+                    contents = new[]
+                    {
+                        new { parts = new[] { new { text = systemInstruction + "\n\n" + prompt + "\n\nRespond with valid JSON only." } } },
+                    },
+                    generationConfig = new { responseMimeType = "application/json", temperature = 0.1, maxOutputTokens = 2000 },
+                };
+                var reqContent = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+                var response = await httpClient.PostAsync(url, reqContent, ct);
+                if (!response.IsSuccessStatusCode)
+                {
+                    var err = await response.Content.ReadAsStringAsync(ct);
+                    _logger.LogWarning("Google AI API returned {StatusCode}: {Error}", response.StatusCode, err[..Math.Min(500, err.Length)]);
+                    var shortErr = err.Length > 300 ? err[..300] + "…" : err;
+                    return (null, $"HTTP {(int)response.StatusCode} {response.StatusCode}: {shortErr}");
+                }
+                var json = await response.Content.ReadAsStringAsync(ct);
+                using var gDoc = JsonDocument.Parse(json);
+                return (gDoc.RootElement
+                    .GetProperty("candidates")[0]
+                    .GetProperty("content").GetProperty("parts")[0]
+                    .GetProperty("text").GetString(), null);
+            }
+
+            default: // OpenAI-compatible (incl. OpenRouter)
+            {
+                var baseUrl = string.IsNullOrWhiteSpace(config.ApiEndpoint)
+                    ? (config.Provider == "OpenRouter" ? "https://openrouter.ai/api/v1" : "https://api.openai.com")
+                    : config.ApiEndpoint.TrimEnd('/');
+                var model = config.ModelName ?? "gpt-4o";
+                var body = new
+                {
+                    model,
+                    response_format = new { type = "json_object" },
+                    messages = new[]
+                    {
+                        new { role = "system", content = systemInstruction },
+                        new { role = "user",   content = prompt },
+                    },
+                    max_tokens = 2000,
+                    temperature = 0.1,
+                };
+                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+                var chatUrl = baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+                    ? $"{baseUrl}/chat/completions"
+                    : $"{baseUrl}/v1/chat/completions";
+                return await PostAndReadChoiceDetailedAsync(httpClient, chatUrl, body, ct);
+            }
+        }
     }
 
     // ── Vision helpers ────────────────────────────────────────────────────────
@@ -1213,7 +1370,10 @@ public sealed class DocumentAiService : IDocumentAiService
             var (config, apiKey) = await ResolveConfigAsync(ct);
             if (config is null || string.IsNullOrWhiteSpace(apiKey)) return null;
 
-            var language = await ResolveTenantLanguageAsync(ct);
+            // Language resolution failure must never abort the whole suggestion.
+            string language;
+            try   { language = await ResolveTenantLanguageAsync(ct); }
+            catch { language = "en"; }
 
             // For long documents use a first-chunk + last-chunk strategy so that
             // both the header (case number, debtor, court) and the dispositiv section
@@ -1235,9 +1395,13 @@ public sealed class DocumentAiService : IDocumentAiService
             var prompt = BuildAnnotationSuggestPrompt(textSnippet, language);
             var system = BuildAnnotationSuggestSystemInstruction(language);
 
-            var rawJson = await CallTextAsync(config, apiKey, prompt, system, ct);
+            // Use the detailed variant so the actual HTTP error body is captured.
+            var (rawJson, callError) = await CallTextDetailedAsync(config, apiKey, prompt, system, ct);
             if (rawJson is null)
-                return new AnnotationSuggestResult([], CallFailed: true); // configured but API call failed
+            {
+                _logger.LogWarning("Annotation suggestion call failed. Provider error: {Error}", callError);
+                return new AnnotationSuggestResult([], CallFailed: true, ErrorMessage: callError);
+            }
 
             var trimmed = rawJson.Trim();
             if (trimmed.StartsWith("```"))
@@ -1263,7 +1427,7 @@ public sealed class DocumentAiService : IDocumentAiService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Annotation suggestion AI call failed");
-            return new AnnotationSuggestResult([], CallFailed: true);
+            return new AnnotationSuggestResult([], CallFailed: true, ErrorMessage: ex.Message);
         }
     }
 }

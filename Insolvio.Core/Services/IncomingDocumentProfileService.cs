@@ -482,7 +482,7 @@ public sealed class IncomingDocumentProfileService
         Core.DTOs.AiConfigDto config, string apiKey, string prompt, string system, CancellationToken ct)
     {
         var baseUrl = string.IsNullOrWhiteSpace(config.ApiEndpoint)
-            ? "https://api.openai.com"
+            ? (config.Provider == "OpenRouter" ? "https://openrouter.ai/api/v1" : "https://api.openai.com")
             : config.ApiEndpoint.TrimEnd('/');
         var model = config.ModelName ?? "gpt-4o";
 
@@ -501,8 +501,11 @@ public sealed class IncomingDocumentProfileService
 
         var http = _http.CreateClient();
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        var chatUrl = baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase)
+            ? $"{baseUrl}/chat/completions"
+            : $"{baseUrl}/v1/chat/completions";
         var resp = await http.PostAsync(
-            $"{baseUrl}/v1/chat/completions",
+            chatUrl,
             new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
             ct);
 

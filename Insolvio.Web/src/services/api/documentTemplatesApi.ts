@@ -491,7 +491,7 @@ export const documentTemplatesApi = {
 
   /** Ask AI to locate verbatim text for each annotatable field within the extracted document text. */
   suggestAnnotations: (type: IncomingDocumentType, extractedText: string) =>
-    client.post<{ suggestions: Record<string, string>; aiConfigured: boolean; callFailed: boolean }>(
+    client.post<{ suggestions: Record<string, string>; aiConfigured: boolean; callFailed: boolean; errorMessage?: string }>(
       `/document-templates/incoming-reference/${type}/suggest-annotations`,
       { extractedText },
     ),
@@ -520,7 +520,7 @@ export const documentTemplatesApi = {
 
   /** Ask AI for annotation suggestions for a specific profile. */
   suggestAnnotationsById: (profileId: string, extractedText: string) =>
-    client.post<{ suggestions: Record<string, string>; aiConfigured: boolean; callFailed: boolean }>(
+    client.post<{ suggestions: Record<string, string>; aiConfigured: boolean; callFailed: boolean; errorMessage?: string }>(
       `/document-templates/incoming-reference/profile/${profileId}/suggest-annotations`,
       { extractedText },
     ),

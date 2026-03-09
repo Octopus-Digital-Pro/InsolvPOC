@@ -322,6 +322,7 @@ export default function TenantAiConfigPage() {
                 <option value="AzureOpenAI">Azure OpenAI</option>
                 <option value="Anthropic">Anthropic (Claude)</option>
                 <option value="Google">Google Gemini</option>
+                <option value="OpenRouter">OpenRouter (300+ models)</option>
                 <option value="Custom">Custom / Self-hosted</option>
               </select>
             </div>
@@ -373,12 +374,18 @@ export default function TenantAiConfigPage() {
             </div>
 
             {/* Endpoint */}
-            {(config.provider === "AzureOpenAI" || config.provider === "Custom") && (
+            {(config.provider === "AzureOpenAI" || config.provider === "OpenRouter" || config.provider === "Custom") && (
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">API Endpoint</label>
                 <input
                   type="text"
-                  placeholder="https://your-resource.openai.azure.com/…"
+                  placeholder={
+                    config.provider === "AzureOpenAI"
+                      ? "https://your-resource.openai.azure.com/…"
+                      : config.provider === "OpenRouter"
+                      ? "https://openrouter.ai/api/v1"
+                      : "https://your-endpoint/v1"
+                  }
                   value={config.apiEndpoint ?? ""}
                   onChange={(e) => setConfig(prev => prev ? { ...prev, apiEndpoint: e.target.value || null } : prev)}
                   className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"

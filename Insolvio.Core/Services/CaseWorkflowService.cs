@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Insolvio.Core.Abstractions;
 using Insolvio.Core.DTOs;
 using Insolvio.Core.Exceptions;
@@ -164,6 +165,8 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
     /// <summary>
     /// Initialize workflow stages for a case by resolving stage definitions
     /// (tenant override → global fallback) and creating CaseWorkflowStage rows.
+    /// Safe against concurrent calls: if another request wins the race and inserts
+    /// the same rows first, we discard our pending inserts and reload from the DB.
     /// </summary>
     private async Task<List<CaseWorkflowStage>> InitializeStagesAsync(Guid caseId, CancellationToken ct)
     {
@@ -226,14 +229,53 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
             stages[0].StartedAt = now;
         }
 
-        await _db.SaveChangesAsync(ct);
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsDuplicateKeyOrDeadlockException(ex))
+        {
+            // Another concurrent request beat us to the insert.
+            // Detach every entity we tried to add so the change tracker is clean,
+            // then fall through to the reload below.
+            foreach (EntityEntry entry in _db.ChangeTracker.Entries().ToList())
+            {
+                if (entry.State == EntityState.Added)
+                    entry.State = EntityState.Detached;
+            }
+        }
 
-        // Reload with StageDefinition navigation
+        // Reload with StageDefinition navigation — works whether we inserted or lost the race
         return await _db.CaseWorkflowStages
             .Include(s => s.StageDefinition)
             .Where(s => s.CaseId == caseId)
             .OrderBy(s => s.SortOrder)
             .ToListAsync(ct);
+    }
+
+    /// <summary>
+    /// Returns true for SQL errors that indicate a concurrent process already inserted
+    /// the same rows (unique-key violation 2627/2601) or that this process was chosen
+    /// as a deadlock victim (1205).
+    /// Uses reflection to read SqlException.Number without taking a direct dependency
+    /// on Microsoft.Data.SqlClient from the Core project.
+    /// </summary>
+    private static bool IsDuplicateKeyOrDeadlockException(DbUpdateException ex)
+    {
+        var inner = ex.InnerException;
+        while (inner is not null)
+        {
+            // SqlException type is in Microsoft.Data.SqlClient or System.Data.SqlClient
+            if (inner.GetType().Name == "SqlException")
+            {
+                var numberProp = inner.GetType().GetProperty("Number");
+                if (numberProp?.GetValue(inner) is int number &&
+                    (number is 2627 or 2601 or 1205))
+                    return true;
+            }
+            inner = inner.InnerException;
+        }
+        return false;
     }
 
     private async Task<List<CaseWorkflowStage>> EnsureStagesAsync(Guid caseId, CancellationToken ct)

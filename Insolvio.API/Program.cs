@@ -45,8 +45,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
         builder.Configuration.GetConnectionString("DefaultConnection"),
         sql =>
         {
-
-            sql.MigrationsAssembly("Insolvio.Data");sql.CommandTimeout(300); // 5 min — allows large import batches to complete
+            sql.MigrationsAssembly("Insolvio.Data");
+            sql.CommandTimeout(300); // 5 min — allows large import batches to complete
+            sql.EnableRetryOnFailure(
+                maxRetryCount: 6,
+                maxRetryDelay: TimeSpan.FromSeconds(30),
+                errorNumbersToAdd: null); // null = use default transient list (includes 1205 deadlock)
         })
     // The global tenant query filter is intentional; suppress the EF Core navigation-interaction advisory.
     .ConfigureWarnings(w => w.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning)));

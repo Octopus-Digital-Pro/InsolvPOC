@@ -321,13 +321,13 @@ export function PdfAnnotatorModal({
       : documentTemplatesApi.suggestAnnotations(type, fullText);
     req.then((r) => {
         if (cancelled) return;
-        const { suggestions: sugg = {}, aiConfigured, callFailed } = r.data;
+        const { suggestions: sugg = {}, aiConfigured, callFailed, errorMessage } = r.data;
         if (!aiConfigured) {
           setSuggestAiNotConfigured(true);
           return;
         }
         if (callFailed) {
-          setSuggestError("AI call failed. Verify the API key in Settings → AI and retry.");
+          setSuggestError(errorMessage ?? "AI call failed. Verify the API key in Settings → AI and retry.");
           return;
         }
         const items: IncomingAnnotationItem[] = [];

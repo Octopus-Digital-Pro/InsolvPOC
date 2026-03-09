@@ -50,9 +50,14 @@ public interface IDocumentAiService
 /// <c>true</c> when AI is configured but the underlying API call failed;
 /// <c>false</c> when the call succeeded (even if no fields were identified).
 /// </param>
+/// <param name="ErrorMessage">
+/// Human-readable reason for the failure (HTTP status + error body excerpt,
+/// or exception message). Populated only when <c>CallFailed</c> is <c>true</c>.
+/// </param>
 public sealed record AnnotationSuggestResult(
     Dictionary<string, string> Suggestions,
-    bool CallFailed);
+    bool CallFailed,
+    string? ErrorMessage = null);
 
 // ── Result types ─────────────────────────────────────────────────────────────
 
