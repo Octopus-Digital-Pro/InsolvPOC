@@ -838,11 +838,11 @@ public class DocumentTemplatesController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.ExtractedText))
             return BadRequest(new { message = "ExtractedText is required." });
 
-        var suggestions = await _documentAi.SuggestAnnotationsAsync(req.ExtractedText, ct);
-        if (suggestions is null)
-            return Ok(new { suggestions = new Dictionary<string, string>(), aiConfigured = false });
+        var result = await _documentAi.SuggestAnnotationsAsync(req.ExtractedText, ct);
+        if (result is null)
+            return Ok(new { suggestions = new Dictionary<string, string>(), aiConfigured = false, callFailed = false });
 
-        return Ok(new { suggestions, aiConfigured = true });
+        return Ok(new { suggestions = result.Suggestions, aiConfigured = true, callFailed = result.CallFailed });
     }
 
     // ── Per-profile (ID-based) endpoints ─────────────────────────────────────
@@ -1033,11 +1033,11 @@ public class DocumentTemplatesController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.ExtractedText))
             return BadRequest(new { message = "ExtractedText is required." });
 
-        var suggestions = await _documentAi.SuggestAnnotationsAsync(req.ExtractedText, ct);
-        if (suggestions is null)
-            return Ok(new { suggestions = new Dictionary<string, string>(), aiConfigured = false });
+        var result = await _documentAi.SuggestAnnotationsAsync(req.ExtractedText, ct);
+        if (result is null)
+            return Ok(new { suggestions = new Dictionary<string, string>(), aiConfigured = false, callFailed = false });
 
-        return Ok(new { suggestions, aiConfigured = true });
+        return Ok(new { suggestions = result.Suggestions, aiConfigured = true, callFailed = result.CallFailed });
     }
 
     private static int CountAnnotations(string? json)

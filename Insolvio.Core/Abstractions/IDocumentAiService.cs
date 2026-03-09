@@ -32,13 +32,27 @@ public interface IDocumentAiService
     /// <summary>
     /// Ask the AI to locate verbatim text for each annotatable field within the
     /// extracted document text. Returns a mapping of field name → exact verbatim
-    /// substring as it appears in the document. Returns <c>null</c> when AI is
-    /// unavailable or the call fails.
+    /// substring as it appears in the document.
+    /// Returns <c>null</c> when AI is not configured or no API key is available.
+    /// Returns an <see cref="AnnotationSuggestResult"/> with <c>CallFailed = true</c>
+    /// when AI is configured but the API call itself failed (e.g. wrong key, rate limit).
     /// </summary>
-    Task<Dictionary<string, string>?> SuggestAnnotationsAsync(
+    Task<AnnotationSuggestResult?> SuggestAnnotationsAsync(
         string extractedText,
         CancellationToken ct = default);
 }
+
+/// <summary>
+/// Holds the outcome of an annotation-suggestion AI call.
+/// </summary>
+/// <param name="Suggestions">Field name → verbatim text map (may be empty).</param>
+/// <param name="CallFailed">
+/// <c>true</c> when AI is configured but the underlying API call failed;
+/// <c>false</c> when the call succeeded (even if no fields were identified).
+/// </param>
+public sealed record AnnotationSuggestResult(
+    Dictionary<string, string> Suggestions,
+    bool CallFailed);
 
 // ── Result types ─────────────────────────────────────────────────────────────
 

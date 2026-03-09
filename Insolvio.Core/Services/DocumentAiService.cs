@@ -716,6 +716,101 @@ public sealed class DocumentAiService : IDocumentAiService
         _ => currentModel,
     };
 
+    // ── Annotation suggestion prompt builders ────────────────────────────────
+
+    private static string BuildAnnotationSuggestSystemInstruction(string language) => language switch
+    {
+        "ro" => "Ești un expert în adnotarea documentelor de insolvență românești. Răspunde EXCLUSIV cu JSON valid. Fiecare valoare returnată trebuie să fie un subșir verbatim exact din textul documentului.",
+        "hu" => "Ön egy romániai fizetésképtelenségi dokumentumok szakértő annotátora. Kizárólag érvényes JSON-t adjon vissza. Minden visszaadott értéknek szó szerint szerepelnie kell a dokumentum szövegében.",
+        _    => "You are an expert insolvency document annotator. Always respond with valid JSON only. Every value you return must be an exact verbatim substring of the document text.",
+    };
+
+    private static string BuildAnnotationSuggestPrompt(string textSnippet, string language)
+    {
+        var (langInstruction, dateHint, caseHint, procedureHint, courtHint, sectionHint,
+             judgeHint, registrarHint, claimsHint, contestHint, hearingHint, openingHint) = language switch
+        {
+            "ro" => (
+                "Documentul este în limba română. Identifică câmpurile folosind terminologia juridică românească.",
+                "Returnează datele EXACT cum apar tipărite (ex. \"15.01.2023\" sau \"15 ianuarie 2023\")",
+                "numărul dosarului exact cum apare (ex. \"1234/56/2023\")",
+                "tipul procedurii de insolvență exact cum apare (ex. \"faliment simplificat\", \"insolvență\")",
+                "denumirea completă a tribunalului/instanței exact cum apare",
+                "linia secției instanței exact cum apare (ex. \"Secția a II-a Civilă\")",
+                "numele complet al judecătorului-sindic exact cum apare (2-3 cuvinte după eticheta 'Judecător sindic')",
+                "numele complet al grefierului exact cum apare (2-3 cuvinte după eticheta 'Grefier')",
+                "termenul de depunere a creanțelor exact cum apare (caută: 'termen depunere creanțe', 'termen de declarare')",
+                "termenul de contestații exact cum apare (caută: 'termen contestații', 'contestare')",
+                "data următorului termen exact cum apare (caută: 'termen', 'ședință', 'judecată')",
+                "data deschiderii procedurii exact cum apare (caută: 'deschiderea procedurii', 'sentința')"
+            ),
+            "hu" => (
+                "A dokumentum román vagy magyar nyelven van. Azonosítsd a mezőket a jogi terminológia alapján.",
+                "Az értékeket pontosan úgy add vissza, ahogy a dokumentumban szerepelnek (pl. \"15.01.2023\" vagy \"15 ianuarie 2023\")",
+                "az ügyszám pontosan, ahogy szerepel (pl. \"1234/56/2023\")",
+                "a fizetésképtelenségi eljárás típusa pontosan, ahogy szerepel",
+                "a bíróság teljes neve pontosan, ahogy szerepel",
+                "a bírósági szakasz sora pontosan, ahogy szerepel",
+                "a szindikusbíró teljes neve pontosan, ahogy szerepel",
+                "a bírósági tisztviselő teljes neve pontosan, ahogy szerepel",
+                "a követelések benyújtásának határideje pontosan, ahogy szerepel",
+                "a kifogások határideje pontosan, ahogy szerepel",
+                "a következő tárgyalás dátuma pontosan, ahogy szerepel",
+                "az eljárás megnyitásának dátuma pontosan, ahogy szerepel"
+            ),
+            _ => (
+                "The document may contain Romanian or other language legal text. Identify fields using insolvency legal terminology.",
+                "Return dates exactly as printed (e.g. \"15.01.2023\" or \"15 ianuarie 2023\")",
+                "the dossier/case number exactly as printed (e.g. \"1234/56/2023\")",
+                "the insolvency procedure type phrase as printed",
+                "the full tribunal/court name as printed",
+                "the court section line as printed",
+                "the judge-syndic full name as printed",
+                "the registrar full name as printed",
+                "the claims filing deadline exactly as printed",
+                "the contestations deadline exactly as printed",
+                "the next hearing date exactly as printed",
+                "the opening date exactly as printed"
+            ),
+        };
+
+        return $$"""
+            {{langInstruction}}
+            For each field listed, find the EXACT verbatim text as it appears in the document below.
+
+            Rules:
+            - Return ONLY text that EXISTS VERBATIM as a substring of the document
+            - Do NOT normalize, translate, paraphrase, or reformat values
+            - {{dateHint}}
+            - For the procedure type, return the exact phrase as written in the document
+            - Each value must be short — the exact identifying phrase, not an entire sentence
+            - If a field is not present, return null
+
+            Return ONLY a JSON object with these exact keys:
+            {
+              "CaseNumber": "{{caseHint}}",
+              "ProcedureType": "{{procedureHint}}",
+              "OpeningDecisionNo": "the opening decision number/reference as printed",
+              "DebtorName": "the full legal name of the debtor company as printed (include SRL/SA suffix)",
+              "DebtorCui": "the CUI/CIF fiscal code exactly as printed (digits only, strip 'RO' prefix)",
+              "DebtorAddress": "the debtor registered address as printed",
+              "CourtName": "{{courtHint}}",
+              "CourtSection": "{{sectionHint}}",
+              "JudgeSyndic": "{{judgeHint}}",
+              "Registrar": "{{registrarHint}}",
+              "OpeningDate": "{{openingHint}}",
+              "ClaimsDeadline": "{{claimsHint}}",
+              "ContestationsDeadline": "{{contestHint}}",
+              "NextHearingDate": "{{hearingHint}}"
+            }
+
+            Document text:
+            ---
+            {{textSnippet}}
+            ---
+            """;
+    }
+
     // ── Text response parsing ─────────────────────────────────────────────────
 
     private AiDocumentTextResult? ParseTextResponse(string rawJson)
@@ -1109,7 +1204,7 @@ public sealed class DocumentAiService : IDocumentAiService
     // ── Annotation suggestion ──────────────────────────────────────────────────
 
     /// <inheritdoc/>
-    public async Task<Dictionary<string, string>?> SuggestAnnotationsAsync(
+    public async Task<AnnotationSuggestResult?> SuggestAnnotationsAsync(
         string extractedText,
         CancellationToken ct = default)
     {
@@ -1118,50 +1213,31 @@ public sealed class DocumentAiService : IDocumentAiService
             var (config, apiKey) = await ResolveConfigAsync(ct);
             if (config is null || string.IsNullOrWhiteSpace(apiKey)) return null;
 
-            var textSnippet = extractedText.Length > 8000
-                ? extractedText[..8000] + "\n[...document continues...]"
-                : extractedText;
+            var language = await ResolveTenantLanguageAsync(ct);
 
-            var prompt = $$"""
-                You are analyzing an insolvency document to locate specific pieces of information.
-                For each field listed, find the EXACT verbatim text as it appears in the document below.
+            // For long documents use a first-chunk + last-chunk strategy so that
+            // both the header (case number, debtor, court) and the dispositiv section
+            // (dates, deadlines) are always included.
+            const int totalCap = 20_000;
+            const int tailLen  =  5_000;
+            string textSnippet;
+            if (extractedText.Length <= totalCap)
+            {
+                textSnippet = extractedText;
+            }
+            else
+            {
+                textSnippet = extractedText[..(totalCap - tailLen)]
+                    + "\n\n[...middle section omitted...]\n\n"
+                    + extractedText[^tailLen..];
+            }
 
-                Rules:
-                - Return ONLY text that EXISTS VERBATIM as a substring of the document
-                - Do NOT normalize, translate, paraphrase, or reformat values
-                - For dates, return them exactly as printed (e.g. "15.01.2023" or "15 ianuarie 2023")
-                - For the procedure type, return the exact phrase as written in the document
-                - If a field is not present, return null
-                - Keep values short — the exact identifying phrase, not an entire sentence
-
-                Return ONLY a JSON object with these exact keys:
-                {
-                  "CaseNumber": "the dossier/case number exactly as printed (e.g. \"1234/56/2023\")",
-                  "ProcedureType": "the insolvency procedure type phrase as printed",
-                  "OpeningDecisionNo": "the decision number/reference as printed",
-                  "DebtorName": "the full legal name of the debtor company as printed",
-                  "DebtorCui": "the CUI/CIF fiscal code exactly as printed",
-                  "DebtorAddress": "the debtor registered address as printed",
-                  "CourtName": "the full tribunal/court name as printed",
-                  "CourtSection": "the court section line as printed",
-                  "JudgeSyndic": "the judge-syndic full name as printed",
-                  "Registrar": "the registrar full name as printed",
-                  "OpeningDate": "the opening date exactly as printed",
-                  "ClaimsDeadline": "the claims filing deadline exactly as printed",
-                  "ContestationsDeadline": "the contestations deadline exactly as printed",
-                  "NextHearingDate": "the next hearing date exactly as printed"
-                }
-
-                Document text:
-                ---
-                {{textSnippet}}
-                ---
-                """;
-
-            const string system = "You are an expert insolvency document annotator. Always respond with valid JSON only. Every value you return must be an exact verbatim substring of the document text.";
+            var prompt = BuildAnnotationSuggestPrompt(textSnippet, language);
+            var system = BuildAnnotationSuggestSystemInstruction(language);
 
             var rawJson = await CallTextAsync(config, apiKey, prompt, system, ct);
-            if (rawJson is null) return []; // AI is configured but returned no content — allow retry
+            if (rawJson is null)
+                return new AnnotationSuggestResult([], CallFailed: true); // configured but API call failed
 
             var trimmed = rawJson.Trim();
             if (trimmed.StartsWith("```"))
@@ -1182,12 +1258,12 @@ public sealed class DocumentAiService : IDocumentAiService
                         result[prop.Name] = val;
                 }
             }
-            return result;
+            return new AnnotationSuggestResult(result, CallFailed: false);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Annotation suggestion AI call failed");
-            return []; // AI is configured but call failed — return empty so controller reports aiConfigured:true and frontend can retry
+            return new AnnotationSuggestResult([], CallFailed: true);
         }
     }
 }

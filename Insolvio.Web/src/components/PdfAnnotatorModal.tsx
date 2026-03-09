@@ -99,11 +99,23 @@ async function extractDocumentText(doc: pdfjsLib.PDFDocumentProxy): Promise<stri
     const tc = await page.getTextContent();
     let pageText = "";
     for (const item of tc.items as Array<{ str: string; hasEOL?: boolean }>) {
-      pageText += item.str;
+      const s = item.str;
+      if (s) {
+        // Prevent word-merging: some PDFs encode spaces as layout gaps rather than
+        // characters, so consecutive items arrive without whitespace between them.
+        // Insert a space when neither the previous output nor the new item provides one.
+        if (pageText.length > 0) {
+          const last = pageText[pageText.length - 1];
+          if (last !== " " && last !== "\n" && !s.startsWith(" ")) {
+            pageText += " ";
+          }
+        }
+        pageText += s;
+      }
       if (item.hasEOL) pageText += "\n";
     }
     if (doc.numPages > 1) {
-      parts.push(`-- Page ${p} ${"-".repeat(40)}\n${pageText.trim()}`);
+      parts.push(`-- Page ${p} ${"—".repeat(40)}\n${pageText.trim()}`);
     } else {
       parts.push(pageText);
     }
@@ -309,9 +321,13 @@ export function PdfAnnotatorModal({
       : documentTemplatesApi.suggestAnnotations(type, fullText);
     req.then((r) => {
         if (cancelled) return;
-        const { suggestions: sugg = {}, aiConfigured } = r.data;
+        const { suggestions: sugg = {}, aiConfigured, callFailed } = r.data;
         if (!aiConfigured) {
           setSuggestAiNotConfigured(true);
+          return;
+        }
+        if (callFailed) {
+          setSuggestError("AI call failed. Verify the API key in Settings → AI and retry.");
           return;
         }
         const items: IncomingAnnotationItem[] = [];
