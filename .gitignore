@@ -78,6 +78,7 @@ insolvio-iis-setup.ps1
 
 # Production config transform (contains DB password, JWT key, SMTP creds)
 **/appsettings.Production.json
+**/appsettings.Development.json
 
 # Vite production env (may contain API keys)
 Insolvex.Web/.env.production
