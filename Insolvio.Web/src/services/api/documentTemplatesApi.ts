@@ -137,6 +137,42 @@ export interface IncomingDocumentProfile {
   aiAnalysedOn?: string | null;
 }
 
+/** Summary item returned by GET /incoming-reference/{type}/all */
+export interface IncomingDocumentProfileEntry {
+  id: string;
+  type: string;
+  originalFileName: string;
+  fileSizeBytes: number;
+  uploadedOn: string;
+  lastAnnotatedOn?: string | null;
+  annotationCount: number;
+  isFinalized: boolean;
+  finalizedOn?: string | null;
+  trainingStatus?: string | null;
+  aiConfidence?: number | null;
+  aiAnalysedOn?: string | null;
+  hasAiProfile: boolean;
+}
+
+/** Full profile returned by GET /incoming-reference/profile/{id} */
+export interface IncomingDocumentProfileById extends IncomingDocumentProfile {
+  id: string;
+  isFinalized: boolean;
+  finalizedOn?: string | null;
+  trainingStatus?: string | null;
+}
+
+/** Response from POST .../finalize-and-train */
+export interface FinalizeAndTrainResult {
+  id: string;
+  isFinalized: boolean;
+  finalizedOn: string;
+  trainingStatus: string;
+  aiConfidence?: number | null;
+  aiAnalysedOn?: string | null;
+  message: string;
+}
+
 /** Response from POST .../analyse */
 export interface AiDocumentProfileResult {
   type: string;
@@ -418,7 +454,7 @@ export const documentTemplatesApi = {
   uploadIncomingReference: (type: IncomingDocumentType, file: File, onProgress?: (pct: number) => void) => {
     const form = new FormData();
     form.append("file", file);
-    return client.post<{ type: string; fileName: string; fileSize: number; uploadedOn: string; message: string }>(
+    return client.post<{ profileId: string; type: string; fileName: string; fileSize: number; uploadedOn: string; message: string }>(
       `/document-templates/incoming-reference/${type}`,
       form,
       {
@@ -459,7 +495,47 @@ export const documentTemplatesApi = {
       `/document-templates/incoming-reference/${type}/suggest-annotations`,
       { extractedText },
     ),
-  /**
+
+  // ── Per-profile (ID-based) operations ────────────────────────────────────
+
+  /** List all training document profiles for a given type, newest first. */
+  getIncomingProfilesForType: (type: IncomingDocumentType) =>
+    client.get<IncomingDocumentProfileEntry[]>(`/document-templates/incoming-reference/${type}/all`),
+
+  /** Returns the URL to stream the PDF for a specific profile by Id. */
+  getIncomingProfileFileUrl: (profileId: string): string =>
+    `/api/document-templates/incoming-reference/profile/${profileId}/file`,
+
+  /** Retrieve saved annotations for a specific profile by Id. */
+  getIncomingAnnotationsById: (profileId: string) =>
+    client.get<IncomingAnnotationsPayload>(`/document-templates/incoming-reference/profile/${profileId}/annotations`),
+
+  /** Persist annotation rectangles for a specific profile by Id. */
+  saveIncomingAnnotationsById: (profileId: string, payload: IncomingAnnotationsPayload) =>
+    client.post(`/document-templates/incoming-reference/profile/${profileId}/annotations`, payload),
+
+  /** Get the full profile (including AI summaries) by Id. */
+  getIncomingProfileById: (profileId: string) =>
+    client.get<IncomingDocumentProfileById>(`/document-templates/incoming-reference/profile/${profileId}`),
+
+  /** Ask AI for annotation suggestions for a specific profile. */
+  suggestAnnotationsById: (profileId: string, extractedText: string) =>
+    client.post<{ suggestions: Record<string, string>; aiConfigured: boolean }>(
+      `/document-templates/incoming-reference/profile/${profileId}/suggest-annotations`,
+      { extractedText },
+    ),
+
+  /** Finalize a training document and submit it for AI recognition training. Locks the profile. */
+  finalizeAndTrain: (profileId: string) =>
+    client.post<FinalizeAndTrainResult>(
+      `/document-templates/incoming-reference/profile/${profileId}/finalize-and-train`,
+    ),
+
+  /** Delete a non-finalized training document profile. */
+  deleteIncomingProfile: (profileId: string) =>
+    client.delete(`/document-templates/incoming-reference/profile/${profileId}`),
+
+
    * Convert arbitrary HTML (already rendered + optionally signed) to a PDF download.
    * Used after the user edits the preview-modal content.
    */

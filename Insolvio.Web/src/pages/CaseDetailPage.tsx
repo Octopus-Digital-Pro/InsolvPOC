@@ -36,8 +36,9 @@ import {
   Brain, CalendarDays, RefreshCw, Layers,
   ListChecks, Mail, Download, FileOutput,
   History, Plus, Search, X, Building2, Package, Eye, Trash2, Lock, ClipboardList, Bot, Receipt,
-  Pencil, Check,
+  Pencil, Check, Copy, ChevronDown, Globe, ExternalLink,
 } from "lucide-react";
+import { settingsApi } from "@/services/api/settingsApi";
 import { format } from "date-fns";
 
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
@@ -73,7 +74,12 @@ export default function CaseDetailPage() {
   const [reopening, setReopening] = useState(false);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "workflow" | "tasks" | "docs" | "parties" | "claims" | "assets" | "emails" | "calendar" | "templates" | "activity">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "workflow" | "tasks" | "docs" | "parties" | "claims" | "assets" | "emails" | "calendar" | "activity">("overview");
+  const [copiedEmail, setCopiedEmail] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [templateSelectOpen, setTemplateSelectOpen] = useState(false);
+  const [bpiPortalUrl, setBpiPortalUrl] = useState("https://portal.onrc.ro");
+  const actionsRef = useRef<HTMLDivElement>(null);
   const [aiStatus, setAiStatus] = useState<AiEnabledStatus | null>(null);
   const [caseTasks, setCaseTasks] = useState<TaskDto[]>([]);
   const [caseEmails, setCaseEmails] = useState<CaseEmailDto[]>([]);
@@ -187,6 +193,27 @@ export default function CaseDetailPage() {
     usersApi.getAll().then(r => setUsers(r.data)).catch(console.error);
   }, []);
 
+  // Load BPI portal URL from integration settings (falls back to default if no permission)
+  useEffect(() => {
+    settingsApi.integrations.get()
+      .then(res => {
+        const item = res.data.find((i: { key: string; value: string }) => i.key === "Integrations:BpiPortalUrl");
+        if (item?.value) setBpiPortalUrl(item.value);
+      })
+      .catch(() => { /* use default */ });
+  }, []);
+
+  // Close Actions dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setActionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   const loadSummary = async () => {
     if (!id) return;
     setSummaryLoading(true);
@@ -275,32 +302,118 @@ export default function CaseDetailPage() {
             <h1 className="text-xl font-bold text-card-foreground">{t.cases.caseNumber} {caseData.caseNumber}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{caseData.debtorName}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant="secondary">{statusLabel(caseData.status)}</Badge>
-            {isClosed
-              ? (isTenantAdmin || isGlobalAdmin) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 gap-1 text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
-                    onClick={handleReopenCase}
-                    disabled={reopening}
+
+            {/* Reopen Case — shown only when case is closed */}
+            {isClosed && (isTenantAdmin || isGlobalAdmin) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 gap-1 text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                onClick={handleReopenCase}
+                disabled={reopening}
+              >
+                {reopening ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                {t.cases.reopenCase}
+              </Button>
+            )}
+
+            {/* Actions dropdown */}
+            <div className="relative" ref={actionsRef}>
+              <Button
+                size="sm"
+                className="h-7 gap-1.5 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                onClick={() => setActionsOpen(v => !v)}
+              >
+                Actions
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-150 ${actionsOpen ? "rotate-180" : ""}`} />
+              </Button>
+
+              {actionsOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-xl border border-border bg-card shadow-lg py-1 text-sm">
+                  {/* Send Email */}
+                  {(isPractitioner || isTenantAdmin || isGlobalAdmin) && (
+                    <button
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      disabled={isClosed}
+                      onClick={() => {
+                        setActionsOpen(false);
+                        setComposeEmailInitialSubject("");
+                        setComposeEmailAttachedDocId(undefined);
+                        setActiveTab("emails");
+                        setComposeEmailOpen(true);
+                      }}
+                    >
+                      <Mail className="h-4 w-4 text-primary shrink-0" />
+                      Send Email
+                    </button>
+                  )}
+
+                  {/* Create from Template */}
+                  {(isPractitioner || isTenantAdmin || isGlobalAdmin) && (
+                    <button
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      disabled={isClosed}
+                      onClick={() => { setActionsOpen(false); setTemplateSelectOpen(true); }}
+                    >
+                      <FileOutput className="h-4 w-4 text-primary shrink-0" />
+                      Create from template
+                    </button>
+                  )}
+
+                  {/* Call Creditor Meeting */}
+                  <button
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    disabled={isClosed}
+                    onClick={() => { setActionsOpen(false); setMeetingOpen(true); }}
                   >
-                    {reopening ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                    {t.cases.reopenCase}
-                  </Button>
-                )
-              : (isPractitioner || isTenantAdmin || isGlobalAdmin) && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="h-7 gap-1 text-xs"
-                    onClick={() => setCloseCaseOpen(true)}
+                    <Users className="h-4 w-4 text-primary shrink-0" />
+                    Call Creditor Meeting
+                  </button>
+
+                  {/* Mandatory Report */}
+                  {(isPractitioner || isTenantAdmin || isGlobalAdmin) && (
+                    <button
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      disabled={generatingMandatoryReport || isClosed}
+                      onClick={() => { setActionsOpen(false); setMandatoryReportConfigOpen(true); }}
+                    >
+                      {generatingMandatoryReport
+                        ? <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                        : <ClipboardList className="h-4 w-4 text-amber-500 shrink-0" />}
+                      {t.caseTemplates.mandatoryReportButton}
+                    </button>
+                  )}
+
+                  {/* Open BPI Portal */}
+                  <button
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-accent transition-colors"
+                    onClick={() => { setActionsOpen(false); window.open(bpiPortalUrl, "_blank", "noopener,noreferrer"); }}
                   >
-                    <Lock className="h-3 w-3" /> Close Case
-                  </Button>
-                )
-            }
+                    <Globe className="h-4 w-4 text-chart-3 shrink-0" />
+                    <span className="flex-1">Open BPI Portal</span>
+                    <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                  </button>
+
+                  {/* Divider before destructive actions */}
+                  {!isClosed && (isPractitioner || isTenantAdmin || isGlobalAdmin) && (
+                    <div className="my-1 border-t border-border" />
+                  )}
+
+                  {/* Close Case */}
+                  {!isClosed && (isPractitioner || isTenantAdmin || isGlobalAdmin) && (
+                    <button
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                      onClick={() => { setActionsOpen(false); setCloseCaseOpen(true); }}
+                    >
+                      <Lock className="h-4 w-4 shrink-0" />
+                      Close Case
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -312,6 +425,26 @@ export default function CaseDetailPage() {
           <InfoRow label={t.cases.procedureType} value={caseData.procedureType} />
           <InfoRow label={t.cases.lawReference} value={caseData.lawReference} />
           <InfoRow label={t.cases.debtorCui} value={caseData.debtorCui} />
+          {caseData.caseEmailAddress && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.caseEmail?.emailAddress ?? "Case Email"}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm text-foreground font-mono">{caseData.caseEmailAddress}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(caseData.caseEmailAddress!);
+                    setCopiedEmail(true);
+                    setTimeout(() => setCopiedEmail(false), 2000);
+                  }}
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  title={t.caseEmail?.copyTooltip ?? "Copy to clipboard"}
+                >
+                  {copiedEmail ? <Check className="h-3.5 w-3.5 text-chart-2" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+          )}
           <InfoRow label={t.cases.practitioner} value={caseData.practitionerName} />
           <InfoRow label={t.cases.practitionerRole} value={caseData.practitionerRole} />
           <InfoRow label={t.cases.company} value={caseData.companyName} />
@@ -429,55 +562,6 @@ export default function CaseDetailPage() {
 
       {/* Workspace layout */}
       <div className="space-y-3">
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
-            onClick={() => setMeetingOpen(true)}
-            disabled={isClosed}
-          >
-            <Users className="h-3.5 w-3.5" />
-            Call Creditor Meeting
-          </Button>
-
-          {/* Generate Mandatory Report */}
-          {(isPractitioner || isTenantAdmin || isGlobalAdmin) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1 border-amber-400/50 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-              disabled={generatingMandatoryReport || isClosed}
-              onClick={() => setMandatoryReportConfigOpen(true)}
-            >
-              {generatingMandatoryReport
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                : <ClipboardList className="h-3.5 w-3.5" />}
-              {t.caseTemplates.mandatoryReportButton}
-            </Button>
-          )}
-
-          {/* Send Email */}
-          {(isPractitioner || isTenantAdmin || isGlobalAdmin) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
-              onClick={() => {
-                setComposeEmailInitialSubject("");
-                setComposeEmailAttachedDocId(undefined);
-                setActiveTab("emails");
-                setComposeEmailOpen(true);
-              }}
-            disabled={isClosed}
-            >
-              <Mail className="h-3.5 w-3.5" />
-              Send Email
-            </Button>
-          )}
-        </div>
-
         {/* Main panel with tabs */}
         <div className="space-y-3">
           {/* Tab bar */}
@@ -492,7 +576,6 @@ export default function CaseDetailPage() {
               { id: "assets" as const, label: "Assets", icon: Package },
               { id: "emails" as const, label: `Emails (${caseEmails.length})`, icon: Mail },
               { id: "calendar" as const, label: "Calendar", icon: CalendarDays },
-              { id: "templates" as const, label: "Templates", icon: FileOutput },
               { id: "activity" as const, label: "Activity", icon: History },
             ]).map(tb => (
               <button
@@ -695,11 +778,6 @@ export default function CaseDetailPage() {
             <CalendarTab caseId={id!} readOnly={isClosed} />
           )}
 
-          {/* Templates Tab */}
-          {activeTab === "templates" && (
-            <TemplatesTab caseId={id!} readOnly={isClosed} />
-          )}
-
           {/* Activity Timeline Tab */}
           {activeTab === "activity" && (
             <CaseAuditActivity caseId={id!} caseNumber={caseData.caseNumber} locale={locale} />
@@ -707,6 +785,30 @@ export default function CaseDetailPage() {
 
         </div>
       </div>
+
+      {/* Create from Template Modal */}
+      {templateSelectOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setTemplateSelectOpen(false)} />
+          <div className="relative z-10 w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl border border-border bg-background shadow-2xl mx-4">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="flex items-center gap-2">
+                <FileOutput className="h-5 w-5 text-primary" />
+                <h2 className="text-base font-semibold text-foreground">Create from template</h2>
+              </div>
+              <button
+                onClick={() => setTemplateSelectOpen(false)}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5">
+              <TemplatesTab caseId={id!} readOnly={isClosed} onDone={() => setTemplateSelectOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Party Modal */}
       {addPartyOpen && (
@@ -1117,7 +1219,7 @@ function CaseAuditActivity({ caseId, caseNumber, locale }: { caseId: string; cas
   );
 }
 /* ── Templates Tab Component ─────────────────────────── */
-function TemplatesTab({ caseId, readOnly = false }: { caseId: string; readOnly?: boolean }) {
+function TemplatesTab({ caseId, readOnly = false, onDone }: { caseId: string; readOnly?: boolean; onDone?: () => void }) {
   const { t } = useTranslation();
   const [templates, setTemplates] = useState<import("@/services/api/documentTemplatesApi").DocumentTemplateDto[]>([]);
   const [loading, setLoading] = useState(true);

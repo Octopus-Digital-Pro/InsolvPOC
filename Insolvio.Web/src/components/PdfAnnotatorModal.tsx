@@ -27,7 +27,7 @@ import { postCorrectionFeedback, computeCorrectionDiff } from "@/services/api/ai
 import { Button } from "@/components/ui/button";
 import {
   Loader2, Save, X, Trash2, CheckCircle2, Brain, Sparkles, RefreshCw,
-  ChevronLeft, ChevronRight, Type, Plus,
+  ChevronLeft, ChevronRight, Type, Plus, Lock,
 } from "lucide-react";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -115,6 +115,10 @@ async function extractDocumentText(doc: pdfjsLib.PDFDocumentProxy): Promise<stri
 
 interface PdfAnnotatorModalProps {
   type: IncomingDocumentType;
+  /** Specific training profile ID. When set, ID-based endpoints are used. */
+  profileId?: string;
+  /** When true, editing is disabled (finalized profile). */
+  readOnly?: boolean;
   /** Freshly uploaded File object (takes priority over server fetch). */
   uploadedFile?: File | null;
   onClose: () => void;
@@ -123,6 +127,8 @@ interface PdfAnnotatorModalProps {
 
 export function PdfAnnotatorModal({
   type,
+  profileId,
+  readOnly: readOnlyProp = false,
   uploadedFile,
   onClose,
   onSaved,
@@ -157,6 +163,12 @@ export function PdfAnnotatorModal({
   const [notes,             setNotes]             = useState<string>("");
   const [saving,            setSaving]            = useState(false);
   const [savedOk,           setSavedOk]           = useState(false);
+
+  // Finalize & Train
+  const [readOnly,       setReadOnly]       = useState(readOnlyProp);
+  const [finalizing,     setFinalizing]     = useState(false);
+  const [finalizeOk,     setFinalizeOk]     = useState(false);
+  const [finalizeError,  setFinalizeError]  = useState<string | null>(null);
 
   // AI
   const [profile,      setProfile]      = useState<IncomingDocumentProfile | null>(null);
@@ -237,8 +249,11 @@ export function PdfAnnotatorModal({
         } else {
           const token    = localStorage.getItem("authToken");
           const tenantId = localStorage.getItem("selectedTenantId");
+          const fileUrl  = profileId
+            ? documentTemplatesApi.getIncomingProfileFileUrl(profileId)
+            : documentTemplatesApi.getIncomingReferenceFileUrl(type);
           const res = await fetch(
-            documentTemplatesApi.getIncomingReferenceFileUrl(type),
+            fileUrl,
             {
               headers: {
                 ...(token    ? { Authorization: `Bearer ${token}` }  : {}),
@@ -268,15 +283,17 @@ export function PdfAnnotatorModal({
       setAnnotationsLoaded(true);
       return;
     }
-    documentTemplatesApi
-      .getIncomingAnnotations(type)
+    const req = profileId
+      ? documentTemplatesApi.getIncomingAnnotationsById(profileId)
+      : documentTemplatesApi.getIncomingAnnotations(type);
+    req
       .then((r) => {
         setAnnotations((r.data.annotations ?? []) as IncomingAnnotationItem[]);
         setNotes(r.data.notes ?? "");
       })
       .catch(() => {})
       .finally(() => setAnnotationsLoaded(true));
-  }, [type, uploadedFile]);
+  }, [type, profileId, uploadedFile]);
 
   // -- Auto-suggest annotations when text is ready and no saved annotations exist --
 
@@ -287,9 +304,10 @@ export function PdfAnnotatorModal({
     setSuggestError(null);
     setSuggestAiNotConfigured(false);
     setSuggestNoFields(false);
-    documentTemplatesApi
-      .suggestAnnotations(type, fullText)
-      .then((r) => {
+    const req = profileId
+      ? documentTemplatesApi.suggestAnnotationsById(profileId, fullText)
+      : documentTemplatesApi.suggestAnnotations(type, fullText);
+    req.then((r) => {
         if (cancelled) return;
         const { suggestions: sugg = {}, aiConfigured } = r.data;
         if (!aiConfigured) {
@@ -450,7 +468,11 @@ export function PdfAnnotatorModal({
     setSaving(true);
     try {
       const payload: IncomingAnnotationsPayload = { annotations, notes: notes || null };
-      await documentTemplatesApi.saveIncomingAnnotations(type, payload);
+      if (profileId) {
+        await documentTemplatesApi.saveIncomingAnnotationsById(profileId, payload);
+      } else {
+        await documentTemplatesApi.saveIncomingAnnotations(type, payload);
+      }
 
       // Post correction feedback if AI suggestions were captured
       if (Object.keys(aiSuggestionsRef.current).length > 0) {
@@ -480,7 +502,33 @@ export function PdfAnnotatorModal({
     }
   };
 
-  // â”€â”€ AI analysis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Finalize & Train ────────────────────────────────────────────────────────
+
+  const handleFinalizeAndTrain = async () => {
+    if (!profileId) return;
+    setFinalizing(true);
+    setFinalizeError(null);
+    try {
+      // Save annotations first so the latest edits are included
+      if (annotations.length > 0) {
+        await documentTemplatesApi.saveIncomingAnnotationsById(profileId, {
+          annotations,
+          notes: notes || null,
+        });
+      }
+      await documentTemplatesApi.finalizeAndTrain(profileId);
+      setReadOnly(true);
+      setFinalizeOk(true);
+      onSaved();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setFinalizeError(msg ?? "Finalize failed. Make sure annotations are saved first.");
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
+  // ── AI analysis ─────────────────────────────────────────────────────────────
 
   const handleAnalyse = async () => {
     setAnalysing(true);
@@ -525,29 +573,67 @@ export function PdfAnnotatorModal({
       {/* â”€â”€ Header â”€â”€ */}
       <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-3 shrink-0">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold leading-tight">Annotate reference document</p>
+          <p className="text-sm font-bold leading-tight">
+            {readOnly ? "View reference document" : "Annotate reference document"}
+          </p>
           <p className="text-xs text-muted-foreground truncate">{INCOMING_DOCUMENT_LABELS[type]}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm" variant="outline"
-            onClick={handleAnalyse}
-            disabled={analysing || saving}
-            title="Generate AI summaries in EN / RO / HU and extract field parameters"
-          >
-            {analysing  ? <Loader2       className="h-3.5 w-3.5 animate-spin mr-1" />
-             : aiDone   ? <Sparkles      className="h-3.5 w-3.5 mr-1 text-purple-500" />
-             :             <Brain        className="h-3.5 w-3.5 mr-1" />}
-            {aiDone ? "Analysis done" : analysing ? "Analysing..." : "Analyse with AI"}
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving || annotations.length === 0}>
-            {saving   ? <Loader2     className="h-3.5 w-3.5 animate-spin mr-1" />
-             : savedOk ? <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-green-500" />
-             :            <Save        className="h-3.5 w-3.5 mr-1" />}
-            {savedOk
-              ? "Saved"
-              : `Save${annotations.length > 0 ? ` (${annotations.length})` : ""}`}
-          </Button>
+          {finalizeOk && (
+            <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Submitted for training
+            </span>
+          )}
+          {finalizeError && (
+            <span className="text-xs text-destructive truncate max-w-[200px]" title={finalizeError}>
+              {finalizeError}
+            </span>
+          )}
+          {readOnly && !finalizeOk && (
+            <span className="flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+              <Lock className="h-3 w-3" />
+              Finalized
+            </span>
+          )}
+          {!readOnly && (
+            <Button
+              size="sm" variant="outline"
+              onClick={handleAnalyse}
+              disabled={analysing || saving || finalizing}
+              title="Generate AI summaries in EN / RO / HU and extract field parameters"
+            >
+              {analysing  ? <Loader2       className="h-3.5 w-3.5 animate-spin mr-1" />
+               : aiDone   ? <Sparkles      className="h-3.5 w-3.5 mr-1 text-purple-500" />
+               :             <Brain        className="h-3.5 w-3.5 mr-1" />}
+              {aiDone ? "Analysis done" : analysing ? "Analysing..." : "Analyse with AI"}
+            </Button>
+          )}
+          {!readOnly && (
+            <Button size="sm" onClick={handleSave} disabled={saving || finalizing || annotations.length === 0}>
+              {saving   ? <Loader2     className="h-3.5 w-3.5 animate-spin mr-1" />
+               : savedOk ? <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-green-500" />
+               :            <Save        className="h-3.5 w-3.5 mr-1" />}
+              {savedOk
+                ? "Saved"
+                : `Save${annotations.length > 0 ? ` (${annotations.length})` : ""}`}
+            </Button>
+          )}
+          {profileId && !readOnly && (
+            <Button
+              size="sm"
+              variant="default"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={handleFinalizeAndTrain}
+              disabled={saving || finalizing || annotations.length === 0}
+              title="Lock this document and submit it for AI recognition training"
+            >
+              {finalizing
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
+              {finalizing ? "Finalizing..." : "Finalize & Train"}
+            </Button>
+          )}
           <button
             type="button" onClick={onClose}
             className="rounded-md p-1.5 hover:bg-accent text-muted-foreground"
@@ -561,10 +647,20 @@ export function PdfAnnotatorModal({
       <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-1.5 shrink-0">
         <Type className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         <p className="text-xs text-muted-foreground">
-          The PDF is shown on the left for reference.{" "}
-          <span className="font-medium">Select any text in the right panel</span>{" "}
-          and an assignment bar will appear â€” pick the field, adjust context, then{" "}
-          <span className="font-medium">Add annotation</span>.
+          {readOnly ? (
+            <>
+              This document has been{" "}
+              <span className="font-medium">finalized and submitted for AI training</span>.
+              It is now <span className="font-medium">read-only</span>.
+            </>
+          ) : (
+            <>
+              The PDF is shown on the left for reference.{" "}
+              <span className="font-medium">Select any text in the right panel</span>{" "}
+              and an assignment bar will appear — pick the field, adjust context, then{" "}
+              <span className="font-medium">Add annotation</span>.
+            </>
+          )}
         </p>
       </div>
 
@@ -662,8 +758,8 @@ export function PdfAnnotatorModal({
               <div
                 ref={textPanelRef}
                 className="flex-1 overflow-y-auto p-3 text-xs font-mono text-foreground leading-relaxed whitespace-pre-wrap"
-                style={{ cursor: "text", userSelect: "text" }}
-                onMouseUp={handleTextMouseUp}
+                style={{ cursor: readOnly ? "default" : "text", userSelect: "text" }}
+                onMouseUp={readOnly ? undefined : handleTextMouseUp}
               >
                 {textLoading ? (
                   <p className="text-center text-muted-foreground mt-6">Extracting text...</p>
@@ -707,19 +803,20 @@ export function PdfAnnotatorModal({
                   AI not configured
                 </span>
               )}
-              {!suggesting && !suggestAiNotConfigured && annotationsLoaded && !!fullText && annotations.length === 0 && (
+              {!suggesting && annotationsLoaded && !!fullText && annotations.length === 0 && (
                 <button
                   type="button"
-                  title="Ask AI to identify fields in the extracted text"
+                  title={suggestAiNotConfigured ? "Configure AI in Settings, then retry" : "Ask AI to identify fields in the extracted text"}
                   onClick={() => {
                     setSuggestNoFields(false);
                     setSuggestError(null);
+                    setSuggestAiNotConfigured(false);
                     setSuggestTrigger((t) => t + 1);
                   }}
                   className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-purple-500 transition-colors"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  {suggestNoFields ? "Retry AI" : "Ask AI"}
+                  {suggestNoFields || suggestAiNotConfigured ? "Retry AI" : "Ask AI"}
                 </button>
               )}
             </div>
@@ -765,13 +862,15 @@ export function PdfAnnotatorModal({
                           </p>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setAnnotations((prev) => prev.filter((x) => x.id !== a.id))}
-                        className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => setAnnotations((prev) => prev.filter((x) => x.id !== a.id))}
+                          className="text-muted-foreground hover:text-destructive transition-colors shrink-0 mt-0.5"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
                   );
                 })
@@ -789,7 +888,8 @@ export function PdfAnnotatorModal({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Describe this document type, layout variations, etc."
               rows={2}
-              className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs outline-none resize-none focus:ring-1 focus:ring-primary leading-relaxed"
+              readOnly={readOnly}
+              className={`w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs outline-none resize-none focus:ring-1 focus:ring-primary leading-relaxed${readOnly ? " opacity-70 cursor-default" : ""}`}
             />
           </div>
 

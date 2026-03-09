@@ -904,8 +904,7 @@ export interface Translations {
   };
 
   // Email Settings
-  emailSettings: {
-    pageTitle: string;
+  emailSettings: {    pageTitle: string;
     pageDesc: string;
     autoCcUser: string;
     autoCcUserDesc: string;
@@ -914,6 +913,17 @@ export interface Translations {
     adminCcAddress: string;
     adminCcAddressDesc: string;
     adminCcAddressPlaceholder: string;
+    save: string;
+    saved: string;
+  };
+
+  // Integrations
+  integrations: {
+    pageTitle: string;
+    pageDesc: string;
+    bpiPortalUrl: string;
+    bpiPortalUrlDesc: string;
+    bpiPortalUrlPlaceholder: string;
     save: string;
     saved: string;
   };

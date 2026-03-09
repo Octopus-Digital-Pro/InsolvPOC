@@ -34,6 +34,12 @@ export interface SystemConfigUpdateItem {
 }
 
 export const settingsApi = {
+  integrations: {
+    get: () =>
+      client.get<SystemConfigItem[]>("/settings/integrations"),
+    update: (items: SystemConfigUpdateItem[]) =>
+      client.put("/settings/integrations", { items }),
+  },
   emailPreferences: {
     get: () =>
       client.get<SystemConfigItem[]>("/settings/email-preferences"),

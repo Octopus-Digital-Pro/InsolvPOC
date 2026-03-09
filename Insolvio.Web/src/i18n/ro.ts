@@ -859,6 +859,15 @@ export const ro: Translations = {
     save: "Salvează preferințele",
     saved: "Preferințele email au fost salvate",
   },
+  integrations: {
+    pageTitle: "Integrări",
+    pageDesc: "Configurați URL-urile serviciilor externe și setările de integrare.",
+    bpiPortalUrl: "URL Portal BPI",
+    bpiPortalUrlDesc: "URL-ul portalului BPI de insolvență (portal.onrc.ro). Folosit la deschiderea portalului dintr-un dosar.",
+    bpiPortalUrlPlaceholder: "https://portal.onrc.ro",
+    save: "Salvează integrările",
+    saved: "Setările de integrare au fost salvate",
+  },
   notifications: {
     title: "Notificări",
     markAllRead: "Marchează toate ca citite",

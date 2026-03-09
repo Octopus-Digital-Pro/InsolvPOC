@@ -612,8 +612,8 @@ public class DocumentTemplatesController : ControllerBase
 
     /// <summary>
     /// Upload a sample PDF for an incoming document type.
-    /// The system stores it as a reference so AI can recognise similar documents
-    /// uploaded by practitioners and auto-classify them.
+    /// Creates a NEW profile row (multiple per type are supported).
+    /// Returns the new profile Id so the frontend can open the annotator.
     /// </summary>
     [HttpPost("incoming-reference/{type}")]
     [RequirePermission(Permission.TemplateManage)]
@@ -628,15 +628,18 @@ public class DocumentTemplatesController : ControllerBase
         if (ext != ".pdf" && file.ContentType?.Contains("pdf", StringComparison.OrdinalIgnoreCase) == false)
             return BadRequest(new { message = "Only PDF files are accepted." });
 
-        var key = $"incoming-reference/{type}.pdf";
+        // Each upload gets a unique storage key so multiple samples don't overwrite each other
+        var profileId = Guid.NewGuid();
+        var key = $"incoming-reference/{type}/{profileId}{ext}";
         await using var stream = file.OpenReadStream();
         await _storage.UploadAsync(key, stream, "application/pdf", ct);
 
-        // Persist to DB (creates or updates the profile row)
-        await _incomingProfiles.UpsertOnUploadAsync(type, key, file.FileName, file.Length, ct);
+        // Always creates a new DB row
+        var newProfileId = await _incomingProfiles.CreateOnUploadAsync(type, key, file.FileName, file.Length, ct);
 
         return Ok(new
         {
+            profileId = newProfileId,
             type,
             fileName = file.FileName,
             fileSize = file.Length,
@@ -831,6 +834,201 @@ public class DocumentTemplatesController : ControllerBase
     [RequirePermission(Permission.TemplateManage)]
     public async Task<IActionResult> SuggestAnnotations(
         string type, [FromBody] SuggestAnnotationsRequest req, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(req.ExtractedText))
+            return BadRequest(new { message = "ExtractedText is required." });
+
+        var suggestions = await _documentAi.SuggestAnnotationsAsync(req.ExtractedText, ct);
+        if (suggestions is null)
+            return Ok(new { suggestions = new Dictionary<string, string>(), aiConfigured = false });
+
+        return Ok(new { suggestions, aiConfigured = true });
+    }
+
+    // ── Per-profile (ID-based) endpoints ─────────────────────────────────────
+
+    /// <summary>Returns all training document profiles for a given type.</summary>
+    [HttpGet("incoming-reference/{type}/all")]
+    [RequirePermission(Permission.TemplateView)]
+    public async Task<IActionResult> GetAllProfilesForType(string type, CancellationToken ct)
+    {
+        var profiles = await _incomingProfiles.GetAllProfilesForTypeAsync(type, ct);
+        return Ok(profiles.Select(p => new
+        {
+            id = p.Id,
+            type = p.DocumentType,
+            originalFileName = p.OriginalFileName,
+            fileSizeBytes = p.FileSizeBytes,
+            uploadedOn = p.UploadedOn,
+            lastAnnotatedOn = p.LastAnnotatedOn,
+            annotationCount = CountAnnotations(p.AnnotationsJson),
+            isFinalized = p.IsFinalized,
+            finalizedOn = p.FinalizedOn,
+            trainingStatus = p.TrainingStatus,
+            aiConfidence = p.AiConfidence,
+            aiAnalysedOn = p.AiAnalysedOn,
+            hasAiProfile = p.AiSummaryEn != null || p.AiSummaryRo != null,
+        }));
+    }
+
+    /// <summary>Streams the PDF for a specific profile by Id.</summary>
+    [HttpGet("incoming-reference/profile/{id:guid}/file")]
+    [RequirePermission(Permission.TemplateView)]
+    public async Task<IActionResult> GetProfileFile(Guid id, CancellationToken ct)
+    {
+        var profile = await _incomingProfiles.GetProfileByIdAsync(id, ct);
+        if (profile is null) return NotFound(new { message = "Profile not found." });
+
+        try
+        {
+            var stream = await _storage.DownloadAsync(profile.StorageKey, ct);
+            return File(stream, "application/pdf", profile.OriginalFileName);
+        }
+        catch
+        {
+            return NotFound(new { message = "PDF file not found in storage." });
+        }
+    }
+
+    /// <summary>Returns saved annotations for a specific profile by Id.</summary>
+    [HttpGet("incoming-reference/profile/{id:guid}/annotations")]
+    [RequirePermission(Permission.TemplateView)]
+    public async Task<IActionResult> GetProfileAnnotations(Guid id, CancellationToken ct)
+    {
+        var profile = await _incomingProfiles.GetProfileByIdAsync(id, ct);
+        if (profile is null)
+            return Ok(new { annotations = Array.Empty<object>(), notes = (string?)null });
+
+        if (profile.AnnotationsJson is not null)
+        {
+            try
+            {
+                var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var annotations = System.Text.Json.JsonSerializer.Deserialize<IncomingAnnotationItem[]>(profile.AnnotationsJson, opts)
+                                  ?? Array.Empty<IncomingAnnotationItem>();
+                return Ok(new { annotations, notes = profile.AnnotationNotes });
+            }
+            catch
+            {
+                return Ok(new { annotations = Array.Empty<object>(), notes = profile.AnnotationNotes });
+            }
+        }
+
+        return Ok(new { annotations = Array.Empty<object>(), notes = (string?)null });
+    }
+
+    /// <summary>Saves annotations for a specific profile by Id.</summary>
+    [HttpPost("incoming-reference/profile/{id:guid}/annotations")]
+    [RequirePermission(Permission.TemplateManage)]
+    public async Task<IActionResult> SaveProfileAnnotations(
+        Guid id, [FromBody] SaveIncomingAnnotationsRequest req, CancellationToken ct)
+    {
+        try
+        {
+            var camelCase = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+            var annotationsJson = System.Text.Json.JsonSerializer.Serialize(req.Annotations, camelCase);
+            await _incomingProfiles.SaveAnnotationsByIdAsync(id, annotationsJson, req.Notes, ct);
+            return Ok(new { message = "Annotations saved." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Returns the full profile by Id (including AI summaries).</summary>
+    [HttpGet("incoming-reference/profile/{id:guid}")]
+    [RequirePermission(Permission.TemplateView)]
+    public async Task<IActionResult> GetProfileById(Guid id, CancellationToken ct)
+    {
+        var profile = await _incomingProfiles.GetProfileByIdAsync(id, ct);
+        if (profile is null) return NotFound(new { message = "Profile not found." });
+
+        return Ok(new
+        {
+            id = profile.Id,
+            type = profile.DocumentType,
+            exists = true,
+            originalFileName = profile.OriginalFileName,
+            fileSizeBytes = profile.FileSizeBytes,
+            uploadedOn = profile.UploadedOn,
+            lastAnnotatedOn = profile.LastAnnotatedOn,
+            annotationCount = CountAnnotations(profile.AnnotationsJson),
+            annotationNotes = profile.AnnotationNotes,
+            isFinalized = profile.IsFinalized,
+            finalizedOn = profile.FinalizedOn,
+            trainingStatus = profile.TrainingStatus,
+            aiSummaryEn = profile.AiSummaryEn,
+            aiSummaryRo = profile.AiSummaryRo,
+            aiSummaryHu = profile.AiSummaryHu,
+            aiParametersJson = profile.AiParametersJson,
+            aiModel = profile.AiModel,
+            aiConfidence = profile.AiConfidence,
+            aiAnalysedOn = profile.AiAnalysedOn,
+        });
+    }
+
+    /// <summary>
+    /// Finalizes a training document and submits it to the AI recognition pipeline.
+    /// Requires annotations to be saved first. Locks the profile against further edits.
+    /// </summary>
+    [HttpPost("incoming-reference/profile/{id:guid}/finalize-and-train")]
+    [RequirePermission(Permission.TemplateManage)]
+    public async Task<IActionResult> FinalizeAndTrain(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            var profile = await _incomingProfiles.FinalizeAndTrainAsync(id, ct);
+            return Ok(new
+            {
+                id = profile.Id,
+                isFinalized = profile.IsFinalized,
+                finalizedOn = profile.FinalizedOn,
+                trainingStatus = profile.TrainingStatus,
+                aiConfidence = profile.AiConfidence,
+                aiAnalysedOn = profile.AiAnalysedOn,
+                message = "Document finalized and submitted for training. AI analysis complete.",
+            });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>Deletes a non-finalized training document profile.</summary>
+    [HttpDelete("incoming-reference/profile/{id:guid}")]
+    [RequirePermission(Permission.TemplateManage)]
+    public async Task<IActionResult> DeleteProfile(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            await _incomingProfiles.DeleteProfileAsync(id, ct);
+            return Ok(new { message = "Profile deleted." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>AI annotation suggestion for a specific profile (uses profile's PDF text).</summary>
+    [HttpPost("incoming-reference/profile/{id:guid}/suggest-annotations")]
+    [RequirePermission(Permission.TemplateManage)]
+    public async Task<IActionResult> SuggestAnnotationsForProfile(
+        Guid id, [FromBody] SuggestAnnotationsRequest req, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.ExtractedText))
             return BadRequest(new { message = "ExtractedText is required." });

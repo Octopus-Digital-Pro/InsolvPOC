@@ -70,7 +70,18 @@ public sealed class TenantAiConfigService : ITenantAiConfigService
         cfg.ApiEndpoint = Nullify(request.ApiEndpoint);
         cfg.ModelName = Nullify(request.ModelName);
         if (request.ApiKey is not null)
-            cfg.ApiKeyEncrypted = request.ApiKey.Length == 0 ? null : Encrypt(request.ApiKey.Trim());
+        {
+            if (request.ApiKey.Length == 0)
+            {
+                cfg.ApiKeyEncrypted = null;
+                cfg.AiEnabled = false; // Key cleared → disable tenant AI
+            }
+            else
+            {
+                cfg.ApiKeyEncrypted = Encrypt(request.ApiKey.Trim());
+                cfg.AiEnabled = true; // Key provided → automatically enable tenant AI
+            }
+        }
 
         cfg.UpdatedAt = DateTime.UtcNow;
 

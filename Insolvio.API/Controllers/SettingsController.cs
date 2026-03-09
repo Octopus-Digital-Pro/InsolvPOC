@@ -141,6 +141,21 @@ public class SettingsController : ControllerBase
   public async Task<IActionResult> UpsertFirm([FromBody] UpsertInsolvencyFirmRequest request, CancellationToken ct)
       => Ok(await _settings.UpsertFirmAsync(request, ct));
 
+  // ── Integrations ───────────────────────────────────────────────────────
+
+  [HttpGet("integrations")]
+  [RequirePermission(Permission.SystemConfigView)]
+  public async Task<IActionResult> GetIntegrations(CancellationToken ct)
+      => Ok(await _settings.GetSystemConfigAsync("Integrations", ct));
+
+  [HttpPut("integrations")]
+  [RequirePermission(Permission.SystemConfigEdit)]
+  public async Task<IActionResult> UpdateIntegrations([FromBody] UpdateSystemConfigRequest request, CancellationToken ct)
+  {
+    await _settings.UpdateSystemConfigAsync(request, ct);
+    return Ok(new { message = "Integration settings updated" });
+  }
+
   // ── Email Preferences ──────────────────────────────────────────────────
 
   [HttpGet("email-preferences")]

@@ -40,7 +40,8 @@ function tryGetLocalised(dto: AiSummaryDto, lang: Lang): string {
 }
 
 export default function CaseAiTab({ caseId, readOnly = false }: Props) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const lang: Lang = locale;
 
   const [aiStatus, setAiStatus] = useState<AiEnabledStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
@@ -51,8 +52,6 @@ export default function CaseAiTab({ caseId, readOnly = false }: Props) {
     null
   );
   const [savedSummary, setSavedSummary] = useState<AiSummaryDto | null>(null);
-
-  const [lang, setLang] = useState<Lang>("en");
 
   const [messages, setMessages] = useState<AiChatMessageDto[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -233,24 +232,6 @@ export default function CaseAiTab({ caseId, readOnly = false }: Props) {
           </span>
         </div>
       )}
-
-      {/* ── Language selector ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-muted-foreground">{t.ai.language}:</span>
-        {(["en", "ro", "hu"] as Lang[]).map((l) => (
-          <button
-            key={l}
-            onClick={() => setLang(l)}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-              lang === l
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-accent hover:text-foreground"
-            }`}
-          >
-            {l === "en" ? t.ai.langEn : l === "ro" ? t.ai.langRo : t.ai.langHu}
-          </button>
-        ))}
-      </div>
 
       {/* ── AI Summary section ───────────────────────────────────────────── */}
       {aiStatus.summaryEnabled && (

@@ -806,34 +806,33 @@ function CustomTemplateCard({
 
 function IncomingDocumentCard({
   type,
-  status,
   onUploaded,
 }: {
   type: IncomingDocumentType;
-  status: IncomingDocumentReferenceStatus | null;
   onUploaded: () => void;
 }) {
+  const [profiles,  setProfiles]  = useState<import("@/services/api/documentTemplatesApi").IncomingDocumentProfileEntry[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState<number | null>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [annotatorOpen, setAnnotatorOpen] = useState(false);
-  const [lastUploadedFile, setLastUploadedFile] = useState<File | null>(null);
-  const [profile, setProfile] = useState<import("@/services/api/documentTemplatesApi").IncomingDocumentProfile | null>(null);
+  const [dragOver,  setDragOver]  = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+  const [deleting,  setDeleting]  = useState<string | null>(null);  // profileId being deleted
+  const [annotatorState, setAnnotatorState] = useState<{
+    profileId: string;
+    file?: File;
+    readOnly: boolean;
+  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { t, locale } = useTranslation();
 
-  const reloadProfile = () => {
+  const reloadProfiles = () => {
     documentTemplatesApi
-      .getIncomingDocumentProfile(type)
-      .then((r) => { if (r.data.exists) setProfile(r.data); })
+      .getIncomingProfilesForType(type)
+      .then((r) => setProfiles(r.data))
       .catch(() => {});
   };
 
-  // Load profile when reference exists
-  useEffect(() => {
-    if (status?.exists) reloadProfile();
-  }, [type, status?.exists]);
+  useEffect(() => { reloadProfiles(); }, [type]);
 
   const handleFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
@@ -844,11 +843,11 @@ function IncomingDocumentCard({
     setUploadPct(0);
     setError(null);
     try {
-      await documentTemplatesApi.uploadIncomingReference(type, file, (pct) => setUploadPct(pct));
+      const r = await documentTemplatesApi.uploadIncomingReference(type, file, (pct) => setUploadPct(pct));
       onUploaded();
+      reloadProfiles();
       // Auto-open annotator with the freshly uploaded file
-      setLastUploadedFile(file);
-      setAnnotatorOpen(true);
+      setAnnotatorState({ profileId: r.data.profileId, file, readOnly: false });
     } catch {
       setError(t.templateSettings.uploadError);
     } finally {
@@ -857,18 +856,32 @@ function IncomingDocumentCard({
     }
   };
 
-  const annotationCount = profile?.annotationCount ?? null;
-  const hasAiSummary = !!(profile?.aiSummaryEn || profile?.aiSummaryRo || profile?.aiSummaryHu);
+  const handleDelete = async (profileId: string) => {
+    setDeleting(profileId);
+    try {
+      await documentTemplatesApi.deleteIncomingProfile(profileId);
+      reloadProfiles();
+    } catch {
+      setError("Could not delete this training document.");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const hasAny = profiles.length > 0;
+  const hasFinalized = profiles.some((p) => p.isFinalized);
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 space-y-4">
       {/* Annotator modal */}
-      {annotatorOpen && (
+      {annotatorState && (
         <PdfAnnotatorModal
           type={type}
-          uploadedFile={lastUploadedFile}
-          onClose={() => { setAnnotatorOpen(false); setLastUploadedFile(null); }}
-          onSaved={() => { reloadProfile(); }}
+          profileId={annotatorState.profileId}
+          uploadedFile={annotatorState.file}
+          readOnly={annotatorState.readOnly}
+          onClose={() => { setAnnotatorState(null); reloadProfiles(); }}
+          onSaved={() => { reloadProfiles(); }}
         />
       )}
 
@@ -884,39 +897,21 @@ function IncomingDocumentCard({
               <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-amber-400 text-amber-600 dark:text-amber-400">
                 {t.templateSettings.incomingBadge}
               </Badge>
-              {status?.exists && (
+              {hasAny && (
                 <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-emerald-400 text-emerald-600 dark:text-emerald-400 gap-1">
                   <CheckCircle className="h-2.5 w-2.5" />
-                  {t.templateSettings.referenceUploaded}
+                  {profiles.length} sample{profiles.length !== 1 ? "s" : ""}
                 </Badge>
               )}
-              {annotationCount !== null && annotationCount > 0 && (
-                <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-blue-400 text-blue-600 dark:text-blue-400 gap-1">
-                  <CheckCircle className="h-2.5 w-2.5" />
-                  {annotationCount} {annotationCount !== 1 ? t.templateSettings.fields : t.templateSettings.field} {t.templateSettings.annotated}
-                </Badge>
-              )}
-              {hasAiSummary && (
+              {hasFinalized && (
                 <Badge variant="outline" className="text-[10px] rounded-md px-1.5 py-0.5 border-purple-400 text-purple-600 dark:text-purple-400 gap-1">
                   <CheckCircle className="h-2.5 w-2.5" />
-                  {t.templateSettings.aiProfileBadge}
+                  Submitted for training
                 </Badge>
               )}
             </div>
           </div>
         </div>
-        {/* Annotate button — visible once a reference PDF exists */}
-        {status?.exists && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => { setLastUploadedFile(null); setAnnotatorOpen(true); }}
-            className="shrink-0"
-          >
-            <Pencil className="h-3.5 w-3.5 mr-1.5" />
-            {hasAiSummary ? t.templateSettings.viewEdit : t.templateSettings.annotate}
-          </Button>
-        )}
       </div>
 
       {/* Description */}
@@ -930,7 +925,7 @@ function IncomingDocumentCard({
       {/* Upload area */}
       {!uploading ? (
         <div
-          className={`rounded-lg border-2 border-dashed transition-colors cursor-pointer p-5 text-center ${
+          className={`rounded-lg border-2 border-dashed transition-colors cursor-pointer p-4 text-center ${
             dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
           }`}
           onClick={() => fileRef.current?.click()}
@@ -943,21 +938,11 @@ function IncomingDocumentCard({
             if (f) handleFile(f);
           }}
         >
-          <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-          {status?.exists ? (
-            <div>
-              <p className="text-sm font-medium text-foreground">{t.templateSettings.replaceReference}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {t.templateSettings.currentFile} <span className="font-mono">{profile?.originalFileName ?? status.fileName ?? "reference"}</span>
-                {profile?.fileSizeBytes ? ` (${(profile.fileSizeBytes / 1024).toFixed(0)} KB)` : ""}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm font-medium text-foreground">{t.templateSettings.uploadPdfReference}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{t.templateSettings.clickOrDrag}</p>
-            </div>
-          )}
+          <Upload className="h-5 w-5 text-muted-foreground mx-auto mb-1.5" />
+          <p className="text-sm font-medium text-foreground">
+            {hasAny ? "Add another training sample" : t.templateSettings.uploadPdfReference}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">{t.templateSettings.clickOrDrag}</p>
           <input
             ref={fileRef}
             type="file"
@@ -987,35 +972,72 @@ function IncomingDocumentCard({
         </p>
       )}
 
-      {/* AI summary snippet */}
-      {hasAiSummary && profile && (
-        <div className="rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30 p-3 space-y-1.5">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-semibold text-purple-700 dark:text-purple-300 uppercase tracking-wider">{t.templateSettings.aiProfileLabel}</span>
-            {profile.aiConfidence != null && (
-              <span className={`text-[9px] font-semibold rounded-full px-1.5 py-0.5 ${
-                profile.aiConfidence >= 0.8
-                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                  : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300"
-              }`}>
-                {Math.round(profile.aiConfidence * 100)}% {t.templateSettings.confLabel}
-              </span>
-            )}
-            {profile.aiAnalysedOn && (
-              <span className="text-[9px] text-muted-foreground ml-auto">{new Date(profile.aiAnalysedOn).toLocaleDateString()}</span>
-            )}
+      {/* Training samples list */}
+      {profiles.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Training samples
+          </p>
+          <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+            {profiles.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 px-3 py-2.5 bg-card hover:bg-muted/30 transition-colors">
+                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate" title={p.originalFileName}>{p.originalFileName}</p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(p.uploadedOn).toLocaleDateString()}
+                    </span>
+                    {p.annotationCount > 0 && (
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400">
+                        {p.annotationCount} field{p.annotationCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {p.isFinalized ? (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0 text-[9px] font-semibold text-emerald-700 dark:text-emerald-300">
+                        <CheckCircle className="h-2.5 w-2.5" />
+                        {p.trainingStatus === "submitted" ? "Submitted" : "Finalized"}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0 text-[9px] font-semibold text-amber-700 dark:text-amber-300">
+                        {p.annotationCount > 0 ? "Annotated" : "No annotations"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs px-2"
+                    onClick={() => setAnnotatorState({ profileId: p.id, readOnly: p.isFinalized })}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    {p.isFinalized ? "View" : (p.annotationCount > 0 ? t.templateSettings.viewEdit : t.templateSettings.annotate)}
+                  </Button>
+                  {!p.isFinalized && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      disabled={deleting === p.id}
+                      onClick={() => handleDelete(p.id)}
+                      title="Delete this training sample"
+                    >
+                      {deleting === p.id
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : <Trash2 className="h-3 w-3" />}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="text-xs text-purple-800 dark:text-purple-200 leading-relaxed line-clamp-3">
-            {profile.aiSummaryEn}
-          </p>
-          <p className="text-[10px] text-purple-600 dark:text-purple-400">
-            {t.templateSettings.summariesAvailable}
-          </p>
         </div>
       )}
 
-      {/* AI recognition status */}
-      {status?.exists && (
+      {/* AI recognition active notice */}
+      {hasFinalized && (
         <div className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3">
           <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <p className="text-xs text-emerald-700 dark:text-emerald-300">
@@ -1427,7 +1449,6 @@ export default function TemplateSettingsPage() {
             <IncomingDocumentCard
               key={selectedIncomingType}
               type={selectedIncomingType}
-              status={incomingStatuses[selectedIncomingType] ?? null}
               onUploaded={loadIncomingStatuses}
             />
           </div>

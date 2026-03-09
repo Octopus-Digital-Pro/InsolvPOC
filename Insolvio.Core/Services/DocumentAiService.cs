@@ -1161,7 +1161,7 @@ public sealed class DocumentAiService : IDocumentAiService
             const string system = "You are an expert insolvency document annotator. Always respond with valid JSON only. Every value you return must be an exact verbatim substring of the document text.";
 
             var rawJson = await CallTextAsync(config, apiKey, prompt, system, ct);
-            if (rawJson is null) return null;
+            if (rawJson is null) return []; // AI is configured but returned no content — allow retry
 
             var trimmed = rawJson.Trim();
             if (trimmed.StartsWith("```"))
@@ -1187,7 +1187,7 @@ public sealed class DocumentAiService : IDocumentAiService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Annotation suggestion AI call failed");
-            return null;
+            return []; // AI is configured but call failed — return empty so controller reports aiConfigured:true and frontend can retry
         }
     }
 }

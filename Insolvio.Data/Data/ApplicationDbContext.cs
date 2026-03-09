@@ -591,7 +591,7 @@ e.HasIndex(t => new { t.TenantId, t.Name });
       e.HasIndex(d => d.CaseId);
     });
 
-    // IncomingDocumentProfile — one row per (TenantId, DocumentType)
+    // IncomingDocumentProfile — multiple rows per (TenantId, DocumentType) supported
     modelBuilder.Entity<IncomingDocumentProfile>(e =>
     {
       e.HasKey(p => p.Id);
@@ -600,7 +600,8 @@ e.HasIndex(t => new { t.TenantId, t.Name });
       e.Property(p => p.OriginalFileName).HasMaxLength(512).IsRequired();
       e.Property(p => p.AnnotationNotes).HasMaxLength(4000);
       e.Property(p => p.AiModel).HasMaxLength(128);
-      e.HasIndex(p => new { p.TenantId, p.DocumentType }).IsUnique();
+      e.Property(p => p.TrainingStatus).HasMaxLength(64);
+      e.HasIndex(p => new { p.TenantId, p.DocumentType }); // non-unique: many per type
     });
 
     // TenantAiConfig

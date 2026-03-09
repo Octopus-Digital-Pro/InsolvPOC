@@ -159,7 +159,7 @@ export default function MyAiSettingsPage() {
         <div className="flex items-start gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4">
           <Info className="h-4 w-4 text-yellow-600 shrink-0 mt-0.5" />
           <p className="text-sm text-yellow-700 dark:text-yellow-400">
-            AI features are currently disabled for your organisation by a Global Administrator. You can configure your key now so it's ready when AI is enabled.
+            AI features are not currently active for your organisation. Configure and save an API key below to enable them, or contact a Global Administrator if you believe AI should be available.
           </p>
         </div>
       )}

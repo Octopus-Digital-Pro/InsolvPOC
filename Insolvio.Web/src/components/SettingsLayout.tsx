@@ -5,7 +5,7 @@ import { useTranslation } from "@/contexts/LanguageContext";
 import {
   ArrowLeft, Building2, Users, KeyRound,
   Mail, AlertCircle, ShieldCheck, Gavel, Receipt, MapPin,
-  RotateCcw, Database, Clock, FileText, Brain, Layers, Key, Menu, X,
+  RotateCcw, Database, Clock, FileText, Brain, Layers, Key, Menu, X, Globe,
 } from "lucide-react";
 
 interface SettingsNavItemProps {
@@ -90,6 +90,7 @@ const { isGlobalAdmin, isTenantAdmin } = useAuth();
           </div>
      <SettingsNavItem to="/settings/emails" icon={Mail} label={t.settings.scheduledEmails} />
        <SettingsNavItem to="/settings/email-preferences" icon={Mail} label={t.emailSettings?.pageTitle ?? "Email Preferences"} />
+       <SettingsNavItem to="/settings/integrations" icon={Globe} label={t.integrations?.pageTitle ?? "Integrations"} />
        <SettingsNavItem to="/settings/errors" icon={AlertCircle} label={t.settings.errorLogs} />
       <SettingsNavItem to="/settings/permissions" icon={ShieldCheck} label={t.settings.permissions} />
           {isGlobalAdmin && (

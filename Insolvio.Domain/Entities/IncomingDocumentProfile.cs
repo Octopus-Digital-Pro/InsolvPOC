@@ -6,9 +6,9 @@ namespace Insolvio.Domain.Entities;
 /// in the PDF annotator tool, and AI-generated descriptions/parameter
 /// summaries in all three supported UI languages (EN / RO / HU).
 ///
-/// One row per (TenantId, DocumentType) — upserted whenever the admin
-/// uploads a new sample PDF or saves annotations.  The AI analysis
-/// is triggered explicitly and can be re-run at any time.
+/// Multiple rows per (TenantId, DocumentType) are supported — each upload
+/// creates a new profile row. A profile can be finalized and submitted for
+/// training, at which point it becomes immutable (IsFinalized = true).
 ///
 /// These records form the per-tenant document-shape database that the
 /// case-level document matching logic compares incoming uploaded documents
@@ -86,4 +86,18 @@ public class IncomingDocumentProfile : TenantScopedEntity
 
     /// <summary>Whether this profile is the active reference for matching.</summary>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// When true the profile is locked — annotations and AI data cannot be changed.
+    /// Set by the "Finalize &amp; Train" action.
+    /// </summary>
+    public bool IsFinalized { get; set; } = false;
+
+    /// <summary>When the profile was finalized.</summary>
+    public DateTime? FinalizedOn { get; set; }
+
+    /// <summary>
+    /// Training pipeline status: null (not submitted), "submitted", "trained".
+    /// </summary>
+    public string? TrainingStatus { get; set; }
 }

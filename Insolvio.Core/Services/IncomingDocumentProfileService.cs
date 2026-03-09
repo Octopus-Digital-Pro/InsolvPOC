@@ -47,55 +47,72 @@ public sealed class IncomingDocumentProfileService
         _logger = logger;
     }
 
-    // ── Upsert on upload ──────────────────────────────────────────────────────
+    // ── Create on upload (always new row) ─────────────────────────────────────
 
     /// <summary>
-    /// Called when an admin uploads a reference PDF. Creates or updates
-    /// the DB row for (TenantId, DocumentType).
+    /// Called when an admin uploads a reference PDF. Always creates a new DB row —
+    /// multiple profiles per (TenantId, DocumentType) are supported.
+    /// Returns the newly created profile's Id.
     /// </summary>
-    public async Task UpsertOnUploadAsync(
+    public async Task<Guid> CreateOnUploadAsync(
         string documentType,
         string storageKey,
         string originalFileName,
         long fileSizeBytes,
         CancellationToken ct)
     {
-        var existing = await FindAsync(documentType, ct);
-
-        if (existing is null)
+        var profile = new IncomingDocumentProfile
         {
-            var profile = new IncomingDocumentProfile
-            {
-                DocumentType = documentType,
-                StorageKey = storageKey,
-                OriginalFileName = originalFileName,
-                FileSizeBytes = fileSizeBytes,
-                UploadedOn = DateTime.UtcNow,
-                IsActive = true,
-            };
-            _db.IncomingDocumentProfiles.Add(profile);
-        }
-        else
-        {
-            existing.StorageKey = storageKey;
-            existing.OriginalFileName = originalFileName;
-            existing.FileSizeBytes = fileSizeBytes;
-            existing.UploadedOn = DateTime.UtcNow;
-            // Reset AI analysis so stale summaries don't remain
-            existing.AiSummaryEn = null;
-            existing.AiSummaryRo = null;
-            existing.AiSummaryHu = null;
-            existing.AiParametersJson = null;
-            existing.AiAnalysedOn = null;
-        }
-
+            DocumentType = documentType,
+            StorageKey = storageKey,
+            OriginalFileName = originalFileName,
+            FileSizeBytes = fileSizeBytes,
+            UploadedOn = DateTime.UtcNow,
+            IsActive = true,
+        };
+        _db.IncomingDocumentProfiles.Add(profile);
         await _db.SaveChangesAsync(ct);
+        return profile.Id;
     }
+
+    /// <summary>
+    /// Legacy upsert — kept for backward compatibility with callers that don't
+    /// yet track a profile ID. Delegates to CreateOnUploadAsync.
+    /// </summary>
+    public Task UpsertOnUploadAsync(
+        string documentType,
+        string storageKey,
+        string originalFileName,
+        long fileSizeBytes,
+        CancellationToken ct)
+        => CreateOnUploadAsync(documentType, storageKey, originalFileName, fileSizeBytes, ct)
+               .ContinueWith(_ => { }, ct);
 
     // ── Save annotations ─────────────────────────────────────────────────────
 
+    /// <summary>Persists annotation JSON and optional notes to a specific profile by Id.</summary>
+    public async Task SaveAnnotationsByIdAsync(
+        Guid profileId,
+        string annotationsJson,
+        string? notes,
+        CancellationToken ct)
+    {
+        var profile = await _db.IncomingDocumentProfiles
+            .FirstOrDefaultAsync(p => p.Id == profileId, ct)
+            ?? throw new KeyNotFoundException($"Incoming document profile {profileId} not found.");
+
+        if (profile.IsFinalized)
+            throw new InvalidOperationException("Cannot modify a finalized training document.");
+
+        profile.AnnotationsJson = annotationsJson;
+        profile.AnnotationNotes = notes;
+        profile.LastAnnotatedOn = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
     /// <summary>
-    /// Persists annotation JSON and optional notes to the DB row.
+    /// Persists annotation JSON to the most-recent non-finalized profile for a type.
+    /// Creates a stub profile if none exists (legacy fallback).
     /// </summary>
     public async Task SaveAnnotationsAsync(
         string documentType,
@@ -103,11 +120,10 @@ public sealed class IncomingDocumentProfileService
         string? notes,
         CancellationToken ct)
     {
-        var profile = await FindAsync(documentType, ct);
+        var profile = await FindLatestEditableAsync(documentType, ct);
 
         if (profile is null)
         {
-            // Profile row may not exist if upload was done before this feature was deployed
             profile = new IncomingDocumentProfile
             {
                 DocumentType = documentType,
@@ -123,53 +139,129 @@ public sealed class IncomingDocumentProfileService
         profile.AnnotationsJson = annotationsJson;
         profile.AnnotationNotes = notes;
         profile.LastAnnotatedOn = DateTime.UtcNow;
-
         await _db.SaveChangesAsync(ct);
     }
 
-    // ── Read profile ─────────────────────────────────────────────────────────
+    // ── Read profiles ─────────────────────────────────────────────────────────
 
-    /// <summary>Returns the full profile for a document type, or null if not found.</summary>
+    /// <summary>Returns a specific profile by Id, or null if not found.</summary>
+    public Task<IncomingDocumentProfile?> GetProfileByIdAsync(Guid profileId, CancellationToken ct)
+        => _db.IncomingDocumentProfiles.FirstOrDefaultAsync(p => p.Id == profileId, ct);
+
+    /// <summary>Returns the most-recent active profile for a document type, or null if none exist.</summary>
     public Task<IncomingDocumentProfile?> GetProfileAsync(string documentType, CancellationToken ct)
         => FindAsync(documentType, ct);
+
+    /// <summary>Returns all profiles for a document type ordered by upload date descending.</summary>
+    public Task<List<IncomingDocumentProfile>> GetAllProfilesForTypeAsync(string documentType, CancellationToken ct)
+        => _db.IncomingDocumentProfiles
+              .Where(p => p.DocumentType == documentType)
+              .OrderByDescending(p => p.UploadedOn)
+              .ToListAsync(ct);
+
+    // ── Finalize & Train ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Locks a profile for editing and submits it to the AI training pipeline.
+    /// Steps: mark IsFinalized=true, run AI analysis to populate summaries + parameters,
+    /// then set TrainingStatus="submitted".
+    /// </summary>
+    public async Task<IncomingDocumentProfile> FinalizeAndTrainAsync(Guid profileId, CancellationToken ct)
+    {
+        var profile = await _db.IncomingDocumentProfiles
+            .FirstOrDefaultAsync(p => p.Id == profileId, ct)
+            ?? throw new KeyNotFoundException($"Incoming document profile {profileId} not found.");
+
+        if (profile.IsFinalized)
+            return profile; // idempotent
+
+        if (string.IsNullOrWhiteSpace(profile.AnnotationsJson))
+            throw new InvalidOperationException("Annotations must be saved before finalizing a training document.");
+
+        // Lock the profile
+        profile.IsFinalized = true;
+        profile.FinalizedOn = DateTime.UtcNow;
+        profile.TrainingStatus = "submitted";
+        await _db.SaveChangesAsync(ct);
+
+        // Run AI analysis in the background (non-blocking to the HTTP response)
+        // We run it synchronously here so the caller gets the result immediately
+        try
+        {
+            await RunAiAnalysisOnProfileAsync(profile, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "AI analysis failed during finalize for profile {ProfileId}", profileId);
+        }
+
+        return profile;
+    }
+
+    /// <summary>Deletes a non-finalized profile. Finalized profiles cannot be deleted.</summary>
+    public async Task DeleteProfileAsync(Guid profileId, CancellationToken ct)
+    {
+        var profile = await _db.IncomingDocumentProfiles
+            .FirstOrDefaultAsync(p => p.Id == profileId, ct)
+            ?? throw new KeyNotFoundException($"Incoming document profile {profileId} not found.");
+
+        if (profile.IsFinalized)
+            throw new InvalidOperationException("Finalized training documents cannot be deleted.");
+
+        _db.IncomingDocumentProfiles.Remove(profile);
+        await _db.SaveChangesAsync(ct);
+    }
 
     // ── AI analysis ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Runs AI analysis against the document type, its annotations, and any admin notes.
-    /// Generates summaries and structured field parameters in EN, RO, and HU.
-    /// Saves results back to the DB.
+    /// Runs AI analysis for a document type (operates on the most-recent active profile).
     /// </summary>
     public async Task<IncomingDocumentProfile?> AnalyseAsync(string documentType, CancellationToken ct)
     {
         var profile = await FindAsync(documentType, ct)
             ?? throw new InvalidOperationException($"No profile found for document type '{documentType}'.");
 
+        await RunAiAnalysisOnProfileAsync(profile, ct);
+        return profile;
+    }
+
+    /// <summary>Runs AI analysis on a specific profile by Id.</summary>
+    public async Task<IncomingDocumentProfile?> AnalyseByIdAsync(Guid profileId, CancellationToken ct)
+    {
+        var profile = await _db.IncomingDocumentProfiles
+            .FirstOrDefaultAsync(p => p.Id == profileId, ct)
+            ?? throw new InvalidOperationException($"No profile found with Id '{profileId}'.");
+
+        await RunAiAnalysisOnProfileAsync(profile, ct);
+        return profile;
+    }
+
+    private async Task RunAiAnalysisOnProfileAsync(IncomingDocumentProfile profile, CancellationToken ct)
+    {
         try
         {
             var config = await _aiConfig.GetAsync(ct);
             if (!config.IsEnabled)
             {
-                _logger.LogInformation("AI is disabled; skipping analysis for {DocType}", documentType);
-                return profile;
+                _logger.LogInformation("AI is disabled; skipping analysis for profile {Id}", profile.Id);
+                return;
             }
 
             var apiKey = await _aiConfig.GetDecryptedApiKeyAsync(ct);
             if (string.IsNullOrWhiteSpace(apiKey))
             {
-                _logger.LogWarning("AI API key empty; skipping analysis for {DocType}", documentType);
-                return profile;
+                _logger.LogWarning("AI API key empty; skipping analysis for profile {Id}", profile.Id);
+                return;
             }
 
-            // Parse annotations for the prompt
             var annotationsSummary = BuildAnnotationSummary(profile.AnnotationsJson);
 
-            // ── Run three language passes concurrently ────────────────────────
             var tasks = new[]
             {
-                CallAiForLanguageAsync(config, apiKey, documentType, annotationsSummary, profile.AnnotationNotes, "en", ct),
-                CallAiForLanguageAsync(config, apiKey, documentType, annotationsSummary, profile.AnnotationNotes, "ro", ct),
-                CallAiForLanguageAsync(config, apiKey, documentType, annotationsSummary, profile.AnnotationNotes, "hu", ct),
+                CallAiForLanguageAsync(config, apiKey, profile.DocumentType, annotationsSummary, profile.AnnotationNotes, "en", ct),
+                CallAiForLanguageAsync(config, apiKey, profile.DocumentType, annotationsSummary, profile.AnnotationNotes, "ro", ct),
+                CallAiForLanguageAsync(config, apiKey, profile.DocumentType, annotationsSummary, profile.AnnotationNotes, "hu", ct),
             };
 
             var results = await Task.WhenAll(tasks);
@@ -178,7 +270,6 @@ public sealed class IncomingDocumentProfileService
             profile.AiSummaryRo = results[1]?.Summary;
             profile.AiSummaryHu = results[2]?.Summary;
 
-            // Use the most complete parameter set (first non-null)
             var bestParams = results.FirstOrDefault(r => !string.IsNullOrEmpty(r?.ParametersJson));
             if (bestParams?.ParametersJson is not null)
                 profile.AiParametersJson = bestParams.ParametersJson;
@@ -196,17 +287,23 @@ public sealed class IncomingDocumentProfileService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "AI analysis failed for incoming document type '{DocType}'", documentType);
+            _logger.LogWarning(ex, "AI analysis failed for incoming document profile {Id}", profile.Id);
         }
-
-        return profile;
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
+    /// <summary>Returns the most-recent active profile for a type (any finalized state).</summary>
     private Task<IncomingDocumentProfile?> FindAsync(string documentType, CancellationToken ct)
         => _db.IncomingDocumentProfiles
+              .OrderByDescending(p => p.UploadedOn)
               .FirstOrDefaultAsync(p => p.DocumentType == documentType, ct);
+
+    /// <summary>Returns the most-recent non-finalized profile for a type.</summary>
+    private Task<IncomingDocumentProfile?> FindLatestEditableAsync(string documentType, CancellationToken ct)
+        => _db.IncomingDocumentProfiles
+              .OrderByDescending(p => p.UploadedOn)
+              .FirstOrDefaultAsync(p => p.DocumentType == documentType && !p.IsFinalized, ct);
 
     internal static string BuildAnnotationSummary(string? annotationsJson)
     {
