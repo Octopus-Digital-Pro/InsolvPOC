@@ -14,7 +14,7 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseSqlServer(
-                "Server=localhost\\SQLEXPRESS;Database=InsolvioDb_Design;Trusted_Connection=True;TrustServerCertificate=True;",
+                "Server=localhost,14330;Database=InsolvioDb;User Id=sa;Password=InsolvioDev2025#Strong;TrustServerCertificate=True;Encrypt=True;MultipleActiveResultSets=true",
                 sql => sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
             .Options;
 
