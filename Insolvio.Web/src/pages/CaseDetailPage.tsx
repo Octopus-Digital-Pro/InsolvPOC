@@ -350,18 +350,6 @@ export default function CaseDetailPage() {
                     </button>
                   )}
 
-                  {/* Create from Template */}
-                  {(isPractitioner || isTenantAdmin || isGlobalAdmin) && (
-                    <button
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      disabled={isClosed}
-                      onClick={() => { setActionsOpen(false); setTemplateSelectOpen(true); }}
-                    >
-                      <FileOutput className="h-4 w-4 text-primary shrink-0" />
-                      Create from template
-                    </button>
-                  )}
-
                   {/* Call Creditor Meeting */}
                   <button
                     className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
@@ -646,6 +634,14 @@ export default function CaseDetailPage() {
                     <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
                       onClick={() => downloadAuthFile(casesApi.downloadZipUrl(id!), `case_${caseData.caseNumber.replace(/\//g, "-")}_docs.zip`)}>
                       <Download className="h-3.5 w-3.5" />ZIP
+                    </Button>
+                  )}
+                  {(isPractitioner || isTenantAdmin || isGlobalAdmin) && (
+                    <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"
+                      onClick={() => setTemplateSelectOpen(true)}
+                      disabled={isClosed}>
+                      <FileOutput className="h-3.5 w-3.5" />
+                      From template
                     </Button>
                   )}
                   <Button variant="outline" size="sm" className="text-xs gap-1 border-primary/30 text-primary hover:bg-primary/5"

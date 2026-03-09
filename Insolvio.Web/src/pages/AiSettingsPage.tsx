@@ -14,6 +14,7 @@ const PROVIDERS: { value: AiProvider; label: string; description: string }[] = [
   { value: "AzureOpenAI", label: "Azure OpenAI", description: "OpenAI models hosted on Azure" },
   { value: "Anthropic", label: "Anthropic", description: "Claude 3.5, Claude 3 Opus, etc." },
   { value: "Google", label: "Google Gemini", description: "Gemini 1.5 Pro, Flash, etc." },
+  { value: "OpenRouter", label: "OpenRouter", description: "300+ models via openrouter.ai" },
   { value: "Custom", label: "Custom / Self-hosted", description: "OpenAI-compatible endpoint" },
 ];
 
@@ -22,6 +23,7 @@ const DEFAULT_MODELS: Record<AiProvider, string> = {
   AzureOpenAI: "gpt-4o",
   Anthropic: "claude-3-5-sonnet-20241022",
   Google: "gemini-1.5-pro",
+  OpenRouter: "openai/gpt-4o",
   Custom: "",
 };
 
@@ -85,13 +87,15 @@ export default function AiSettingsPage() {
 
   const handleProviderChange = (p: AiProvider) => {
     setProvider(p);
-    if (!modelName || modelName === DEFAULT_MODELS[provider]) {
+    // Always reset to provider default when switching to OpenRouter (model IDs are incompatible)
+    if (p === "OpenRouter" || !modelName || modelName === DEFAULT_MODELS[provider]) {
       setModelName(DEFAULT_MODELS[p]);
     }
     // Clear Azure-specific fields when not using Azure
     if (p !== "AzureOpenAI") setDeploymentName("");
-    // Clear endpoint for providers that don't need it
+    // Clear endpoint for providers that don't need it; pre-fill for OpenRouter
     if (p === "OpenAI" || p === "Anthropic" || p === "Google") setApiEndpoint("");
+    if (p === "OpenRouter" && !apiEndpoint) setApiEndpoint("https://openrouter.ai/api/v1");
   };
 
   const handleSave = async () => {
@@ -119,7 +123,7 @@ export default function AiSettingsPage() {
     }
   };
 
-  const showEndpoint = provider === "AzureOpenAI" || provider === "Custom";
+  const showEndpoint = provider === "AzureOpenAI" || provider === "OpenRouter" || provider === "Custom";
   const showDeployment = provider === "AzureOpenAI";
 
   if (loading) {
@@ -250,13 +254,15 @@ export default function AiSettingsPage() {
           )}
         </SettingField>
 
-        {/* API Endpoint (Azure / Custom only) */}
+        {/* API Endpoint (Azure / OpenRouter / Custom only) */}
         {showEndpoint && (
           <SettingField
             label={provider === "AzureOpenAI" ? "Azure Endpoint" : "API Endpoint"}
             description={
               provider === "AzureOpenAI"
                 ? "e.g. https://my-resource.openai.azure.com/"
+                : provider === "OpenRouter"
+                ? "OpenRouter base URL (default: https://openrouter.ai/api/v1)."
                 : "Base URL for your OpenAI-compatible endpoint."
             }
           >
@@ -266,7 +272,13 @@ export default function AiSettingsPage() {
                 type="url"
                 value={apiEndpoint}
                 onChange={e => setApiEndpoint(e.target.value)}
-                placeholder="https://"
+                placeholder={
+                  provider === "AzureOpenAI"
+                    ? "https://my-resource.openai.azure.com/"
+                    : provider === "OpenRouter"
+                    ? "https://openrouter.ai/api/v1"
+                    : "https://"
+                }
                 className="w-full rounded-md border border-input bg-background pl-8 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
@@ -276,7 +288,11 @@ export default function AiSettingsPage() {
         {/* Model Name */}
         <SettingField
           label="Model Name"
-          description="The specific model to use for AI completions."
+          description={
+            provider === "OpenRouter"
+              ? "Use provider/model-name format, e.g. openai/gpt-4o or anthropic/claude-3-5-sonnet."
+              : "The specific model to use for AI completions."
+          }
         >
           <div className="relative">
             <Cpu className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />

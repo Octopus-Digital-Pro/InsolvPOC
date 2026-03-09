@@ -105,7 +105,8 @@ export default function MyAiSettingsPage() {
 
   function handleProviderChange(p: AiProvider | "") {
     setProvider(p);
-    if (p && !modelName) setModelName(DEFAULT_MODELS[p as AiProvider] ?? "");
+    // Always reset to provider default when switching to OpenRouter (model IDs are incompatible)
+    if (p && (p === "OpenRouter" || !modelName)) setModelName(DEFAULT_MODELS[p as AiProvider] ?? "");
   }
 
   async function handleSave() {
@@ -248,7 +249,11 @@ export default function MyAiSettingsPage() {
         {/* Model */}
         <SettingField
           label="Model"
-          description="The model name to use. Defaults shown for each provider."
+          description={
+            provider === "OpenRouter"
+              ? "Use provider/model-name format, e.g. openai/gpt-4o or anthropic/claude-3-5-sonnet."
+              : "The model name to use. Defaults shown for each provider."
+          }
         >
           <div className="space-y-1.5">
             <div className="relative">

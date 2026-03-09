@@ -1,6 +1,6 @@
 import client from "./client";
 
-export type AiProvider = "OpenAI" | "AzureOpenAI" | "Anthropic" | "Google" | "Custom";
+export type AiProvider = "OpenAI" | "AzureOpenAI" | "Anthropic" | "Google" | "OpenRouter" | "Custom";
 
 export interface AiConfigDto {
   id: string;
