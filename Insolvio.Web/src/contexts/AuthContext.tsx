@@ -2,6 +2,11 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { authApi } from "@/services/api";
 import type { UserDto } from "@/services/api/types";
 
+// Prevent Vite HMR from hot-replacing this module: re-evaluating the file
+// creates a new AuthContext singleton, breaking context identity between
+// AuthProvider (old instance) and useAuth (new instance). Full page reload instead.
+if (import.meta.hot) import.meta.hot.decline();
+
 interface AuthContextValue {
   user: UserDto | null;
   loading: boolean;
