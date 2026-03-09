@@ -536,7 +536,7 @@ export const documentTemplatesApi = {
     client.delete(`/document-templates/incoming-reference/profile/${profileId}`),
 
 
-   * Convert arbitrary HTML (already rendered + optionally signed) to a PDF download.
+  /** Convert arbitrary HTML (already rendered + optionally signed) to a PDF download.
    * Used after the user edits the preview-modal content.
    */
   renderHtmlToPdfBlob: async (
