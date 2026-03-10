@@ -6,10 +6,11 @@ import type { DashboardDto, CalendarEventDto } from "@/services/api/types";
 import type { Translations } from "@/i18n/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import AdHocTaskModal from "@/components/AdHocTaskModal";
 import {
   Briefcase, Building2, CheckCircle2, Clock, AlertTriangle,
   ChevronLeft, ChevronRight, CalendarDays, Loader2,
-  Upload, FileUp, FileText, Sparkles, Ban, Mail,
+  Upload, FileUp, FileText, Sparkles, Ban, Mail, Plus,
 } from "lucide-react";
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -251,6 +252,13 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showAdHoc, setShowAdHoc] = useState(false);
+
+  const reload = useCallback(() => {
+    dashboardApi.get()
+      .then(res => setData(res.data))
+      .catch(err => console.error("Dashboard load failed:", err));
+  }, []);
 
   useEffect(() => {
     dashboardApi.get()
@@ -361,7 +369,13 @@ export default function DashboardPage() {
         <div className="rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h3 className="text-sm font-semibold text-foreground">{t.dashboard.myTasks}</h3>
-            <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary" onClick={() => navigate("/tasks")}>{t.common.viewAll}</Button>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" className="h-6 gap-1 px-2 text-[10px]" onClick={() => setShowAdHoc(true)}>
+                <Plus className="h-3 w-3" />
+                {t.tasks.newAdHocTask}
+              </Button>
+              <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary" onClick={() => navigate("/tasks")}>{t.common.viewAll}</Button>
+            </div>
           </div>
           <div className="divide-y divide-border">
             {data.recentTasks.filter(t => t.status !== "blocked" && t.status !== "inProgress").length === 0 ? (
@@ -447,6 +461,11 @@ export default function DashboardPage() {
           </div>
         );
       })()}
+      <AdHocTaskModal
+        isOpen={showAdHoc}
+        onClose={() => setShowAdHoc(false)}
+        onCreated={reload}
+      />
     </div>
   );
 }

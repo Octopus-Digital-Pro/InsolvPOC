@@ -28,10 +28,12 @@ public class CaseWorkflowController : ControllerBase
     public async Task<IActionResult> ValidateStage(Guid caseId, string stageKey, CancellationToken ct)
         => Ok(await _workflow.ValidateStageAsync(caseId, stageKey, ct));
 
-    /// <summary>Start (advance to InProgress) a stage. Gates on prior stages being done.</summary>
+    /// <summary>Start (advance to InProgress) a stage. Pass acknowledgeWarnings=true to bypass prior-stage gate.</summary>
     [HttpPost("{stageKey}/start")]
-    public async Task<IActionResult> StartStage(Guid caseId, string stageKey, CancellationToken ct)
-        => Ok(await _workflow.StartStageAsync(caseId, stageKey, ct));
+    public async Task<IActionResult> StartStage(Guid caseId, string stageKey, [FromBody] StartStageBody? body, CancellationToken ct)
+        => Ok(await _workflow.StartStageAsync(caseId, stageKey, body?.AcknowledgeWarnings ?? false, ct));
+
+    public record StartStageBody(bool AcknowledgeWarnings = false);
 
     /// <summary>Complete a stage. Validates requirements before allowing.</summary>
     [HttpPost("{stageKey}/complete")]

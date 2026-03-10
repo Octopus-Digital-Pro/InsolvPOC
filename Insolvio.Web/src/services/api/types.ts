@@ -199,6 +199,7 @@ export interface TaskDto {
   assignedToName: string | null;
   createdOn: string;
   reportSummary: string | null;
+  isAdHoc?: boolean;
 }
 
 export interface TaskNoteDto {

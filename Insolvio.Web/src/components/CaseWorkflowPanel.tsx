@@ -33,6 +33,7 @@ export default function CaseWorkflowPanel({ caseId, readOnly = false }: Props) {
   const [expandedStage, setExpandedStage] = useState<string | null>(null);
   const [skipReason, setSkipReason] = useState("");
   const [skipConfirm, setSkipConfirm] = useState<string | null>(null);
+  const [gatingWarn, setGatingWarn] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Deadline override (tenant admin only)
@@ -60,18 +61,20 @@ export default function CaseWorkflowPanel({ caseId, readOnly = false }: Props) {
     action: "start" | "complete" | "skip" | "reopen",
     stageKey: string,
     reason?: string,
+    acknowledgeWarnings = false,
   ) => {
     setActionLoading(stageKey);
     setError(null);
     try {
       switch (action) {
-        case "start":    await caseWorkflowApi.start(caseId, stageKey); break;
+        case "start":    await caseWorkflowApi.start(caseId, stageKey, acknowledgeWarnings); break;
         case "complete": await caseWorkflowApi.complete(caseId, stageKey); break;
         case "skip":     await caseWorkflowApi.skip(caseId, stageKey, reason); break;
         case "reopen":   await caseWorkflowApi.reopen(caseId, stageKey); break;
       }
       setSkipConfirm(null);
       setSkipReason("");
+      setGatingWarn(null);
       await loadStages();
     } catch (e: unknown) {
       const errMsg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -336,11 +339,43 @@ export default function CaseWorkflowPanel({ caseId, readOnly = false }: Props) {
                     </div>
                   )}
 
-                  {/* Gating info */}
+                  {/* Gating info (informational only — Start button still shown) */}
                   {gated && stage.status === "NotStarted" && (
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Lock className="h-3.5 w-3.5" />
                       {t.workflow.gatedMessage}
+                    </div>
+                  )}
+
+                  {/* Gating warning confirmation */}
+                  {gatingWarn === stage.stageKey && !readOnly && (
+                    <div className="rounded-md border border-amber-400/40 bg-amber-500/5 p-3 space-y-2">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-700">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        {t.workflow.gatingWarnTitle}
+                      </p>
+                      <p className="text-xs text-amber-700">{t.workflow.gatingWarnMessage}</p>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          onClick={() => handleAction("start", stage.stageKey, undefined, true)}
+                          disabled={actionLoading === stage.stageKey}
+                        >
+                          {actionLoading === stage.stageKey
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Play className="h-3 w-3" />}
+                          {t.workflow.gatingWarnConfirm}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() => setGatingWarn(null)}
+                        >
+                          {t.common.cancel}
+                        </Button>
+                      </div>
                     </div>
                   )}
 
@@ -379,14 +414,20 @@ export default function CaseWorkflowPanel({ caseId, readOnly = false }: Props) {
                   )}
 
                   {/* Action buttons */}
-                  {skipConfirm !== stage.stageKey && !readOnly && (
+                  {skipConfirm !== stage.stageKey && gatingWarn !== stage.stageKey && !readOnly && (
                     <div className="flex gap-2">
                       {/* Start */}
-                      {stage.status === "NotStarted" && !gated && (
+                      {stage.status === "NotStarted" && (
                         <Button
                           size="sm"
                           className="h-7 text-xs gap-1"
-                          onClick={() => handleAction("start", stage.stageKey)}
+                          onClick={() => {
+                            if (gated) {
+                              setGatingWarn(stage.stageKey);
+                            } else {
+                              handleAction("start", stage.stageKey);
+                            }
+                          }}
                           disabled={isActioning}
                         >
                           {isActioning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}

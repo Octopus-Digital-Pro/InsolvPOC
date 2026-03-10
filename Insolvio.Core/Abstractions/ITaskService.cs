@@ -22,6 +22,17 @@ public interface ITaskService
     Task<CaseTaskSummaryResult> GetCaseTaskSummaryAsync(Guid caseId, CancellationToken ct = default);
     Task<TaskDto> CreateForCaseAsync(Guid caseId, CreateTaskCommand command, CancellationToken ct = default);
 
+    // Multiple Assignees (Feature 1)
+    Task<List<AssigneeDto>> GetAssigneesAsync(Guid taskId, CancellationToken ct = default);
+    Task<AssigneeDto> AddAssigneeAsync(Guid taskId, Guid userId, CancellationToken ct = default);
+    Task RemoveAssigneeAsync(Guid taskId, Guid userId, CancellationToken ct = default);
+
+    // Ad-hoc tasks (Feature 9)
+    Task<TaskDto> CreateAdHocAsync(CreateAdHocTaskCommand command, CancellationToken ct = default);
+
+    // "My Tasks" — tasks where caller is primary OR secondary assignee
+    Task<List<TaskDto>> GetMyTasksAsync(int page = 0, int pageSize = 200, CancellationToken ct = default);
+
     // Notes / activity
     Task<List<TaskNoteDto>> GetNotesAsync(Guid taskId, CancellationToken ct = default);
     Task<TaskNoteDto> AddNoteAsync(Guid taskId, string content, CancellationToken ct = default);

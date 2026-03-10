@@ -32,6 +32,12 @@ public interface ICaseService
 
   /// <summary>Download all documents for a case as a ZIP stream.</summary>
   Task<(Stream Stream, string FileName)> DownloadDocumentsZipAsync(Guid caseId, CancellationToken ct = default);
+
+  /// <summary>Change the procedure type for a case, recording history and auditing the change.</summary>
+  Task<ChangeProcedureTypeResult> ChangeProcedureTypeAsync(Guid id, ChangeProcedureTypeCommand command, CancellationToken ct = default);
+
+  /// <summary>Get the procedure type change history for a case.</summary>
+  Task<List<ProcedureHistoryDto>> GetProcedureHistoryAsync(Guid id, CancellationToken ct = default);
 }
 
 public class CreateCaseCommand

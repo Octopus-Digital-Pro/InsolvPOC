@@ -53,6 +53,12 @@ public interface IApplicationDbContext
     DbSet<AiCorrectionFeedback> AiCorrectionFeedbacks { get; }
     DbSet<Notification> Notifications { get; }
 
+    // Feature 1: Multiple Task Assignees
+    DbSet<TaskAssignee> TaskAssignees { get; }
+
+    // Feature 4: Procedure Type Change history
+    DbSet<CaseProcedureHistory> CaseProcedureHistories { get; }
+
     // ----- DbContext methods used by services -----
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;

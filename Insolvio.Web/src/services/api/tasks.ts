@@ -29,4 +29,13 @@ export const tasksApi = {
 
   deleteNote: (taskId: string, noteId: string) =>
     client.delete(`/tasks/${taskId}/notes/${noteId}`),
+
+  createAdHoc: (data: {
+    companyId: string;
+    caseId?: string;
+    title: string;
+    description?: string;
+    deadline?: string;
+    additionalAssigneeIds?: string[];
+  }) => client.post<TaskDto>("/tasks/adhoc", data),
 };

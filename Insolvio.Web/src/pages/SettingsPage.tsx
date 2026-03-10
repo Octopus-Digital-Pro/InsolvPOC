@@ -1489,7 +1489,7 @@ export default function SettingsPage({ tab }: { tab?: Tab }) {
    { key: "registryHours", label: t.authorities?.registryHours ?? "Registry Hours" },
    { key: "website", label: t.firm?.website ?? "Website" },
     { key: "contactPerson", label: t.companies?.contactPerson ?? "Contact Person" },
-            { key: " notes", label: t.common?.notes ?? "Notes", wide: true },
+            { key: "notes", label: t.common?.notes ?? "Notes", wide: true },
 ]} />
      )}
        {activeTab === "finance" && (

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Insolvio.API.Authorization;
 using Insolvio.Core.Abstractions;
+using Insolvio.Core.DTOs;
 using Insolvio.Domain.Enums;
 
 namespace Insolvio.API.Controllers;
@@ -13,8 +14,13 @@ namespace Insolvio.API.Controllers;
 public class CasesController : ControllerBase
 {
   private readonly ICaseService _cases;
+  private readonly IAuditLogQueryService _logs;
 
-  public CasesController(ICaseService cases) => _cases = cases;
+  public CasesController(ICaseService cases, IAuditLogQueryService logs)
+  {
+    _cases = cases;
+    _logs = logs;
+  }
 
   [HttpGet]
   public async Task<IActionResult> GetAll(
@@ -49,6 +55,22 @@ public class CasesController : ControllerBase
     return File(stream, "application/zip", fileName);
   }
 
+  [HttpGet("{id:guid}/history")]
+  public async Task<IActionResult> GetHistory(
+      Guid id,
+      [FromQuery] int page = 0,
+      [FromQuery] int pageSize = 50,
+      CancellationToken ct = default)
+  {
+    var filter = new AuditLogFilter(
+        EntityType: "InsolvencyCase",
+        EntityId: id,
+        Page: page,
+        PageSize: Math.Min(pageSize, 200));
+    var (items, total) = await _logs.GetAllAsync(filter, ct);
+    return Ok(new { items, total, page, pageSize });
+  }
+
   [HttpPost]
   [RequirePermission(Permission.CaseCreate)]
   public async Task<IActionResult> Create([FromBody] CreateCaseBody body, CancellationToken ct)
@@ -75,6 +97,7 @@ public class CasesController : ControllerBase
   }
 
   [HttpPut("{id:guid}")]
+  [RequirePermission(Permission.CaseEdit)]
   public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCaseBody body, CancellationToken ct)
   {
     var dto = await _cases.UpdateAsync(id, new UpdateCaseCommand
@@ -122,6 +145,31 @@ public class CasesController : ControllerBase
     await _cases.DeleteAsync(id, ct);
     return NoContent();
   }
+
+  [HttpPost("{id:guid}/change-procedure-type")]
+  [RequirePermission(Permission.CaseEdit)]
+  public async Task<IActionResult> ChangeProcedureType(Guid id, [FromBody] ChangeProcedureTypeBody body, CancellationToken ct)
+  {
+    if (string.IsNullOrWhiteSpace(body.Reason))
+      return BadRequest(new { message = "Reason is required." });
+
+    if (!Enum.TryParse<ProcedureType>(body.NewProcedureType, ignoreCase: true, out var newType))
+      return BadRequest(new { message = $"Unknown procedure type: {body.NewProcedureType}" });
+
+    var result = await _cases.ChangeProcedureTypeAsync(id, new ChangeProcedureTypeCommand
+    {
+      NewProcedureType = newType,
+      Reason = body.Reason,
+    }, ct);
+    return Ok(result);
+  }
+
+  [HttpGet("{id:guid}/procedure-history")]
+  public async Task<IActionResult> GetProcedureHistory(Guid id, CancellationToken ct)
+  {
+    var history = await _cases.GetProcedureHistoryAsync(id, ct);
+    return Ok(history);
+  }
 }
 
 // ── API request bodies ────────────────────────────────────────────────────────
@@ -157,3 +205,4 @@ public record UpdateCaseBody(
     string? BpiPublicationNo = null, DateTime? BpiPublicationDate = null, string? OpeningDecisionNo = null,
     string? Notes = null, Guid? CompanyId = null, Guid? AssignedToUserId = null);
 
+public record ChangeProcedureTypeBody(string NewProcedureType, string Reason);

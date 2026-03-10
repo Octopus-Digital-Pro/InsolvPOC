@@ -62,7 +62,7 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
         return ValidateStageRequirements(stage.StageDefinition, caseData);
     }
 
-    public async Task<CaseWorkflowStageDto> StartStageAsync(Guid caseId, string stageKey, CancellationToken ct)
+    public async Task<CaseWorkflowStageDto> StartStageAsync(Guid caseId, string stageKey, bool acknowledgeWarnings = false, CancellationToken ct = default)
     {
         var stages = await EnsureStagesAsync(caseId, ct);
         var stage = stages.FirstOrDefault(s => s.StageKey == stageKey)
@@ -75,6 +75,7 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
             throw new BusinessException($"Stage '{stageKey}' is already completed. Reopen it first.");
 
         // Gate: all previous stages (lower SortOrder) must be Completed or Skipped
+        // If the user has acknowledged the warning, allow bypassing this gate.
         var blockers = stages
             .Where(s => s.SortOrder < stage.SortOrder
                      && s.Status != CaseWorkflowStatus.Completed
@@ -82,7 +83,7 @@ public sealed class CaseWorkflowService : ICaseWorkflowService
             .Select(s => s.StageDefinition?.Name ?? s.StageKey)
             .ToList();
 
-        if (blockers.Count > 0)
+        if (blockers.Count > 0 && !acknowledgeWarnings)
             throw new BusinessException($"Cannot start '{stage.StageDefinition?.Name ?? stageKey}'. Pending stages: {string.Join(", ", blockers)}");
 
         stage.Status = CaseWorkflowStatus.InProgress;

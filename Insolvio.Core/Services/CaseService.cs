@@ -202,6 +202,42 @@ public sealed class CaseService : ICaseService
 
           var oldStatus = c.Status;
 
+          // Snapshot old values for audit diff
+          var oldValues = new
+          {
+               c.CaseNumber,
+               c.CourtName,
+               c.CourtSection,
+               c.JudgeSyndic,
+               c.Registrar,
+               ProcedureType = c.ProcedureType.ToString(),
+               c.Status,
+               c.LawReference,
+               c.PractitionerName,
+               c.PractitionerRole,
+               c.PractitionerFiscalId,
+               c.PractitionerDecisionNo,
+               c.NoticeDate,
+               c.OpeningDate,
+               c.NextHearingDate,
+               c.ClaimsDeadline,
+               c.ContestationsDeadline,
+               c.DefinitiveTableDate,
+               c.ReorganizationPlanDeadline,
+               c.ClosureDate,
+               c.TotalClaimsRon,
+               c.SecuredClaimsRon,
+               c.UnsecuredClaimsRon,
+               c.BudgetaryClaimsRon,
+               c.EmployeeClaimsRon,
+               c.EstimatedAssetValueRon,
+               c.BpiPublicationNo,
+               c.BpiPublicationDate,
+               c.OpeningDecisionNo,
+               c.Notes,
+               c.AssignedToUserId,
+          };
+
           if (cmd.CaseNumber != null) c.CaseNumber = cmd.CaseNumber;
           if (cmd.CourtName != null) c.CourtName = cmd.CourtName;
           if (cmd.CourtSection != null) c.CourtSection = cmd.CourtSection;
@@ -247,21 +283,50 @@ public sealed class CaseService : ICaseService
 
           await _db.SaveChangesAsync(ct);
 
-          var description = oldStatus != c.Status
-                 ? $"Case '{c.CaseNumber}' was updated and status changed from '{oldStatus}' to '{c.Status}'."
-       : $"Case '{c.CaseNumber}' details were updated.";
-
-          await _audit.LogAsync(new AuditEntry
+          var newValues = new
           {
-               Action = oldStatus != c.Status ? "Case Status Changed" : "Case Details Updated",
-               Description = description,
-               EntityType = "InsolvencyCase",
-               EntityId = c.Id,
-               EntityName = c.CaseNumber,
-               CaseNumber = c.CaseNumber,
-               Severity = oldStatus != c.Status ? "Warning" : "Info",
-               Category = "CaseManagement",
-          });
+               c.CaseNumber,
+               c.CourtName,
+               c.CourtSection,
+               c.JudgeSyndic,
+               c.Registrar,
+               ProcedureType = c.ProcedureType.ToString(),
+               c.Status,
+               c.LawReference,
+               c.PractitionerName,
+               c.PractitionerRole,
+               c.PractitionerFiscalId,
+               c.PractitionerDecisionNo,
+               c.NoticeDate,
+               c.OpeningDate,
+               c.NextHearingDate,
+               c.ClaimsDeadline,
+               c.ContestationsDeadline,
+               c.DefinitiveTableDate,
+               c.ReorganizationPlanDeadline,
+               c.ClosureDate,
+               c.TotalClaimsRon,
+               c.SecuredClaimsRon,
+               c.UnsecuredClaimsRon,
+               c.BudgetaryClaimsRon,
+               c.EmployeeClaimsRon,
+               c.EstimatedAssetValueRon,
+               c.BpiPublicationNo,
+               c.BpiPublicationDate,
+               c.OpeningDecisionNo,
+               c.Notes,
+               c.AssignedToUserId,
+          };
+
+          var isStatusChange = oldStatus != c.Status;
+          await _audit.LogEntityAsync(
+               action: isStatusChange ? AuditActions.WorkflowTransition : AuditActions.CaseFieldEdited,
+               entityType: "InsolvencyCase",
+               entityId: c.Id,
+               oldValues: oldValues,
+               newValues: newValues,
+               severity: isStatusChange ? "Warning" : "Info"
+          );
 
           return c.ToDto();
      }
@@ -370,4 +435,67 @@ public sealed class CaseService : ICaseService
           var safeName = caseEntity.CaseNumber.Replace("/", "-").Replace("\\", "-");
           return (zipMs, $"case_{safeName}_documents.zip");
      }
+
+     public async Task<ChangeProcedureTypeResult> ChangeProcedureTypeAsync(Guid id, ChangeProcedureTypeCommand command, CancellationToken ct = default)
+     {
+          if (string.IsNullOrWhiteSpace(command.Reason))
+               throw new BusinessException("A reason is required when changing the procedure type.");
+
+          var tenantId = _currentUser.TenantId;
+          var caseEntity = await _db.InsolvencyCases
+               .FirstOrDefaultAsync(c => c.Id == id && (tenantId == null || c.TenantId == tenantId), ct)
+               ?? throw new NotFoundException("InsolvencyCase", id);
+
+          if (caseEntity.ProcedureType == command.NewProcedureType)
+               throw new BusinessException("The new procedure type is the same as the current one.");
+
+          var oldType = caseEntity.ProcedureType;
+
+          var history = new Insolvio.Domain.Entities.CaseProcedureHistory
+          {
+               TenantId = caseEntity.TenantId,
+               CaseId = id,
+               ChangedAt = DateTime.UtcNow,
+               ChangedByUserId = _currentUser.UserId,
+               OldProcedureType = oldType,
+               NewProcedureType = command.NewProcedureType,
+               Reason = command.Reason.Trim(),
+               WorkflowStagesRemovedJson = null,
+          };
+
+          caseEntity.ProcedureType = command.NewProcedureType;
+
+          _db.CaseProcedureHistories.Add(history);
+          await _db.SaveChangesAsync(ct);
+
+          await _audit.LogEntityAsync(
+               AuditActions.ProcedureTypeChanged,
+               "InsolvencyCase",
+               id,
+               new Dictionary<string, object?> { ["ProcedureType"] = oldType.ToString() },
+               new Dictionary<string, object?> { ["ProcedureType"] = command.NewProcedureType.ToString(), ["Reason"] = command.Reason.Trim() });
+
+          return new ChangeProcedureTypeResult([], [], 0);
+     }
+
+     public async Task<List<ProcedureHistoryDto>> GetProcedureHistoryAsync(Guid id, CancellationToken ct = default)
+     {
+          var tenantId = _currentUser.TenantId;
+          var history = await _db.CaseProcedureHistories
+               .AsNoTracking()
+               .Include(h => h.ChangedBy)
+               .Where(h => h.CaseId == id && (tenantId == null || h.TenantId == tenantId))
+               .OrderByDescending(h => h.ChangedAt)
+               .ToListAsync(ct);
+
+          return history.Select(h => new ProcedureHistoryDto(
+               h.Id,
+               h.OldProcedureType,
+               h.NewProcedureType,
+               h.ChangedAt,
+               h.ChangedBy?.FullName,
+               h.Reason,
+               h.WorkflowStagesRemovedJson)).ToList();
+     }
 }
+

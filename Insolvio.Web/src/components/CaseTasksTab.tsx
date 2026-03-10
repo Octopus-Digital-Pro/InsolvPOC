@@ -5,9 +5,11 @@ import type { TaskDto, UserDto } from "@/services/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import TaskDetailModal from "@/components/TaskDetailModal";
+import AdHocTaskModal from "@/components/AdHocTaskModal";
+import { useTranslation } from "@/contexts/LanguageContext";
 import {
   ListChecks, Calendar as CalendarIcon, LayoutGrid,
-  Clock, CheckCircle2, AlertTriangle, Ban, X,
+  Clock, CheckCircle2, AlertTriangle, Ban, X, Plus,
 } from "lucide-react";
 import { format, isPast, isToday, addDays, startOfWeek, endOfWeek } from "date-fns";
 
@@ -18,6 +20,7 @@ interface Props {
   tasks: TaskDto[];
   onRefresh: () => void;
   readOnly?: boolean;
+  companyId?: string;
 }
 
 const STATUS_COLUMNS = [
@@ -62,12 +65,14 @@ function BlockReasonModal({ open, onConfirm, onCancel }: {
   );
 }
 
-export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh, readOnly = false }: Props) {
+export default function CaseTasksTab({ caseId, tasks, onRefresh, readOnly = false, companyId }: Props) {
+  const { t } = useTranslation();
   const [view, setView] = useState<ViewMode>("list");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [users, setUsers] = useState<UserDto[]>([]);
   const [blockModal, setBlockModal] = useState<{ open: boolean; taskId: string }>({ open: false, taskId: "" });
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [showAdHoc, setShowAdHoc] = useState(false);
 
   useEffect(() => {
     usersApi.getAll().then(r => setUsers(r.data)).catch(console.error);
@@ -121,6 +126,13 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh, readOn
         onCancel={() => setBlockModal({ open: false, taskId: "" })}
       />
       <TaskDetailModal taskId={selectedTaskId} onClose={() => setSelectedTaskId(null)} onStatusChanged={() => onRefresh()} readOnly={readOnly} />
+      <AdHocTaskModal
+        isOpen={showAdHoc}
+        onClose={() => setShowAdHoc(false)}
+        onCreated={onRefresh}
+        companyId={companyId}
+        caseId={caseId}
+      />
   {/* Header + view toggle */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -134,6 +146,17 @@ export default function CaseTasksTab({ caseId: _caseId, tasks, onRefresh, readOn
       )}
         </div>
         <div className="flex items-center gap-1">
+          {!readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 gap-1 px-2 text-[10px]"
+              onClick={() => setShowAdHoc(true)}
+            >
+              <Plus className="h-3 w-3" />
+              {t.tasks.newAdHocTask}
+            </Button>
+          )}
      {([
   { mode: "list" as const, icon: ListChecks, label: "List" },
         { mode: "kanban" as const, icon: LayoutGrid, label: "Board" },
@@ -240,6 +263,11 @@ function TaskRow({ task, onStatusChange, onAssign, updating, users, onTaskClick,
           <p className="text-[10px] text-muted-foreground truncate">{task.description}</p>
         )}
       </div>
+
+      {/* Ad-hoc badge */}
+      {task.isAdHoc && (
+        <Badge variant="secondary" className="hidden sm:inline-flex shrink-0 text-[9px] px-1.5">Ad-hoc</Badge>
+      )}
 
       {/* Labels */}
       {task.labels && (

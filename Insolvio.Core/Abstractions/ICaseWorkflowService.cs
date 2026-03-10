@@ -22,7 +22,7 @@ public interface ICaseWorkflowService
     /// <summary>
     /// Advance a stage to InProgress. Validates that the previous required stages are done.
     /// </summary>
-    Task<CaseWorkflowStageDto> StartStageAsync(Guid caseId, string stageKey, CancellationToken ct = default);
+    Task<CaseWorkflowStageDto> StartStageAsync(Guid caseId, string stageKey, bool acknowledgeWarnings = false, CancellationToken ct = default);
 
     /// <summary>
     /// Complete a stage. Validates requirements before allowing completion.

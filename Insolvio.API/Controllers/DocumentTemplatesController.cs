@@ -10,6 +10,10 @@ using Insolvio.Core.DTOs;
 using Insolvio.Core.Exceptions;
 using Insolvio.Domain.Entities;
 using Insolvio.Domain.Enums;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using System.Text;
 
 namespace Insolvio.API.Controllers;
 
@@ -32,6 +36,7 @@ public class DocumentTemplatesController : ControllerBase
     private readonly WordTemplateImportService _wordImport;
     private readonly IncomingDocumentProfileService _incomingProfiles;
     private readonly IDocumentAiService _documentAi;
+    private readonly IAuditService _audit;
 
     public DocumentTemplatesController(
         ApplicationDbContext db,
@@ -41,7 +46,8 @@ public class DocumentTemplatesController : ControllerBase
         IHtmlPdfService htmlPdf,
         WordTemplateImportService wordImport,
         IncomingDocumentProfileService incomingProfiles,
-        IDocumentAiService documentAi)
+        IDocumentAiService documentAi,
+        IAuditService audit)
     {
         _db = db;
         _currentUser = currentUser;
@@ -51,6 +57,7 @@ public class DocumentTemplatesController : ControllerBase
         _wordImport = wordImport;
         _incomingProfiles = incomingProfiles;
         _documentAi = documentAi;
+        _audit = audit;
     }
 
     // ── Word document import ──────────────────────────────────────────────────
@@ -573,39 +580,109 @@ public class DocumentTemplatesController : ControllerBase
         if (string.IsNullOrWhiteSpace(req.Html))
             return BadRequest(new { message = "HTML content is required." });
 
-        var pdfBytes = await _htmlPdf.RenderHtmlStringToPdfBytesAsync(req.Html, ct);
-
-        var docId = Guid.NewGuid();
         var safeName = string.Concat(
             (req.TemplateName ?? "document").Split(Path.GetInvalidFileNameChars()))
             .Replace(" ", "_");
-        var fileName = $"{safeName}_{DateTime.UtcNow:yyyyMMdd}.pdf";
-        var storageKey = $"cases/{req.CaseId}/generated/{docId}.pdf";
+        var dateSuffix = DateTime.UtcNow.ToString("yyyyMMdd");
 
-        using var ms = new MemoryStream(pdfBytes);
-        await _storage.UploadAsync(storageKey, ms, "application/pdf", ct);
+        // ── 1. Generate and store PDF ─────────────────────────────────────────
+        var pdfDocId = Guid.NewGuid();
+        var pdfFileName = $"{safeName}_{dateSuffix}.pdf";
+        var pdfKey = $"cases/{req.CaseId}/generated/{pdfDocId}.pdf";
 
-        var doc = new InsolvencyDocument
+        var pdfBytes = await _htmlPdf.RenderHtmlStringToPdfBytesAsync(req.Html, ct);
+        using (var ms = new MemoryStream(pdfBytes))
+            await _storage.UploadAsync(pdfKey, ms, "application/pdf", ct);
+
+        var pdfDoc = new InsolvencyDocument
         {
-            Id = docId,
+            Id = pdfDocId,
             TenantId = tenantId,
             CaseId = req.CaseId,
-            SourceFileName = fileName,
-            StorageKey = storageKey,
+            SourceFileName = pdfFileName,
+            StorageKey = pdfKey,
             DocType = "GeneratedTemplate",
             Purpose = "Generated",
-            RequiresSignature = false, // already signed / reviewed
+            RequiresSignature = false,
             UploadedBy = _currentUser.Email ?? "System",
             UploadedAt = DateTime.UtcNow,
             CreatedOn = DateTime.UtcNow,
             CreatedBy = _currentUser.Email ?? "System",
-            Summary = $"Generated from template: {req.TemplateName}",
+            Summary = $"Generated from template: {req.TemplateName} (PDF)",
         };
 
-        _db.InsolvencyDocuments.Add(doc);
+        // ── 2. Generate and store DOCX (HTML embedded via AltChunk) ──────────
+        var docxDocId = Guid.NewGuid();
+        var docxFileName = $"{safeName}_{dateSuffix}.docx";
+        var docxKey = $"cases/{req.CaseId}/generated/{docxDocId}.docx";
+
+        var docxBytes = CreateDocxFromHtml(req.Html);
+        using (var ms = new MemoryStream(docxBytes))
+            await _storage.UploadAsync(
+                docxKey, ms,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ct);
+
+        var docxDoc = new InsolvencyDocument
+        {
+            Id = docxDocId,
+            TenantId = tenantId,
+            CaseId = req.CaseId,
+            SourceFileName = docxFileName,
+            StorageKey = docxKey,
+            DocType = "GeneratedTemplate",
+            Purpose = "Generated",
+            RequiresSignature = false,
+            UploadedBy = _currentUser.Email ?? "System",
+            UploadedAt = DateTime.UtcNow,
+            CreatedOn = DateTime.UtcNow,
+            CreatedBy = _currentUser.Email ?? "System",
+            Summary = $"Generated from template: {req.TemplateName} (DOCX)",
+        };
+
+        // ── 3. Persist both records ───────────────────────────────────────────
+        _db.InsolvencyDocuments.AddRange(pdfDoc, docxDoc);
         await _db.SaveChangesAsync(ct);
 
-        return Ok(new { documentId = docId, fileName, storageKey, requiresSignature = false });
+        // ── 4. Audit log ──────────────────────────────────────────────────────
+        await _audit.LogEntityAsync(
+            "Document Generated and Saved to Case",
+            "InsolvencyDocument",
+            pdfDocId,
+            newValues: new
+            {
+                templateName = req.TemplateName,
+                pdfDocumentId = pdfDocId,
+                docxDocumentId = docxDocId,
+                caseId = req.CaseId,
+            });
+
+        return Ok(new
+        {
+            pdfDocumentId = pdfDocId,
+            docxDocumentId = docxDocId,
+            pdfFileName,
+            docxFileName,
+            requiresSignature = false,
+        });
+    }
+
+    /// <summary>Creates a DOCX file by embedding HTML via an AltChunk — Word renders it natively.</summary>
+    private static byte[] CreateDocxFromHtml(string html)
+    {
+        using var ms = new MemoryStream();
+        using (var docx = WordprocessingDocument.Create(ms, WordprocessingDocumentType.Document))
+        {
+            var mainPart = docx.AddMainDocumentPart();
+            mainPart.Document = new Document(new Body());
+            var altPart = mainPart.AddAlternativeFormatImportPart(AlternativeFormatImportPartType.Html);
+            using var htmlMs = new MemoryStream(Encoding.UTF8.GetBytes(html));
+            altPart.FeedData(htmlMs);
+            var relId = mainPart.GetIdOfPart(altPart);
+            mainPart.Document.Body!.InsertAt(new AltChunk { Id = relId }, 0);
+            mainPart.Document.Save();
+        }
+        return ms.ToArray();
     }
 
     // ── Incoming document reference samples (for AI recognition) ─────────────

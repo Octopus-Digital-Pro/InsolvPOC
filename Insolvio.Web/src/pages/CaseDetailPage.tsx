@@ -7,7 +7,7 @@ import type { ONRCFirmResult } from "@/services/api/onrc";
 import { workflowApi } from "@/services/api/workflow";
 import { caseWorkflowApi } from "@/services/api/caseWorkflowApi";
 import { documentTemplatesApi } from "@/services/api/documentTemplatesApi";
-import { caseEmailsApi, caseCalendarApi } from "@/services/api/caseWorkspace";
+import { caseEmailsApi, caseCalendarApi, caseTasksApi } from "@/services/api/caseWorkspace";
 import { tasksApi } from "@/services/api/tasks";
 import { caseAiApi } from "@/services/api/caseAiApi";
 import type { AiEnabledStatus } from "@/services/api/caseAiApi";
@@ -29,6 +29,7 @@ import CaseClaimsTab from "@/components/CaseClaimsTab";
 import TemplatePreviewModal from "@/components/TemplatePreviewModal";
 import EmailComposeModal from "@/components/EmailComposeModal";
 import { CloseCaseModal } from "@/components/CloseCaseModal";
+import { ChangeProcedureTypeModal } from "@/components/ChangeProcedureTypeModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { downloadAuthFile } from "@/utils/downloadAuthFile";
 import {
@@ -60,11 +61,113 @@ function toInputDate(d: Date): string {
   return format(d, "yyyy-MM-dd");
 }
 
+// ── Inline-editable field component ──────────────────────────────────────────
+function InlineField({
+  label, value, fieldKey, caseId, editable, onSaved, type = "text", options,
+}: {
+  label: string;
+  value: string | null | undefined;
+  fieldKey: keyof import("@/services/api/types").CaseDto;
+  caseId: string;
+  editable: boolean;
+  onSaved: (fieldKey: string, oldValue: string) => void;
+  type?: "text" | "date" | "select";
+  options?: { value: string; label: string }[];
+}) {
+  const [local, setLocal] = useState(value ?? "");
+  const prev = useRef(value ?? "");
+  useEffect(() => { setLocal(value ?? ""); prev.current = value ?? ""; }, [value]);
+
+  const handleBlur = async () => {
+    if (local === prev.current) return;
+    try {
+      const payload = type === "date"
+        ? { [fieldKey]: local ? new Date(local).toISOString() : null }
+        : { [fieldKey]: local || null };
+      await casesApi.update(caseId, payload as Partial<import("@/services/api/types").CaseDto>);
+      onSaved(fieldKey as string, prev.current);
+      prev.current = local;
+    } catch {
+      setLocal(prev.current);
+    }
+  };
+
+  const handleSelectChange = async (next: string) => {
+    if (next === prev.current) return;
+    const old = prev.current;
+    setLocal(next);
+    prev.current = next;
+    try {
+      await casesApi.update(caseId, { [fieldKey]: next || null } as Partial<import("@/services/api/types").CaseDto>);
+      onSaved(fieldKey as string, old);
+    } catch {
+      setLocal(old);
+      prev.current = old;
+    }
+  };
+
+  const displayLabel = type === "select" && options
+    ? (options.find(o => o.value === value)?.label ?? value ?? "—")
+    : value;
+
+  if (!editable) {
+    if (!displayLabel) return null;
+    return (
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="text-sm text-foreground">{displayLabel}</p>
+      </div>
+    );
+  }
+
+  if (type === "select" && options) {
+    return (
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <select
+          value={local}
+          onChange={e => handleSelectChange(e.target.value)}
+          className="w-full text-sm text-foreground bg-transparent border-b border-dashed border-border/60 hover:border-primary/50 focus:outline-none focus:border-primary transition-colors cursor-pointer"
+        >
+          {options.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <input
+        type={type}
+        value={local}
+        onChange={e => setLocal(e.target.value)}
+        onBlur={handleBlur}
+        placeholder="—"
+        className="w-full text-sm text-foreground bg-transparent border-b border-dashed border-border/60 hover:border-primary/50 focus:outline-none focus:border-primary transition-colors"
+      />
+    </div>
+  );
+}
+
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { t, locale } = useTranslation();
   const { isTenantAdmin, isPractitioner, isGlobalAdmin } = useAuth();
+
+  const PROCEDURE_TYPE_OPTIONS = [
+    { value: "FalimentSimplificat", label: t.procedures.simplifiedBankruptcy },
+    { value: "Faliment", label: t.procedures.faliment },
+    { value: "Insolventa", label: t.procedures.generalInsolvency },
+    { value: "Reorganizare", label: t.procedures.reorganization },
+    { value: "ConcordatPreventiv", label: t.procedures.preventiveConcordat },
+    { value: "MandatAdHoc", label: t.procedures.adHocMandate },
+    { value: "Other", label: t.procedures.other },
+  ];
+
   const [caseData, setCaseData] = useState<CaseDto | null>(null);
   const [parties, setParties] = useState<CasePartyDto[]>([]);
   const [documents, setDocuments] = useState<DocumentDto[]>([]);
@@ -94,6 +197,9 @@ export default function CaseDetailPage() {
   const [editingDates, setEditingDates] = useState(false);
   const [savingDates, setSavingDates] = useState(false);
   const [datesForm, setDatesForm] = useState({ openingDate: "", nextHearingDate: "", claimsDeadline: "", contestationsDeadline: "" });
+  const [savedNotif, setSavedNotif] = useState<{ fieldKey: string; oldValue: string } | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [changeProcTypeOpen, setChangeProcTypeOpen] = useState(false);
   // Email compose state
   const [composeEmailOpen, setComposeEmailOpen] = useState(false);
   const [composeEmailInitialSubject, setComposeEmailInitialSubject] = useState("");
@@ -108,8 +214,9 @@ export default function CaseDetailPage() {
   const [mandatoryReportConfigOpen, setMandatoryReportConfigOpen] = useState(false);
   const [pastTasksFromDate, setPastTasksFromDate] = useState(toInputDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)));
   const [pastTasksToDate, setPastTasksToDate] = useState(toInputDate(new Date()));
-  const [futureTasksFromDate, setFutureTasksFromDate] = useState(toInputDate(new Date()));
-  const [futureTasksToDate, setFutureTasksToDate] = useState(toInputDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)));
+  const [createFollowUpTask, setCreateFollowUpTask] = useState(true);
+  const [reminderOffsetDays, setReminderOffsetDays] = useState("");
+  const [followUpTaskCreated, setFollowUpTaskCreated] = useState<string | null>(null);
 
   const generateMandatoryReport = useCallback(async () => {
     if (!id) return;
@@ -127,14 +234,11 @@ export default function CaseDetailPage() {
 
       const today = toInputDate(new Date());
       const safePastTo = pastTasksToDate > today ? today : pastTasksToDate;
-      const safeFutureFrom = futureTasksFromDate < today ? today : futureTasksFromDate;
 
       const res = await documentTemplatesApi.render(mandatoryTemplate.id, {
         caseId: id,
         pastTasksFromDate,
         pastTasksToDate: safePastTo,
-        futureTasksFromDate: safeFutureFrom,
-        futureTasksToDate,
       });
 
       if (!res.data.renderedHtml) return;
@@ -151,8 +255,6 @@ export default function CaseDetailPage() {
     id,
     pastTasksFromDate,
     pastTasksToDate,
-    futureTasksFromDate,
-    futureTasksToDate,
     t.caseTemplates.mandatoryReportMissing,
   ]);
 
@@ -278,10 +380,25 @@ export default function CaseDetailPage() {
     finally { setRemovingPartyId(null); }
   };
 
+  const handleFieldSaved = useCallback((fieldKey: string, oldValue: string) => {
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    setSavedNotif({ fieldKey, oldValue });
+    savedTimerRef.current = setTimeout(() => setSavedNotif(null), 5000);
+  }, []);
+
+  const handleFieldUndo = useCallback(async (fieldKey: string, oldValue: string) => {
+    try {
+      await casesApi.update(id!, { [fieldKey]: oldValue || null } as Partial<CaseDto>);
+      load();
+    } catch { /* ignore */ }
+    setSavedNotif(null);
+  }, [id, load]);
+
   if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   if (!caseData) return <p className="p-8 text-muted-foreground">{t.cases.noCases}</p>;
 
   const isClosed = caseData.status === "Closed";
+  const canEdit = !isClosed && (isTenantAdmin || isGlobalAdmin || isPractitioner);
 
   const statusLabel = (s: string): string =>
     (t.statuses as Record<string, string>)?.[s] ?? s;
@@ -406,13 +523,40 @@ export default function CaseDetailPage() {
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3">
-          <InfoRow label={t.cases.court} value={caseData.courtName} />
-          <InfoRow label={t.cases.courtSection} value={caseData.courtSection} />
-          <InfoRow label={t.cases.judgeSyndic} value={caseData.judgeSyndic} />
-          <InfoRow label={t.cases.registrar} value={caseData.registrar} />
-          <InfoRow label={t.cases.procedureType} value={caseData.procedureType} />
-          <InfoRow label={t.cases.lawReference} value={caseData.lawReference} />
-          <InfoRow label={t.cases.debtorCui} value={caseData.debtorCui} />
+          {/* Saved notification banner */}
+          {savedNotif && (
+            <div className="col-span-full flex items-center justify-between text-xs bg-chart-2/10 border border-chart-2/30 rounded-md px-3 py-1.5">
+              <span className="text-chart-2 font-medium flex items-center gap-1"><Check className="h-3 w-3" /> Saved</span>
+              <button
+                onClick={() => handleFieldUndo(savedNotif.fieldKey, savedNotif.oldValue)}
+                className="text-muted-foreground hover:text-foreground underline"
+              >
+                Undo
+              </button>
+            </div>
+          )}
+          <InlineField label={t.cases.court} value={caseData.courtName} fieldKey="courtName" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
+          <InlineField label={t.cases.courtSection} value={caseData.courtSection} fieldKey="courtSection" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
+          <InlineField label={t.cases.judgeSyndic} value={caseData.judgeSyndic} fieldKey="judgeSyndic" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
+          <InlineField label={t.cases.registrar} value={caseData.registrar} fieldKey="registrar" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.cases.procedureType}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-foreground">{PROCEDURE_TYPE_OPTIONS.find(o => o.value === caseData.procedureType)?.label ?? caseData.procedureType}</p>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setChangeProcTypeOpen(true)}
+                  className="rounded p-0.5 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                  title={t.changeProcedureType.pencilTitle}
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+          <InlineField label={t.cases.lawReference} value={caseData.lawReference} fieldKey="lawReference" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
+          <InlineField label={t.cases.debtorCui} value={caseData.debtorCui} fieldKey="debtorCui" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
           {caseData.caseEmailAddress && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.caseEmail?.emailAddress ?? "Case Email"}</p>
@@ -433,8 +577,8 @@ export default function CaseDetailPage() {
               </div>
             </div>
           )}
-          <InfoRow label={t.cases.practitioner} value={caseData.practitionerName} />
-          <InfoRow label={t.cases.practitionerRole} value={caseData.practitionerRole} />
+          <InlineField label={t.cases.practitioner} value={caseData.practitionerName} fieldKey="practitionerName" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
+          <InlineField label={t.cases.practitionerRole} value={caseData.practitionerRole} fieldKey="practitionerRole" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
           <InfoRow label={t.cases.company} value={caseData.companyName} />
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.cases.assignedTo}</p>
@@ -460,7 +604,7 @@ export default function CaseDetailPage() {
           {caseData.nextHearingDate && <InfoRow label={t.cases.nextHearing} value={format(new Date(caseData.nextHearingDate), "dd MMM yyyy")} />}
           {caseData.claimsDeadline && <InfoRow label={t.cases.claimsDeadline} value={format(new Date(caseData.claimsDeadline), "dd MMM yyyy")} />}
           {caseData.contestationsDeadline && <InfoRow label={t.cases.contestationsDeadline} value={format(new Date(caseData.contestationsDeadline), "dd MMM yyyy")} />}
-          {(isTenantAdmin || isGlobalAdmin) && !isClosed && (
+          {canEdit && (
             editingDates ? (
               <div className="col-span-full space-y-2 pt-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.cases.editKeyDates}</p>
@@ -523,8 +667,8 @@ export default function CaseDetailPage() {
               </button>
             )
           )}
-          <InfoRow label="BPI" value={caseData.bpiPublicationNo} />
-          {caseData.openingDecisionNo && <InfoRow label="Opening Decision" value={caseData.openingDecisionNo} />}
+          <InlineField label="BPI" value={caseData.bpiPublicationNo} fieldKey="bpiPublicationNo" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
+          <InlineField label="Opening Decision" value={caseData.openingDecisionNo} fieldKey="openingDecisionNo" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
         </div>
 
         {/* Financial summary */}
@@ -619,7 +763,7 @@ export default function CaseDetailPage() {
 
           {/* Tasks Tab */}
           {activeTab === "tasks" && (
-            <CaseTasksTab caseId={id!} tasks={caseTasks} onRefresh={load} readOnly={isClosed} />
+            <CaseTasksTab caseId={id!} tasks={caseTasks} onRefresh={load} readOnly={isClosed} companyId={caseData?.companyId} />
           )}
 
           {/* Documents Tab */}
@@ -826,6 +970,16 @@ export default function CaseDetailPage() {
         />
       )}
 
+      {/* Change Procedure Type Modal */}
+      {changeProcTypeOpen && caseData && (
+        <ChangeProcedureTypeModal
+          caseId={id!}
+          currentProcedureType={caseData.procedureType as string}
+          onChanged={() => { setChangeProcTypeOpen(false); load(); }}
+          onCancel={() => setChangeProcTypeOpen(false)}
+        />
+      )}
+
       {/* Creditor Meeting Modal */}
       <CreditorMeetingModal
         caseId={id!}
@@ -852,7 +1006,7 @@ export default function CaseDetailPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.pastTasksFrom}</label>
+                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.activityFrom}</label>
                 <input
                   type="date"
                   value={pastTasksFromDate}
@@ -862,7 +1016,7 @@ export default function CaseDetailPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.pastTasksTo}</label>
+                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.activityTo}</label>
                 <input
                   type="date"
                   value={pastTasksToDate}
@@ -871,26 +1025,34 @@ export default function CaseDetailPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.futureTasksFrom}</label>
+            </div>
+
+            {/* Follow-up task options */}
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
-                  type="date"
-                  value={futureTasksFromDate}
-                  min={toInputDate(new Date())}
-                  onChange={(e) => setFutureTasksFromDate(e.target.value)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  type="checkbox"
+                  checked={createFollowUpTask}
+                  onChange={(e) => setCreateFollowUpTask(e.target.checked)}
+                  className="h-4 w-4 rounded border-input"
                 />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">{t.caseTemplates.futureTasksTo}</label>
-                <input
-                  type="date"
-                  value={futureTasksToDate}
-                  min={toInputDate(new Date())}
-                  onChange={(e) => setFutureTasksToDate(e.target.value)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
+                <span className="text-sm font-medium">{t.caseTemplates.createFollowUpTask}</span>
+              </label>
+              {createFollowUpTask && (
+                <div className="flex items-center gap-3 pl-6">
+                  <span className="text-xs text-muted-foreground">{t.caseTemplates.reminderIntervalDays}</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={reminderOffsetDays}
+                    onChange={(e) => setReminderOffsetDays(e.target.value)}
+                    placeholder="30"
+                    className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm text-center"
+                  />
+                  <span className="text-xs text-muted-foreground">{t.deadlineSettings?.days ?? "days"}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2">
@@ -906,6 +1068,16 @@ export default function CaseDetailPage() {
         </div>
       )}
 
+      {/* Follow-up task confirmation banner */}
+      {followUpTaskCreated && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-lg dark:border-emerald-800 dark:bg-emerald-950">
+          <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+          <p className="text-sm text-emerald-800 dark:text-emerald-200">
+            {t.caseTemplates.followUpTaskCreated} <strong>{followUpTaskCreated}</strong>
+          </p>
+        </div>
+      )}
+
       {/* Mandatory Report Preview Modal */}
       {mandatoryReportModalOpen && (
         <TemplatePreviewModal
@@ -915,9 +1087,35 @@ export default function CaseDetailPage() {
           caseId={id!}
           practitionerName={mandatoryReportPractitioner}
           onClose={() => setMandatoryReportModalOpen(false)}
-          onSaved={(docId) => {
+          onSaved={async (docId) => {
             setMandatoryReportModalOpen(false);
             load(); // refresh documents tab
+            // Create follow-up task + calendar event if requested
+            if (createFollowUpTask && id && caseData?.companyId) {
+              const offsetDays = parseInt(reminderOffsetDays || "30", 10);
+              const reminderDate = new Date();
+              reminderDate.setDate(reminderDate.getDate() + offsetDays);
+              const reminderDateStr = toInputDate(reminderDate);
+              try {
+                await caseTasksApi.create(id, {
+                  title: `${t.caseTemplates.mandatoryReportTemplateName} — ${caseData.caseNumber ?? ""}`,
+                  description: t.caseTemplates.followUpTaskDesc,
+                  category: "MandatoryReport",
+                  deadline: reminderDate.toISOString(),
+                });
+                await caseCalendarApi.create(id, {
+                  caseId: id,
+                  title: `${t.caseTemplates.mandatoryReportTemplateName} — ${caseData.caseNumber ?? ""}`,
+                  start: reminderDate.toISOString(),
+                  allDay: true,
+                  eventType: "Deadline",
+                });
+                setFollowUpTaskCreated(reminderDateStr);
+                setTimeout(() => setFollowUpTaskCreated(null), 8000);
+              } catch (err) {
+                console.error("Failed to create follow-up task", err);
+              }
+            }
             const judgeSyndicParty = parties.find(p => p.role === "judgeSyndic");
             setComposeEmailInitialPartyIds(judgeSyndicParty ? [judgeSyndicParty.id] : []);
             setComposeEmailAttachedDocId(docId);

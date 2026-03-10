@@ -58,6 +58,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
   public DbSet<AiCorrectionFeedback> AiCorrectionFeedbacks => Set<AiCorrectionFeedback>();
   public DbSet<Notification> Notifications => Set<Notification>();
 
+  // Feature 1: Multiple Task Assignees
+  public DbSet<TaskAssignee> TaskAssignees => Set<TaskAssignee>();
+
+  // Feature 4: Procedure Type Change history
+  public DbSet<CaseProcedureHistory> CaseProcedureHistories => Set<CaseProcedureHistory>();
+
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
     base.OnModelCreating(modelBuilder);
@@ -182,9 +188,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             e.Property(t => t.Category).HasMaxLength(64);
             e.Property(t => t.EscalationPolicyId).HasMaxLength(128);
             e.Property(t => t.ReminderScheduleId).HasMaxLength(128);
+            e.Property(t => t.IsAdHoc).HasDefaultValue(false);
             e.HasOne(t => t.Company).WithMany(c => c.Tasks).HasForeignKey(t => t.CompanyId).OnDelete(DeleteBehavior.Restrict);
             e.HasOne(t => t.Case).WithMany(ic => ic.Tasks).HasForeignKey(t => t.CaseId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(t => t.AssignedTo).WithMany(u => u.AssignedTasks).HasForeignKey(t => t.AssignedToUserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(t => t.WorkflowStage).WithMany().HasForeignKey(t => t.WorkflowStageId).OnDelete(DeleteBehavior.NoAction).IsRequired(false);
             e.HasIndex(t => new { t.CaseId, t.Status });
             e.HasIndex(t => new { t.AssignedToUserId, t.Status });
             e.HasIndex(t => t.Deadline);
@@ -269,12 +277,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     // SystemConfig
     modelBuilder.Entity<SystemConfig>(e =>
 {
-e.HasKey(c => c.Id);
-e.Property(c => c.Key).HasMaxLength(256).IsRequired();
-e.Property(c => c.Value).HasMaxLength(4000).IsRequired();
-e.Property(c => c.Description).HasMaxLength(1000);
-e.Property(c => c.Group).HasMaxLength(128);
-e.HasIndex(c => c.Key).IsUnique();
+  e.HasKey(c => c.Id);
+  e.Property(c => c.Key).HasMaxLength(256).IsRequired();
+  e.Property(c => c.Value).HasMaxLength(4000).IsRequired();
+  e.Property(c => c.Description).HasMaxLength(1000);
+  e.Property(c => c.Group).HasMaxLength(128);
+  e.HasIndex(c => c.Key).IsUnique();
 });
 
     // DocumentTemplate
@@ -314,17 +322,17 @@ e.HasIndex(c => c.Key).IsUnique();
     // DigitalSignature
     modelBuilder.Entity<DigitalSignature>(e =>
 {
-e.HasKey(s => s.Id);
-e.Property(s => s.DocumentHash).HasMaxLength(128).IsRequired();
-e.Property(s => s.SignatureData).IsRequired();
-e.Property(s => s.CertificateSubject).HasMaxLength(512);
-e.Property(s => s.CertificateThumbprint).HasMaxLength(128);
-e.Property(s => s.CertificateSerialNumber).HasMaxLength(128);
-e.Property(s => s.Reason).HasMaxLength(1000);
-e.HasOne(s => s.Document).WithMany(d => d.Signatures).HasForeignKey(s => s.DocumentId).OnDelete(DeleteBehavior.Cascade);
-e.HasOne(s => s.SignedBy).WithMany(u => u.Signatures).HasForeignKey(s => s.SignedByUserId).OnDelete(DeleteBehavior.Restrict);
-e.HasOne(s => s.SigningKey).WithMany().HasForeignKey(s => s.SigningKeyId).OnDelete(DeleteBehavior.SetNull);
-e.HasIndex(s => s.DocumentId);
+  e.HasKey(s => s.Id);
+  e.Property(s => s.DocumentHash).HasMaxLength(128).IsRequired();
+  e.Property(s => s.SignatureData).IsRequired();
+  e.Property(s => s.CertificateSubject).HasMaxLength(512);
+  e.Property(s => s.CertificateThumbprint).HasMaxLength(128);
+  e.Property(s => s.CertificateSerialNumber).HasMaxLength(128);
+  e.Property(s => s.Reason).HasMaxLength(1000);
+  e.HasOne(s => s.Document).WithMany(d => d.Signatures).HasForeignKey(s => s.DocumentId).OnDelete(DeleteBehavior.Cascade);
+  e.HasOne(s => s.SignedBy).WithMany(u => u.Signatures).HasForeignKey(s => s.SignedByUserId).OnDelete(DeleteBehavior.Restrict);
+  e.HasOne(s => s.SigningKey).WithMany().HasForeignKey(s => s.SigningKeyId).OnDelete(DeleteBehavior.SetNull);
+  e.HasIndex(s => s.DocumentId);
 });
 
     // CalendarEvent
@@ -344,11 +352,11 @@ e.HasIndex(s => s.DocumentId);
     // CaseSummary
     modelBuilder.Entity<CaseSummary>(e =>
 {
-e.HasKey(s => s.Id);
-e.Property(s => s.Model).HasMaxLength(128);
-e.Property(s => s.Trigger).HasMaxLength(256);
-e.HasOne(s => s.Case).WithMany(ic => ic.Summaries).HasForeignKey(s => s.CaseId).OnDelete(DeleteBehavior.Cascade);
-e.HasIndex(s => new { s.CaseId, s.GeneratedAt });
+  e.HasKey(s => s.Id);
+  e.Property(s => s.Model).HasMaxLength(128);
+  e.Property(s => s.Trigger).HasMaxLength(256);
+  e.HasOne(s => s.Case).WithMany(ic => ic.Summaries).HasForeignKey(s => s.CaseId).OnDelete(DeleteBehavior.Cascade);
+  e.HasIndex(s => new { s.CaseId, s.GeneratedAt });
 });
 
     // Tribunal
@@ -397,20 +405,20 @@ e.HasIndex(s => new { s.CaseId, s.GeneratedAt });
     // LocalGovernment
     modelBuilder.Entity<LocalGovernment>(e =>
 {
-e.HasKey(t => t.Id);
-e.Property(t => t.Name).HasMaxLength(512).IsRequired();
-e.Property(t => t.Locality).HasMaxLength(256);
-e.Property(t => t.County).HasMaxLength(256);
-e.Property(t => t.Address).HasMaxLength(512);
-e.Property(t => t.PostalCode).HasMaxLength(16);
-e.Property(t => t.Phone).HasMaxLength(64);
-e.Property(t => t.Fax).HasMaxLength(64);
-e.Property(t => t.Email).HasMaxLength(256);
-e.Property(t => t.Website).HasMaxLength(256);
-e.Property(t => t.ContactPerson).HasMaxLength(256);
-e.Property(t => t.ScheduleHours).HasMaxLength(256);
-e.Property(t => t.Notes).HasMaxLength(2000);
-e.HasIndex(t => new { t.TenantId, t.Name });
+  e.HasKey(t => t.Id);
+  e.Property(t => t.Name).HasMaxLength(512).IsRequired();
+  e.Property(t => t.Locality).HasMaxLength(256);
+  e.Property(t => t.County).HasMaxLength(256);
+  e.Property(t => t.Address).HasMaxLength(512);
+  e.Property(t => t.PostalCode).HasMaxLength(16);
+  e.Property(t => t.Phone).HasMaxLength(64);
+  e.Property(t => t.Fax).HasMaxLength(64);
+  e.Property(t => t.Email).HasMaxLength(256);
+  e.Property(t => t.Website).HasMaxLength(256);
+  e.Property(t => t.ContactPerson).HasMaxLength(256);
+  e.Property(t => t.ScheduleHours).HasMaxLength(256);
+  e.Property(t => t.Notes).HasMaxLength(2000);
+  e.HasIndex(t => new { t.TenantId, t.Name });
 });
 
     // GeneratedLetter
@@ -651,6 +659,60 @@ e.HasIndex(t => new { t.TenantId, t.Name });
       e.HasOne(n => n.User).WithMany().HasForeignKey(n => n.UserId).OnDelete(DeleteBehavior.Cascade);
       e.HasIndex(n => new { n.UserId, n.IsRead });
       e.HasIndex(n => n.CreatedOn);
+    });
+
+    // TaskAssignee (Feature 1: Multiple Task Assignees)
+    modelBuilder.Entity<TaskAssignee>(e =>
+    {
+      e.HasKey(a => a.Id);
+      e.HasOne(a => a.Task)
+        .WithMany(t => t.Assignees)
+        .HasForeignKey(a => a.TaskId)
+        .OnDelete(DeleteBehavior.Cascade);
+      e.HasOne(a => a.User)
+        .WithMany()
+        .HasForeignKey(a => a.UserId)
+        .OnDelete(DeleteBehavior.Restrict);
+      e.HasOne(a => a.AssignedBy)
+        .WithMany()
+        .HasForeignKey(a => a.AssignedByUserId)
+        .OnDelete(DeleteBehavior.Restrict)
+        .IsRequired(false);
+      // One row per (task, user) pair
+      e.HasIndex(a => new { a.TaskId, a.UserId }).IsUnique();
+      e.HasIndex(a => a.UserId);
+    });
+
+    // CaseProcedureHistory (Feature 4: Procedure Type Change)
+    modelBuilder.Entity<CaseProcedureHistory>(e =>
+    {
+      e.HasKey(h => h.Id);
+      e.Property(h => h.Reason).HasMaxLength(2000);
+      e.HasOne(h => h.Case)
+        .WithMany()
+        .HasForeignKey(h => h.CaseId)
+        .OnDelete(DeleteBehavior.Cascade);
+      e.HasOne(h => h.ChangedBy)
+        .WithMany()
+        .HasForeignKey(h => h.ChangedByUserId)
+        .OnDelete(DeleteBehavior.Restrict)
+        .IsRequired(false);
+      e.HasIndex(h => h.CaseId);
+      e.HasIndex(h => h.ChangedAt);
+    });
+
+    // AuditLog — bound column sizes so they can be indexed efficiently
+    modelBuilder.Entity<AuditLog>(e =>
+    {
+      e.Property(a => a.EntityType).HasMaxLength(200);
+      e.Property(a => a.CaseNumber).HasMaxLength(100);
+      e.Property(a => a.Category).HasMaxLength(100);
+      e.HasIndex(a => new { a.EntityType, a.EntityId })
+        .HasDatabaseName("IX_AuditLogs_EntityType_EntityId");
+      e.HasIndex(a => a.CaseNumber)
+        .HasDatabaseName("IX_AuditLogs_CaseNumber");
+      e.HasIndex(a => new { a.Category, a.Timestamp })
+        .HasDatabaseName("IX_AuditLogs_Category_Timestamp");
     });
 
     // ----- Tenant query filters -----

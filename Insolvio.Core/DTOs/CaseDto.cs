@@ -91,3 +91,27 @@ public record UpdateCaseRequest(
     Guid? CompanyId,
     Guid? AssignedToUserId
 );
+
+// ── Feature 4: Procedure Type Change ─────────────────────────────────────────
+
+public class ChangeProcedureTypeCommand
+{
+    public ProcedureType NewProcedureType { get; set; }
+    /// <summary>Mandatory reason documented in history and audit trail.</summary>
+    public string Reason { get; set; } = string.Empty;
+}
+
+public record ChangeProcedureTypeResult(
+    List<string> RemovedStages,
+    List<string> AddedStages,
+    int PreservedTasks);
+
+public record ProcedureHistoryDto(
+    Guid Id,
+    ProcedureType OldProcedureType,
+    ProcedureType NewProcedureType,
+    DateTime ChangedAt,
+    string? ChangedByName,
+    string? Reason,
+    string? WorkflowStagesRemovedJson);
+
