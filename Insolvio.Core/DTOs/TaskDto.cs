@@ -2,6 +2,16 @@ using Insolvio.Domain.Enums;
 
 namespace Insolvio.Core.DTOs;
 
+/// <summary>Represents a single assignee on a task (primary or secondary).</summary>
+public record AssigneeDto(
+    Guid UserId,
+    string FullName,
+    string Email,
+    string? AvatarUrl,
+    DateTime AssignedAt,
+    bool IsPrimary
+);
+
 public record TaskDto(
     Guid Id,
     Guid CompanyId,
@@ -25,7 +35,20 @@ public record TaskDto(
     string? Summary,
     string? SummaryByLanguageJson,
     string? ReportSummary
-);
+)
+{
+    /// <summary>
+    /// Full list of assignees (primary first, then secondary).
+    /// Populated only when the caller explicitly includes assignees (GetByIdAsync, GetMyTasksAsync).
+    /// </summary>
+    public List<AssigneeDto> Assignees { get; init; } = new();
+
+    /// <summary>True = created manually by a user; not tied to a workflow stage.</summary>
+    public bool IsAdHoc { get; init; }
+
+    /// <summary>Workflow stage this task belongs to (null for ad-hoc tasks).</summary>
+    public Guid? WorkflowStageId { get; init; }
+};
 
 public record CreateTaskRequest(
     Guid CompanyId,
@@ -61,3 +84,18 @@ public record TaskNoteDto(
 
 public record AddTaskNoteRequest(string Content);
 public record UpdateTaskNoteRequest(string Content);
+
+/// <summary>Request body for adding an assignee to a task.</summary>
+public record AddAssigneeRequest(Guid UserId);
+
+/// <summary>Command for creating an ad-hoc task (Feature 9).</summary>
+public class CreateAdHocTaskCommand
+{
+    public Guid? CaseId { get; init; }
+    public Guid CompanyId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string? Description { get; init; }
+    public DateTime? Deadline { get; init; }
+    /// <summary>Additional assignee IDs beyond the caller (who is always primary assignee).</summary>
+    public List<Guid> AdditionalAssigneeIds { get; init; } = new();
+}

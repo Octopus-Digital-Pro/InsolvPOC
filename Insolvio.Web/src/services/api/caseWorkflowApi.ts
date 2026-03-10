@@ -54,9 +54,9 @@ export const caseWorkflowApi = {
   validate: (caseId: string, stageKey: string) =>
     client.get<ValidationResultDto>(`/cases/${caseId}/workflow/${stageKey}/validate`),
 
-  /** Start a stage (gates on prior stages being complete/skipped). */
-  start: (caseId: string, stageKey: string) =>
-    client.post<CaseWorkflowStageDto>(`/cases/${caseId}/workflow/${stageKey}/start`),
+  /** Start a stage. Pass acknowledgeWarnings=true to bypass the prior-stage gate. */
+  start: (caseId: string, stageKey: string, acknowledgeWarnings = false) =>
+    client.post<CaseWorkflowStageDto>(`/cases/${caseId}/workflow/${stageKey}/start`, { acknowledgeWarnings }),
 
   /** Complete a stage (validates requirements first). */
   complete: (caseId: string, stageKey: string) =>

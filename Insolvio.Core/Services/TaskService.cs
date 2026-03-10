@@ -380,4 +380,255 @@ public sealed class TaskService : ITaskService
         _db.TaskNotes.Remove(note);
         await _db.SaveChangesAsync(ct);
     }
+
+    // ── Feature 1: Multiple Task Assignees ──────────────────────────────────
+
+    public async Task<List<AssigneeDto>> GetAssigneesAsync(Guid taskId, CancellationToken ct = default)
+    {
+        var tenantId = _currentUser.TenantId;
+
+        // Ensure the task is accessible
+        var task = await _db.CompanyTasks
+            .Include(t => t.AssignedTo)
+            .FirstOrDefaultAsync(t => t.Id == taskId && (tenantId == null || t.TenantId == tenantId), ct)
+            ?? throw new BusinessException("Task not found.");
+
+        // Build the primary assignee entry
+        var result = new List<AssigneeDto>();
+        if (task.AssignedToUserId.HasValue && task.AssignedTo is not null)
+        {
+            result.Add(new AssigneeDto(
+                task.AssignedTo.Id,
+                task.AssignedTo.FullName,
+                task.AssignedTo.Email,
+                task.AssignedTo.AvatarUrl,
+                task.CreatedOn,
+                IsPrimary: true));
+        }
+
+        // Secondary assignees
+        var secondary = await _db.TaskAssignees
+            .Include(a => a.User)
+            .Where(a => a.TaskId == taskId)
+            .OrderBy(a => a.AssignedAt)
+            .ToListAsync(ct);
+
+        foreach (var a in secondary)
+        {
+            if (a.User is null) continue;
+            // Skip if the secondary assignee is the same as the primary
+            if (a.UserId == task.AssignedToUserId) continue;
+            result.Add(new AssigneeDto(
+                a.User.Id,
+                a.User.FullName,
+                a.User.Email,
+                a.User.AvatarUrl,
+                a.AssignedAt,
+                IsPrimary: false));
+        }
+
+        return result;
+    }
+
+    public async Task<AssigneeDto> AddAssigneeAsync(Guid taskId, Guid userId, CancellationToken ct = default)
+    {
+        var tenantId = _currentUser.TenantId
+            ?? throw new BusinessException("Tenant context required.");
+
+        var task = await _db.CompanyTasks
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.TenantId == tenantId, ct)
+            ?? throw new BusinessException("Task not found.");
+
+        // Validate the user belongs to the same tenant
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, ct)
+            ?? throw new BusinessException("User not found in this tenant.");
+
+        // Idempotent: if already a secondary assignee, return existing
+        var existing = await _db.TaskAssignees
+            .Include(a => a.User)
+            .FirstOrDefaultAsync(a => a.TaskId == taskId && a.UserId == userId, ct);
+
+        if (existing is not null)
+        {
+            return new AssigneeDto(user.Id, user.FullName, user.Email, user.AvatarUrl,
+                existing.AssignedAt, IsPrimary: userId == task.AssignedToUserId);
+        }
+
+        var assignee = new TaskAssignee
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            TaskId = taskId,
+            UserId = userId,
+            AssignedAt = DateTime.UtcNow,
+            AssignedByUserId = _currentUser.UserId,
+            CreatedOn = DateTime.UtcNow,
+            CreatedBy = _currentUser.Email,
+        };
+
+        _db.TaskAssignees.Add(assignee);
+        await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(new AuditEntry
+        {
+            Action = AuditActions.TaskAssigneeAdded,
+            Description = $"User '{user.FullName}' was added as assignee to task '{task.Title}'.",
+            EntityType = "CompanyTask",
+            EntityId = taskId,
+            EntityName = task.Title,
+            Severity = "Info",
+            Category = "TaskManagement",
+        });
+
+        return new AssigneeDto(user.Id, user.FullName, user.Email, user.AvatarUrl,
+            assignee.AssignedAt, IsPrimary: false);
+    }
+
+    public async Task RemoveAssigneeAsync(Guid taskId, Guid userId, CancellationToken ct = default)
+    {
+        var tenantId = _currentUser.TenantId
+            ?? throw new BusinessException("Tenant context required.");
+
+        var task = await _db.CompanyTasks
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.TenantId == tenantId, ct)
+            ?? throw new BusinessException("Task not found.");
+
+        // Cannot remove the primary assignee via this endpoint
+        if (task.AssignedToUserId == userId)
+            throw new BusinessException(
+                "Cannot remove the primary assignee. Use UpdateAsync to change the primary assignee.");
+
+        var assignee = await _db.TaskAssignees
+            .FirstOrDefaultAsync(a => a.TaskId == taskId && a.UserId == userId, ct)
+            ?? throw new BusinessException("Assignee not found on this task.");
+
+        _db.TaskAssignees.Remove(assignee);
+        await _db.SaveChangesAsync(ct);
+
+        var user = await _db.Users.FindAsync(new object[] { userId }, ct);
+        await _audit.LogAsync(new AuditEntry
+        {
+            Action = AuditActions.TaskAssigneeRemoved,
+            Description = $"User '{user?.FullName ?? userId.ToString()}' was removed from task '{task.Title}'.",
+            EntityType = "CompanyTask",
+            EntityId = taskId,
+            EntityName = task.Title,
+            Severity = "Info",
+            Category = "TaskManagement",
+        });
+    }
+
+    // ── Feature 9: Ad-Hoc Task Creation ─────────────────────────────────────
+
+    public async Task<TaskDto> CreateAdHocAsync(CreateAdHocTaskCommand command, CancellationToken ct = default)
+    {
+        var tenantId = _currentUser.TenantId
+            ?? throw new BusinessException("Tenant context required.");
+
+        if (!await _db.Companies.AnyAsync(c => c.Id == command.CompanyId && c.TenantId == tenantId, ct))
+            throw new BusinessException("Company not found within this tenant.");
+
+        var callerId = _currentUser.UserId
+            ?? throw new BusinessException("User context required to create an ad-hoc task.");
+
+        var summaries = LocalizedSummaryBuilder.BuildTaskSummaryByLanguage(
+            command.Title, command.Description, "Ad-Hoc", command.Deadline, Domain.Enums.TaskStatus.Open);
+
+        var task = new CompanyTask
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            CompanyId = command.CompanyId,
+            CaseId = command.CaseId,
+            Title = command.Title,
+            Description = command.Description,
+            Deadline = command.Deadline,
+            DeadlineSource = "Manual",
+            Category = "Ad-Hoc",
+            Status = Domain.Enums.TaskStatus.Open,
+            IsAdHoc = true,
+            WorkflowStageId = null,
+            AssignedToUserId = callerId,   // caller is always primary assignee
+            CreatedByUserId = callerId,
+            Summary = summaries["en"],
+            SummaryByLanguageJson = JsonSerializer.Serialize(summaries),
+            CreatedOn = DateTime.UtcNow,
+            CreatedBy = _currentUser.Email ?? "System",
+        };
+
+        _db.CompanyTasks.Add(task);
+        await _db.SaveChangesAsync(ct);
+
+        // Add additional secondary assignees
+        foreach (var assigneeId in command.AdditionalAssigneeIds.Distinct())
+        {
+            if (assigneeId == callerId) continue;   // skip if same as primary
+            var user = await _db.Users
+                .FirstOrDefaultAsync(u => u.Id == assigneeId && u.TenantId == tenantId, ct);
+            if (user is null) continue;
+
+            _db.TaskAssignees.Add(new TaskAssignee
+            {
+                Id = Guid.NewGuid(),
+                TenantId = tenantId,
+                TaskId = task.Id,
+                UserId = assigneeId,
+                AssignedAt = DateTime.UtcNow,
+                AssignedByUserId = callerId,
+                CreatedOn = DateTime.UtcNow,
+                CreatedBy = _currentUser.Email,
+            });
+        }
+
+        if (command.AdditionalAssigneeIds.Any())
+            await _db.SaveChangesAsync(ct);
+
+        await _audit.LogAsync(new AuditEntry
+        {
+            Action = AuditActions.TaskCreated,
+            Description = $"Ad-hoc task '{task.Title}' created by {_currentUser.Email}.",
+            EntityType = "CompanyTask",
+            EntityId = task.Id,
+            EntityName = task.Title,
+            Severity = "Info",
+            Category = "TaskManagement",
+        });
+
+        return task.ToDto() with { IsAdHoc = true };
+    }
+
+    // ── "My Tasks" ───────────────────────────────────────────────────────────
+
+    public async Task<List<TaskDto>> GetMyTasksAsync(int page = 0, int pageSize = 200, CancellationToken ct = default)
+    {
+        var tenantId = _currentUser.TenantId;
+        var userId = _currentUser.UserId;
+        if (!userId.HasValue) return new List<TaskDto>();
+
+        // Tasks where caller is primary assignee
+        var primaryIds = await _db.CompanyTasks
+            .Where(t => t.AssignedToUserId == userId && (tenantId == null || t.TenantId == tenantId))
+            .Select(t => t.Id)
+            .ToListAsync(ct);
+
+        // Tasks where caller is a secondary assignee
+        var secondaryIds = await _db.TaskAssignees
+            .Where(a => a.UserId == userId && (tenantId == null || a.TenantId == tenantId))
+            .Select(a => a.TaskId)
+            .ToListAsync(ct);
+
+        var allTaskIds = primaryIds.Union(secondaryIds).ToList();
+
+        return await _db.CompanyTasks
+            .Include(t => t.Company)
+            .Include(t => t.AssignedTo)
+            .Include(t => t.Case)
+            .Where(t => allTaskIds.Contains(t.Id))
+            .OrderBy(t => t.Deadline)
+            .Skip(page * pageSize)
+            .Take(pageSize)
+            .Select(t => t.ToDto())
+            .ToListAsync(ct);
+    }
 }

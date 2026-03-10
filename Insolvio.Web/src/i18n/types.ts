@@ -157,9 +157,11 @@ export interface Translations {
   procedures: {
     generalInsolvency: string;
     simplifiedBankruptcy: string;
+    faliment: string;
     reorganization: string;
     preventiveConcordat: string;
     adHocMandate: string;
+    other: string;
   };
 
   // Statuses
@@ -316,6 +318,9 @@ export interface Translations {
     reportSummaryLabel: string;
     reportSummaryHelp: string;
     reportSummaryPlaceholder: string;
+    newAdHocTask: string;
+    adHocBadge: string;
+    notLinkedToStage: string;
   };
 
   // Document review
@@ -522,6 +527,9 @@ export interface Translations {
     missingDocuments: string;
     incompleteTasks: string;
     gatedMessage: string;
+    gatingWarnTitle: string;
+    gatingWarnMessage: string;
+    gatingWarnConfirm: string;
     skipStagePrompt: string;
     skipReason: string;
     confirmSkip: string;
@@ -595,10 +603,16 @@ export interface Translations {
     mandatoryReportEmailBody: string;
     mandatoryReportConfigTitle: string;
     mandatoryReportConfigDesc: string;
+    activityFrom: string;
+    activityTo: string;
     pastTasksFrom: string;
     pastTasksTo: string;
     futureTasksFrom: string;
     futureTasksTo: string;
+    createFollowUpTask: string;
+    reminderIntervalDays: string;
+    followUpTaskCreated: string;
+    followUpTaskDesc: string;
     generateReport: string;
   };
 
@@ -688,6 +702,20 @@ export interface Translations {
     filterByProcedureType: string;
     filterAllTypes: string;
     noStagesForFilter: string;
+    addRule: string;
+    validationRuleType: string;
+    validationRuleField: string;
+    validationRuleCondition: string;
+    validationRuleErrorMessage: string;
+    validationRuleNoRules: string;
+    ruleTypeRequiredField: string;
+    ruleTypeRequiredDocument: string;
+    ruleTypeRequiredParty: string;
+    ruleTypeCustom: string;
+    validationRuleFieldPlaceholder: string;
+    validationRuleConditionPlaceholder: string;
+    validationRuleErrorPlaceholder: string;
+    noOtherStages: string;
   };
 
   // Document Templates admin page
@@ -947,5 +975,26 @@ export interface Translations {
     markRead: string;
     inboundEmail: string;
     outboundEmail: string;
+  };
+
+  // Change Procedure Type modal
+  changeProcedureType: {
+    modalTitle: string;
+    currentTypeLabel: string;
+    newTypeLabel: string;
+    reasonLabel: string;
+    reasonPlaceholder: string;
+    reasonHint: string;
+    warningText: string;
+    errorFallback: string;
+    confirmButton: string;
+    cancelButton: string;
+    resultTitle: string;
+    resultTextPrefix: string;
+    resultTextMid: string;
+    removedStagesTitle: string;
+    addedStagesTitle: string;
+    closeButton: string;
+    pencilTitle: string;
   };
 }

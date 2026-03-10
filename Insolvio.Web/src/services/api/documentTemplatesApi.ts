@@ -562,11 +562,17 @@ export const documentTemplatesApi = {
   },
 
   /**
-   * Save arbitrary HTML (reviewed / signed in the preview modal) as an InsolvencyDocument.
-   * Returns { documentId, fileName, requiresSignature }.
+   * Save arbitrary HTML (reviewed / signed in the preview modal) as InsolvencyDocuments on the case.
+   * Generates both a PDF and a DOCX (AltChunk) — returns both document IDs.
    */
   saveToCaseFromHtml: (req: SaveHtmlToCaseRequest) =>
-    client.post<{ documentId: string; fileName: string; storageKey: string; requiresSignature: boolean }>(
+    client.post<{
+      pdfDocumentId: string;
+      docxDocumentId: string;
+      pdfFileName: string;
+      docxFileName: string;
+      requiresSignature: boolean;
+    }>(
       "/document-templates/save-html-to-case",
       req,
     ),};

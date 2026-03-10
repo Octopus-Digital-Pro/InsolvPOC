@@ -98,48 +98,6 @@ interface TemplateLink {
   notes: string;
 }
 
-function TemplateLinkRow({
-  link,
-  onChange,
-  onRemove,
-}: {
-  link: TemplateLink;
-  onChange: (updated: TemplateLink) => void;
-  onRemove: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
-      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      <span className="text-sm flex-1 min-w-0 truncate">{link.templateName}</span>
-      <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none shrink-0">
-        <input
-          type="checkbox"
-          checked={link.isRequired}
-          onChange={(e) => onChange({ ...link, isRequired: e.target.checked })}
-          className="rounded"
-        />
-        {t.workflowStages.isRequired}
-      </label>
-      <input
-        type="number"
-        value={link.sortOrder}
-        onChange={(e) => onChange({ ...link, sortOrder: parseInt(e.target.value) || 0 })}
-        className="w-14 rounded border border-input bg-background px-2 py-1 text-xs text-center outline-none"
-        title={t.workflowStages.orderTitle}
-      />
-      <button
-        type="button"
-        onClick={onRemove}
-        className="rounded p-1 hover:bg-destructive/10 text-destructive"
-        title={t.workflowStages.removeTitle}
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
-}
-
 // ── JSON field editor helper ──────────────────────────────────────────────────
 
 function JsonFieldEditor({
@@ -273,6 +231,16 @@ interface OutputTaskTemplate {
   description?: string;
   deadlineDays?: number;
   category?: string;
+  required?: boolean;
+}
+
+// ── Validation rule ───────────────────────────────────────────────────────────
+
+interface ValidationRule {
+  ruleType: 'RequiredField' | 'RequiredDocument' | 'RequiredParty' | 'Custom';
+  field?: string;
+  condition?: string;
+  errorMessage: string;
 }
 
 function TaskTemplateRow({
@@ -311,6 +279,15 @@ function TaskTemplateRow({
           <option value="">{t.workflowStages.categoryPlaceholder}</option>
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+        <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none shrink-0">
+          <input
+            type="checkbox"
+            checked={template.required ?? false}
+            onChange={e => onChange({ ...template, required: e.target.checked })}
+            className="rounded h-3 w-3 accent-primary"
+          />
+          {t.workflowStages.required}
+        </label>
         <button type="button" onClick={onRemove} className="rounded p-1 hover:bg-destructive/10 text-destructive">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -327,17 +304,107 @@ function TaskTemplateRow({
 }
 
 
+// ── Validation rule editor ────────────────────────────────────────────────────
+
+function ValidationRuleEditor({
+  label,
+  rules,
+  onChange,
+}: {
+  label: string;
+  rules: ValidationRule[];
+  onChange: (rules: ValidationRule[]) => void;
+}) {
+  const { t } = useTranslation();
+  const RULE_TYPES: { value: ValidationRule['ruleType']; label: string }[] = [
+    { value: 'RequiredField', label: t.workflowStages.ruleTypeRequiredField },
+    { value: 'RequiredDocument', label: t.workflowStages.ruleTypeRequiredDocument },
+    { value: 'RequiredParty', label: t.workflowStages.ruleTypeRequiredParty },
+    { value: 'Custom', label: t.workflowStages.ruleTypeCustom },
+  ];
+
+  const addRule = () =>
+    onChange([...rules, { ruleType: 'RequiredField', field: '', condition: '', errorMessage: '' }]);
+  const updateRule = (idx: number, rule: ValidationRule) =>
+    onChange(rules.map((r, i) => (i === idx ? rule : r)));
+  const removeRule = (idx: number) =>
+    onChange(rules.filter((_, i) => i !== idx));
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-medium text-muted-foreground">{label}</label>
+        <button
+          type="button"
+          onClick={addRule}
+          className="flex items-center gap-1 text-xs text-primary hover:underline"
+        >
+          <Plus className="h-3 w-3" /> {t.workflowStages.addRule}
+        </button>
+      </div>
+      {rules.length === 0 ? (
+        <p className="text-[11px] text-muted-foreground italic">{t.workflowStages.validationRuleNoRules}</p>
+      ) : (
+        <div className="space-y-2">
+          <div className="grid grid-cols-[140px_1fr_1fr_1fr_auto] gap-2 px-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+            <span>{t.workflowStages.validationRuleType}</span><span>{t.workflowStages.validationRuleField}</span><span>{t.workflowStages.validationRuleCondition}</span><span>{t.workflowStages.validationRuleErrorMessage}</span><span />
+          </div>
+          {rules.map((rule, idx) => (
+            <div key={idx} className="grid grid-cols-[140px_1fr_1fr_1fr_auto] gap-2 items-center rounded-md border border-border bg-muted/20 p-2">
+              <select
+                value={rule.ruleType}
+                onChange={e => updateRule(idx, { ...rule, ruleType: e.target.value as ValidationRule['ruleType'] })}
+                className="text-xs rounded border border-input bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+              >
+                {RULE_TYPES.map(rt => (
+                  <option key={rt.value} value={rt.value}>{rt.label}</option>
+                ))}
+              </select>
+              <input
+                value={rule.field ?? ''}
+                onChange={e => updateRule(idx, { ...rule, field: e.target.value || undefined })}
+                placeholder={t.workflowStages.validationRuleFieldPlaceholder}
+                className="text-xs rounded border border-input bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+              />
+              <input
+                value={rule.condition ?? ''}
+                onChange={e => updateRule(idx, { ...rule, condition: e.target.value || undefined })}
+                placeholder={t.workflowStages.validationRuleConditionPlaceholder}
+                className="text-xs rounded border border-input bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+              />
+              <input
+                value={rule.errorMessage}
+                onChange={e => updateRule(idx, { ...rule, errorMessage: e.target.value })}
+                placeholder={t.workflowStages.validationRuleErrorPlaceholder}
+                className="text-xs rounded border border-input bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={() => removeRule(idx)}
+                className="rounded p-1 hover:bg-destructive/10 text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 // ── Stage detail editor ───────────────────────────────────────────────────────
 
 function StageEditor({
   stage,
-  allTemplates,
+  allStages,
   onSave,
   onRevertToGlobal,
   onClose,
 }: {
   stage: WorkflowStageDetailDto;
-  allTemplates: DocumentTemplateDto[];
+  allStages: WorkflowStageDto[];
   onSave: (cmd: UpsertWorkflowStageCommand, asOverride: boolean) => Promise<void>;
   onRevertToGlobal: () => Promise<void>;
   onClose: () => void;
@@ -355,9 +422,13 @@ function StageEditor({
   const [requiredTaskTemplates, setRequiredTaskTemplates] = useState<OutputTaskTemplate[]>(() => {
     try { return stage.requiredTaskTemplatesJson ? JSON.parse(stage.requiredTaskTemplatesJson) : []; } catch { return []; }
   });
-  const [validationRulesJson, setValidationRulesJson] = useState(stage.validationRulesJson ?? "");
+  const [validationRules, setValidationRules] = useState<ValidationRule[]>(() => {
+    try { return stage.validationRulesJson ? JSON.parse(stage.validationRulesJson) : []; } catch { return []; }
+  });
   const [outputDocTypesJson, setOutputDocTypesJson] = useState(stage.outputDocTypesJson ?? "");
-  const [allowedTransitionsJson, setAllowedTransitionsJson] = useState(stage.allowedTransitionsJson ?? "");
+  const [allowedTransitions, setAllowedTransitions] = useState<string[]>(() => {
+    try { return stage.allowedTransitionsJson ? JSON.parse(stage.allowedTransitionsJson) : []; } catch { return []; }
+  });
 
   // Task templates (outputTasksJson parsed)
   const [outputTaskTemplates, setOutputTaskTemplates] = useState<OutputTaskTemplate[]>(() => {
@@ -381,11 +452,8 @@ function StageEditor({
   const [savedOk, setSavedOk] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [showConfigs, setShowConfigs] = useState(false);
-  const [showAddTemplate, setShowAddTemplate] = useState(false);
 
   const isOverride = stage.tenantId !== null;
-  const linkedTemplateIds = new Set(templateLinks.map((l) => l.documentTemplateId));
-  const availableTemplates = allTemplates.filter((t) => !linkedTemplateIds.has(t.id));
 
   const buildCommand = (): UpsertWorkflowStageCommand => ({
     stageKey: stage.stageKey,
@@ -397,10 +465,10 @@ function StageEditor({
     requiredPartyRolesJson: requiredPartyRolesJson.trim() || null,
     requiredDocTypesJson: requiredDocTypesJson.trim() || null,
     requiredTaskTemplatesJson: requiredTaskTemplates.length > 0 ? JSON.stringify(requiredTaskTemplates) : null,
-    validationRulesJson: validationRulesJson.trim() || null,
+    validationRulesJson: validationRules.length > 0 ? JSON.stringify(validationRules) : null,
     outputDocTypesJson: outputDocTypesJson.trim() || null,
     outputTasksJson: outputTasksJson.trim() || null,
-    allowedTransitionsJson: allowedTransitionsJson.trim() || null,
+    allowedTransitionsJson: allowedTransitions.length > 0 ? JSON.stringify(allowedTransitions) : null,
     isActive,
     templates: templateLinks.map<UpsertStageTemplateItem>((l) => ({
       documentTemplateId: l.documentTemplateId,
@@ -429,20 +497,6 @@ function StageEditor({
     } finally {
       setReverting(false);
     }
-  };
-
-  const addTemplate = (t: DocumentTemplateDto) => {
-    setTemplateLinks((prev) => [
-      ...prev,
-      {
-        documentTemplateId: t.id,
-        templateName: t.name,
-        isRequired: false,
-        sortOrder: prev.length,
-        notes: "",
-      },
-    ]);
-    setShowAddTemplate(false);
   };
 
   return (
@@ -605,70 +659,6 @@ function StageEditor({
           </div>
         </div>
 
-        {/* Linked templates */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">{t.workflowStages.linkedTemplates}</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddTemplate(!showAddTemplate)}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              {t.workflowStages.addTemplate}
-            </Button>
-          </div>
-
-          {showAddTemplate && (
-            <div className="rounded-lg border border-border bg-card p-3 space-y-2 max-h-48 overflow-y-auto">
-              {availableTemplates.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">
-                  {t.workflowStages.allTemplatesLinked}
-                </p>
-              ) : (
-                availableTemplates.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => addTemplate(t)}
-                    className="flex items-center gap-2 w-full text-left rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
-                  >
-                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="flex-1 min-w-0 truncate">{t.name}</span>
-                    <Badge variant="outline" className="text-[10px]">
-                      {t.templateType}
-                    </Badge>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-
-          {templateLinks.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center">
-              <FileText className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">
-                {t.workflowStages.noTemplatesLinked}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {templateLinks.map((link, idx) => (
-                <TemplateLinkRow
-                  key={link.documentTemplateId}
-                  link={link}
-                  onChange={(updated) =>
-                    setTemplateLinks((prev) => prev.map((l, i) => (i === idx ? updated : l)))
-                  }
-                  onRemove={() =>
-                    setTemplateLinks((prev) => prev.filter((_, i) => i !== idx))
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Advanced: JSON config fields */}
         <div className="space-y-3">
           <button
@@ -705,59 +695,53 @@ function StageEditor({
                 options={DOC_TYPE_OPTIONS}
               />
               <p className="-mt-3 text-[11px] text-muted-foreground">{t.workflowStages.requiredDocTypesHelp}</p>
-              <JsonFieldEditor
+              <ValidationRuleEditor
                 label={t.workflowStages.validationRules}
-                value={validationRulesJson}
-                onChange={setValidationRulesJson}
-                placeholder='{"minCreditors": 1}'
+                rules={validationRules}
+                onChange={setValidationRules}
               />
               <p className="-mt-3 text-[11px] text-muted-foreground">{t.workflowStages.validationRulesHelp}</p>
-              <JsonFieldEditor
+              <CheckboxJsonEditor
                 label={t.workflowStages.outputDocTypes}
                 value={outputDocTypesJson}
                 onChange={setOutputDocTypesJson}
-                placeholder='["PreliminaryClaimsTable"]'
+                options={DOC_TYPE_OPTIONS}
               />
               <p className="-mt-3 text-[11px] text-muted-foreground">{t.workflowStages.outputDocTypesHelp}</p>
-              <JsonFieldEditor
-                label={t.workflowStages.allowedTransitions}
-                value={allowedTransitionsJson}
-                onChange={setAllowedTransitionsJson}
-                placeholder='["claims_collection", "creditors_meeting"]'
-              />
-              <p className="-mt-3 text-[11px] text-muted-foreground">{t.workflowStages.allowedTransitionsHelp}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Required task templates */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">{t.workflowStages.requiredTaskTemplates}</h3>
-            <Button variant="outline" size="sm" onClick={() => setRequiredTaskTemplates(prev => [...prev, { title: "", deadlineDays: 7, category: "Document" }])}>
-              <Plus className="h-3.5 w-3.5 mr-1" /> {t.workflowStages.addTask}
-            </Button>
-          </div>
-          <p className="text-[11px] text-muted-foreground">{t.workflowStages.requiredTaskTemplatesHelp}</p>
-          {requiredTaskTemplates.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center">
-              <p className="text-xs text-muted-foreground">No required task templates. Add tasks that must be completed for this stage.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="grid grid-cols-3 gap-2 px-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                <span className="col-span-1">{t.workflowStages.taskTitlePlaceholder}</span>
-                <span className="text-center">{t.workflowStages.deadlineDaysPlaceholder}</span>
-                <span className="text-center">{t.workflowStages.categoryPlaceholder}</span>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">{t.workflowStages.allowedTransitions}</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {allStages
+                    .filter(s => s.stageKey !== stage.stageKey)
+                    .map(s => {
+                      const selected = allowedTransitions.includes(s.stageKey);
+                      return (
+                        <button
+                          key={s.stageKey}
+                          type="button"
+                          onClick={() =>
+                            setAllowedTransitions(prev =>
+                              prev.includes(s.stageKey)
+                                ? prev.filter(k => k !== s.stageKey)
+                                : [...prev, s.stageKey]
+                            )
+                          }
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
+                            selected
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                          }`}
+                        >
+                          {s.name}
+                        </button>
+                      );
+                    })}
+                  {allStages.filter(s => s.stageKey !== stage.stageKey).length === 0 && (
+                    <p className="text-[11px] text-muted-foreground italic">{t.workflowStages.noOtherStages}</p>
+                  )}
+                </div>
               </div>
-              {requiredTaskTemplates.map((tt, idx) => (
-                <TaskTemplateRow
-                  key={idx}
-                  template={tt}
-                  onChange={updated => setRequiredTaskTemplates(prev => prev.map((t, i) => i === idx ? updated : t))}
-                  onRemove={() => setRequiredTaskTemplates(prev => prev.filter((_, i) => i !== idx))}
-                />
-              ))}
+              <p className="-mt-3 text-[11px] text-muted-foreground">{t.workflowStages.allowedTransitionsHelp}</p>
             </div>
           )}
         </div>
@@ -988,7 +972,7 @@ export default function WorkflowStagesPage() {
       <div className="flex flex-col h-[calc(100vh-8rem)]">
         <StageEditor
           stage={editingStage}
-          allTemplates={allTemplates}
+          allStages={stages}
           onSave={handleSave}
           onRevertToGlobal={handleRevertToGlobal}
           onClose={() => setEditingStage(null)}

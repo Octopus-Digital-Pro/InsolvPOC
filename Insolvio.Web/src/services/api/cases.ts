@@ -17,6 +17,15 @@ export const casesApi = {
   update: (id: string, data: Partial<CaseDto>) =>
     client.put<CaseDto>(`/cases/${id}`, data),
 
+  getHistory: (id: string, page = 0, pageSize = 50) =>
+    client.get<{ items: import("./types").AuditLogDto[]; total: number }>(`/cases/${id}/history`, { params: { page, pageSize } }),
+
+  changeProcedureType: (id: string, data: { newProcedureType: string; reason: string }) =>
+    client.post<{ removedStages: string[]; addedStages: string[]; preservedTasks: number }>(`/cases/${id}/change-procedure-type`, data),
+
+  getProcedureHistory: (id: string) =>
+    client.get<{ id: string; oldProcedureType: string; newProcedureType: string; changedAt: string; changedByName: string | null; reason: string | null; workflowStagesRemovedJson: string | null }[]>(`/cases/${id}/procedure-history`),
+
   delete: (id: string) =>
     client.delete(`/cases/${id}`),
 

@@ -24,13 +24,14 @@ import Link from "@tiptap/extension-link";
 import { TextStyle } from "@tiptap/extension-text-style";
 import Color from "@tiptap/extension-color";
 import { documentTemplatesApi } from "@/services/api/documentTemplatesApi";
+import { signingApi } from "@/services/api/signing";
 import { Button } from "@/components/ui/button";
 import {
   X, Loader2, Download, Save, CheckCircle2,
   Eye, EyeOff, PenLine, FileText,
   Bold, Italic, UnderlineIcon, List, ListOrdered,
   Heading1, Heading2, AlignLeft, AlignCenter, AlignRight,
-  Undo2, Redo2, AlertTriangle, Mail,
+  Undo2, Redo2, AlertTriangle, Mail, ShieldCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -121,8 +122,17 @@ export default function TemplatePreviewModal({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savedDocumentId, setSavedDocumentId] = useState<string | null>(null);
+  const [savedDocxId, setSavedDocxId] = useState<string | null>(null);
   const [signatureApplied, setSignatureApplied] = useState(false);
   const [hasPlaceholder, setHasPlaceholder] = useState(false);
+
+  // Sign PDF with server-side key
+  const [canSign, setCanSign] = useState(false);
+  const [showSignForm, setShowSignForm] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [signed, setSigned] = useState(false);
+  const [signReason, setSignReason] = useState("");
+  const [signPassword, setSignPassword] = useState("");
 
   // ── TipTap editor ─────────────────────────────────────────────────────────
 
@@ -155,9 +165,22 @@ export default function TemplatePreviewModal({
     setSignatureApplied(false);
     setSaved(false);
     setSavedDocumentId(null);
+    setSavedDocxId(null);
+    setShowSignForm(false);
+    setSigned(false);
+    setSignReason("");
+    setSignPassword("");
     setShowPreview(false);
     setHasPlaceholder(renderedHtml.includes(SIGNATURE_PLACEHOLDER));
   }, [renderedHtml, isOpen, editor]);
+
+  // Check whether the user has an active signing key when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    signingApi.getKeyStatus()
+      .then(res => setCanSign(!!(res.data as { canSign?: boolean }).canSign))
+      .catch(() => setCanSign(false));
+  }, [isOpen]);
 
   // Keep hasPlaceholder reactive as content changes
   const checkPlaceholder = useCallback(() => {
@@ -220,13 +243,29 @@ export default function TemplatePreviewModal({
         caseId,
         templateName,
       });
-      onSaved(res.data.documentId);
-      setSavedDocumentId(res.data.documentId);
+      onSaved(res.data.pdfDocumentId);
+      setSavedDocumentId(res.data.pdfDocumentId);
+      setSavedDocxId(res.data.docxDocumentId);
       setSaved(true);
     } catch (err) {
       console.error("Save error:", err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSignPdf = async () => {
+    if (!savedDocumentId || !signPassword) return;
+    setSigning(true);
+    try {
+      await signingApi.signDocument(savedDocumentId, signPassword, signReason || undefined);
+      setSigned(true);
+      setShowSignForm(false);
+      setSignPassword("");
+    } catch (err) {
+      console.error("Signing error:", err);
+    } finally {
+      setSigning(false);
     }
   };
 
@@ -315,8 +354,26 @@ export default function TemplatePreviewModal({
               : saved
                 ? <CheckCircle2 className="h-3.5 w-3.5" />
                 : <Save className="h-3.5 w-3.5" />}
-            {saving ? "Se salvează..." : saved ? "Salvat în dosar" : "Salvează în dosar"}
+            {saving ? "Se salvează..." : saved ? "Salvat (PDF + DOCX)" : "Salvează în dosar"}
           </Button>
+
+          {/* Sign PDF — shown after saving if the user has an active signing key */}
+          {saved && savedDocumentId && canSign && !signed && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+              onClick={() => setShowSignForm(s => !s)}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Semnează digital PDF
+            </Button>
+          )}
+          {saved && signed && (
+            <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
+              <ShieldCheck className="h-3.5 w-3.5" /> PDF semnat digital
+            </span>
+          )}
 
           {/* Send via Email — shown only after saving */}
           {saved && savedDocumentId && onSendEmail && (
@@ -332,6 +389,44 @@ export default function TemplatePreviewModal({
           )}
         </div>
       </div>
+
+      {/* ── Sign PDF inline form ────────────────────────────────────────── */}
+      {showSignForm && saved && !signed && (
+        <div className="flex items-center gap-2 border-b border-amber-400/30 bg-amber-500/5 px-4 py-2 shrink-0">
+          <ShieldCheck className="h-4 w-4 shrink-0 text-amber-600" />
+          <span className="text-xs text-amber-700 font-medium shrink-0">Semnătură digitală PDF:</span>
+          <input
+            type="text"
+            placeholder="Motiv (opțional)"
+            value={signReason}
+            onChange={e => setSignReason(e.target.value)}
+            className="h-7 rounded-md border border-border bg-background px-2.5 text-xs w-44"
+          />
+          <input
+            type="password"
+            placeholder="Parolă certificat *"
+            value={signPassword}
+            onChange={e => setSignPassword(e.target.value)}
+            className="h-7 rounded-md border border-border bg-background px-2.5 text-xs w-44"
+          />
+          <Button
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={handleSignPdf}
+            disabled={signing || !signPassword}
+          >
+            {signing ? <Loader2 className="h-3 w-3 animate-spin" /> : <ShieldCheck className="h-3 w-3" />}
+            {signing ? "Se semnează..." : "Semnează"}
+          </Button>
+          <button
+            type="button"
+            onClick={() => { setShowSignForm(false); setSignPassword(""); }}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Anulează
+          </button>
+        </div>
+      )}
 
       {/* ── Editor toolbar (hidden in preview mode) ─────────────────────── */}
       {!showPreview && editor && (

@@ -1424,14 +1424,14 @@ function PermissionsTab() {
         </div>
    <div>
          <p className="text-sm font-semibold text-foreground">{user?.email}</p>
-              <p className="text-xs text-muted-foreground">
+              <span className="text-xs text-muted-foreground">
           {t.settings.role ?? "Role"}: <Badge variant="secondary" className="text-[10px] ml-1">{roleLabels[perms.role] ?? perms.role}</Badge>
-            </p>
+            </span>
         </div>
    </div>
      <p className="text-xs text-muted-foreground">
    {perms.permissionCount} {t.settings.permissionsGranted ?? "permissions granted"}
-      </p>
+   </p>
   </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1489,7 +1489,7 @@ export default function SettingsPage({ tab }: { tab?: Tab }) {
    { key: "registryHours", label: t.authorities?.registryHours ?? "Registry Hours" },
    { key: "website", label: t.firm?.website ?? "Website" },
     { key: "contactPerson", label: t.companies?.contactPerson ?? "Contact Person" },
-            { key: " notes", label: t.common?.notes ?? "Notes", wide: true },
+            { key: "notes", label: t.common?.notes ?? "Notes", wide: true },
 ]} />
      )}
        {activeTab === "finance" && (
