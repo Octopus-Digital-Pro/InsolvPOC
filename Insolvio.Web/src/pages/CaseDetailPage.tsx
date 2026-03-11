@@ -596,7 +596,7 @@ export default function CaseDetailPage() {
               disabled={assigningCase || isClosed}
               className="text-sm text-foreground bg-transparent border-b border-dashed border-border/60 hover:border-primary/50 focus:outline-none focus:border-primary cursor-pointer transition-colors w-full"
             >
-              <option value="">{t.common.unassigned}</option>
+              <option value=""></option>
               {users.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
             </select>
           </div>

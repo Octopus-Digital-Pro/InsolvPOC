@@ -286,7 +286,7 @@ function TaskRow({ task, onStatusChange, onAssign, updating, users, onTaskClick,
         onClick={e => e.stopPropagation()}
         className="hidden md:block text-[10px] text-muted-foreground bg-transparent border-b border-dashed border-border/40 hover:border-primary/50 focus:outline-none focus:border-primary cursor-pointer transition-colors max-w-[110px] truncate"
       >
-        <option value="">— unassigned —</option>
+        <option value=""></option>
         {users.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
       </select>
 

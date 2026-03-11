@@ -1,9 +1,9 @@
-import {useState} from "react";
+﻿import {useState} from "react";
 import type {CompanyTask, CompanyTaskStatus, User} from "../types";
 import {Button} from "@/components/ui/button";
 import {DatePicker} from "@/components/ui/date-picker";
 import {format} from "date-fns";
-import {X} from "lucide-react";
+import {X, Clock} from "lucide-react";
 import {formatDate} from "@/lib/dateUtils";
 import UserSelect from "@/components/molecules/UserSelect";
 import {Badge} from "@/components/ui/badge";
@@ -13,6 +13,16 @@ const STATUS_LABEL: Record<CompanyTaskStatus, string> = {
   blocked: "Blocked",
   done: "Done",
 };
+
+const STATUS_COLOR: Record<CompanyTaskStatus, string> = {
+  open: "bg-blue-500/10 text-blue-600",
+  blocked: "bg-amber-500/10 text-amber-600",
+  done: "bg-emerald-500/10 text-emerald-600",
+};
+
+/** Shared label class for the auto/1fr grid layout. */
+const FIELD_LABEL =
+  "text-xs font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap";
 
 export type TaskFormPayload = {
   title: string;
@@ -98,6 +108,26 @@ function TaskFormContent({
   const [assignedTo, setAssignedTo] = useState<string | null>(initial.assignedTo);
   const [isEditing, setIsEditing] = useState(mode !== "view");
 
+  // Accumulates people who were assigned but then replaced during this session.
+  // Starts empty — the initial assignee only appears here after the user picks
+  // someone else, keeping the list truthful and chronologically ordered.
+  const [previousAssignees, setPreviousAssignees] = useState<
+    {name: string; changedAt: string}[]
+  >([]);
+
+  const handleAssigneeChange = (userId: string | null) => {
+    if (assignedTo) {
+      const prev = users.find((u) => u.id === assignedTo);
+      if (prev) {
+        setPreviousAssignees((h) => [
+          ...h,
+          {name: prev.name, changedAt: new Date().toISOString()},
+        ]);
+      }
+    }
+    setAssignedTo(userId);
+  };
+
   const isEdit = task != null;
   const showViewMode = mode === "view" && task != null && !isEditing;
   const assigneeUser = task?.assignedTo
@@ -121,18 +151,19 @@ function TaskFormContent({
     onClose();
   };
 
+  /* --- View-only mode -------------------------------------------- */
   if (showViewMode) {
     return (
       <div
-        className="w-2xl rounded-xl border border-border bg-card p-6 shadow-xl"
+        className="w-full max-w-xl rounded-xl border border-border bg-card shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h2
             id="task-form-modal-title"
-            className="text-xl font-semibold text-card-foreground"
+            className="text-base font-semibold text-card-foreground"
           >
-            Task details
+            Task Details
           </h2>
           <Button
             variant="ghost"
@@ -141,73 +172,74 @@ function TaskFormContent({
             className="text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             aria-label="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="space-y-4">
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Title
-            </p>
+
+        <div className="px-6 py-5 space-y-4">
+          <div className="space-y-1.5">
+            <p className={FIELD_LABEL}>Title</p>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-sm text-foreground">
+              <span className="text-sm font-medium text-foreground">
                 {task.title || "Untitled"}
               </span>
               {parseLabels(task.labels).map((label) => (
-                <Badge
-                  key={label}
-                  variant="secondary"
-                  className="text-xs font-normal"
-                >
+                <Badge key={label} variant="secondary" className="text-xs font-normal">
                   {label}
                 </Badge>
               ))}
             </div>
           </div>
+
           {task.description && (
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Description
-              </p>
-              <p className="whitespace-pre-wrap text-sm text-foreground">
+            <div className="space-y-1.5">
+              <p className={FIELD_LABEL}>Description</p>
+              <p className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
                 {task.description}
               </p>
             </div>
           )}
-          {companyName && (
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Company
+
+          <div className="grid grid-cols-2 gap-4">
+            {companyName && (
+              <div className="space-y-1.5">
+                <p className={FIELD_LABEL}>Company</p>
+                <p className="text-sm text-foreground">{companyName}</p>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <p className={FIELD_LABEL}>Deadline</p>
+              <p className="text-sm text-foreground">
+                {task.deadline ? formatDate(task.deadline) : "—"}
               </p>
-              <p className="text-sm text-foreground">{companyName}</p>
             </div>
-          )}
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Deadline
-            </p>
-            <p className="text-sm text-foreground">
-              {task.deadline ? formatDate(task.deadline) : "—"}
-            </p>
+            <div className="space-y-1.5">
+              <p className={FIELD_LABEL}>Status</p>
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[task.status]}`}
+              >
+                {STATUS_LABEL[task.status]}
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              <p className={FIELD_LABEL}>Assignee</p>
+              {assigneeUser ? (
+                <div className="flex items-center gap-1.5">
+                  <img
+                    src={assigneeUser.avatar}
+                    alt=""
+                    className="h-5 w-5 rounded-full object-cover"
+                  />
+                  <span className="text-sm text-foreground">{assigneeUser.name}</span>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">—</p>
+              )}
+            </div>
           </div>
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Status
-            </p>
-            <p className="text-sm text-foreground">
-              {STATUS_LABEL[task.status]}
-            </p>
-          </div>
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Assignee
-            </p>
-            <p className="text-sm text-foreground">
-              {assigneeUser ? assigneeUser.name : "Unassigned"}
-            </p>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+
+          <div className="flex justify-end gap-2 pt-1 border-t border-border">
+            <Button type="button" variant="ghost" onClick={onClose}>
               Close
             </Button>
             <Button type="button" onClick={() => setIsEditing(true)}>
@@ -219,18 +251,26 @@ function TaskFormContent({
     );
   }
 
+  /* --- Edit / Create mode ----------------------------------------- */
   return (
     <div
-      className="w-xl rounded-xl border border-border bg-card p-6 shadow-xl"
+      className="w-full max-w-xl rounded-xl border border-border bg-card shadow-xl"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="mb-4 flex items-start justify-between">
-        <h2
-          id="task-form-modal-title"
-          className="text-xl font-semibold text-card-foreground"
-        >
-          {isEdit ? "Edit task" : "Create task"}
-        </h2>
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <div>
+          <h2
+            id="task-form-modal-title"
+            className="text-base font-semibold text-card-foreground"
+          >
+            {isEdit ? "Edit Task" : "New Task"}
+          </h2>
+          {isEdit && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Update the details below and save.
+            </p>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="icon"
@@ -238,31 +278,38 @@ function TaskFormContent({
           className="text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           aria-label="Close"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4" />
         </Button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label
-            htmlFor="task-title"
-            className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-          >
-            Title
+      <form onSubmit={handleSubmit} className="px-6 py-5">
+        {/*
+          Two-column grid: left column (labels) auto-sizes to content,
+          right column (inputs) stretches to fill remaining space with 1fr.
+          Replaces the old stacked 100%-width layout with a clean label|field
+          alignment — consistent, easy to scan, and visually balanced.
+        */}
+        <div
+          className="grid items-center gap-x-5 gap-y-3"
+          style={{gridTemplateColumns: "auto 1fr"}}
+        >
+          {/* Title */}
+          <label htmlFor="task-title" className={FIELD_LABEL}>
+            Title <span className="text-destructive">*</span>
           </label>
           <input
             id="task-title"
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
             required
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
-        </div>
-        <div>
+
+          {/* Description */}
           <label
             htmlFor="task-description"
-            className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            className={`${FIELD_LABEL} self-start pt-2`}
           >
             Description
           </label>
@@ -270,49 +317,50 @@ function TaskFormContent({
             id="task-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground resize-none"
+            rows={4}
+            placeholder="Additional details about this task…"
+            className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm leading-relaxed text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
-        </div>
-        <div>
+
+          {/* Labels */}
           <label
             htmlFor="task-labels"
-            className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            className={`${FIELD_LABEL} self-start pt-2`}
           >
             Labels
           </label>
-          <input
-            id="task-labels"
-            type="text"
-            value={labels}
-            onChange={(e) => setLabels(e.target.value)}
-            placeholder="e.g. urgent, review, Q1"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Deadline
-          </label>
+          <div className="space-y-1">
+            <input
+              id="task-labels"
+              type="text"
+              value={labels}
+              onChange={(e) => setLabels(e.target.value)}
+              placeholder="e.g. urgent, review, Q1"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Separate multiple labels with commas.
+            </p>
+          </div>
+
+          {/* Deadline */}
+          <label className={FIELD_LABEL}>Deadline</label>
           <DatePicker
             date={deadline}
             onSelect={setDeadline}
             placeholder="Pick a date"
-            className="min-w-0 w-full"
+            className="w-full"
           />
-        </div>
-        <div>
-          <label
-            htmlFor="task-status"
-            className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
-          >
+
+          {/* Status */}
+          <label htmlFor="task-status" className={FIELD_LABEL}>
             Status
           </label>
           <select
             id="task-status"
             value={status}
             onChange={(e) => setStatus(e.target.value as CompanyTaskStatus)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -320,24 +368,63 @@ function TaskFormContent({
               </option>
             ))}
           </select>
+
+          {/* Assignee — label in the grid left column, hideLabel on the
+              component so it does not render a duplicate label element. */}
+          <label className={`${FIELD_LABEL} self-start pt-2`}>
+            Assignee
+          </label>
+          <div className="space-y-2">
+            <UserSelect
+              hideLabel
+              users={users}
+              value={
+                assignedTo
+                  ? users.find((u) => u.id === assignedTo) ?? null
+                  : null
+              }
+              onChange={handleAssigneeChange}
+              label="Assignee"
+            />
+
+            {/* Previous assignees — chronological dot-list, edit mode only */}
+            {isEdit && previousAssignees.length > 0 && (
+              <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2.5">
+                <div className="mb-2 flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Previously Assigned To
+                  </span>
+                </div>
+                <div className="max-h-28 space-y-1.5 overflow-y-auto">
+                  {previousAssignees.map((entry, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+                      <span className="flex-1 text-[11px] text-muted-foreground">
+                        {entry.name}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/50">
+                        {new Date(entry.changedAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-        <div>
-          <UserSelect
-            users={users}
-            value={
-              assignedTo
-                ? users.find((u) => u.id === assignedTo) ?? null
-                : null
-            }
-            onChange={(userId) => setAssignedTo(userId)}
-            label="Assignee"
-          />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>
+
+        {/* Actions */}
+        <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4">
+          <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit">{isEdit ? "Save" : "Create"}</Button>
+          <Button type="submit">
+            {isEdit ? "Save Changes" : "Create Task"}
+          </Button>
         </div>
       </form>
     </div>

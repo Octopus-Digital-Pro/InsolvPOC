@@ -350,7 +350,7 @@ county: county || undefined,
     <div>
             <label className={labelCls}>{t.companies.assignedTo}</label>
      <select value={assignedToUserId} onChange={e => setAssignedToUserId(e.target.value)} className={inputCls}>
-         <option value="">{t.common.unassigned}</option>
+         <option value=""></option>
            {users.map(u => <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>)}
         </select>
           </div>
