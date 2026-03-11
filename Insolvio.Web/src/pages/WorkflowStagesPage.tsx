@@ -98,52 +98,6 @@ interface TemplateLink {
   notes: string;
 }
 
-// ── JSON field editor helper ──────────────────────────────────────────────────
-
-function JsonFieldEditor({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  const [error, setError] = useState<string | null>(null);
-
-  const handleBlur = () => {
-    if (!value.trim()) {
-      setError(null);
-      return;
-    }
-    try {
-      JSON.parse(value);
-      setError(null);
-    } catch {
-      setError("JSON invalid");
-    }
-  };
-
-  return (
-    <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={handleBlur}
-        placeholder={placeholder ?? '["value1", "value2"]'}
-        rows={2}
-        className={`w-full rounded-md border bg-background px-3 py-2 text-xs font-mono outline-none resize-y ${
-          error ? "border-destructive" : "border-input"
-        } focus:ring-1 focus:ring-primary`}
-      />
-      {error && <p className="text-[10px] text-destructive">{error}</p>}
-    </div>
-  );
-}
-
 // ── Checkbox JSON editor ──────────────────────────────────────────────────────
 
 function CheckboxJsonEditor({
@@ -419,7 +373,7 @@ function StageEditor({
   const [requiredFieldsJson, setRequiredFieldsJson] = useState(stage.requiredFieldsJson ?? "");
   const [requiredPartyRolesJson, setRequiredPartyRolesJson] = useState(stage.requiredPartyRolesJson ?? "");
   const [requiredDocTypesJson, setRequiredDocTypesJson] = useState(stage.requiredDocTypesJson ?? "");
-  const [requiredTaskTemplates, setRequiredTaskTemplates] = useState<OutputTaskTemplate[]>(() => {
+  const [requiredTaskTemplates] = useState<OutputTaskTemplate[]>(() => {
     try { return stage.requiredTaskTemplatesJson ? JSON.parse(stage.requiredTaskTemplatesJson) : []; } catch { return []; }
   });
   const [validationRules, setValidationRules] = useState<ValidationRule[]>(() => {
@@ -437,7 +391,7 @@ function StageEditor({
   const outputTasksJson = outputTaskTemplates.length > 0 ? JSON.stringify(outputTaskTemplates) : "";
 
   // Template links
-  const [templateLinks, setTemplateLinks] = useState<TemplateLink[]>(
+  const [templateLinks] = useState<TemplateLink[]>(
     stage.templates.map((t) => ({
       documentTemplateId: t.documentTemplateId,
       templateName: t.templateName,
@@ -870,7 +824,7 @@ function NewStageForm({
 export default function WorkflowStagesPage() {
   const { t } = useTranslation();
   const [stages, setStages] = useState<WorkflowStageDto[]>([]);
-  const [allTemplates, setAllTemplates] = useState<DocumentTemplateDto[]>([]);
+  const [, setAllTemplates] = useState<DocumentTemplateDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingStage, setEditingStage] = useState<WorkflowStageDetailDto | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);

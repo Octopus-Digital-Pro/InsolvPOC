@@ -130,7 +130,6 @@ export interface Translations {
     status: string;
     lawReference: string;
     practitioner: string;
-    registrar: string;
     practitionerRole: string;
     openingDate: string;
     nextHearing: string;

@@ -763,7 +763,7 @@ export default function CaseDetailPage() {
 
           {/* Tasks Tab */}
           {activeTab === "tasks" && (
-            <CaseTasksTab caseId={id!} tasks={caseTasks} onRefresh={load} readOnly={isClosed} companyId={caseData?.companyId} />
+            <CaseTasksTab caseId={id!} tasks={caseTasks} onRefresh={load} readOnly={isClosed} companyId={caseData?.companyId ?? undefined} />
           )}
 
           {/* Documents Tab */}
@@ -1050,7 +1050,7 @@ export default function CaseDetailPage() {
                     placeholder="30"
                     className="w-20 rounded-md border border-input bg-background px-2 py-1 text-sm text-center"
                   />
-                  <span className="text-xs text-muted-foreground">{t.deadlineSettings?.days ?? "days"}</span>
+                  <span className="text-xs text-muted-foreground">{t.deadlines?.days ?? "days"}</span>
                 </div>
               )}
             </div>
@@ -1413,7 +1413,7 @@ function CaseAuditActivity({ caseId, caseNumber, locale }: { caseId: string; cas
   );
 }
 /* ── Templates Tab Component ─────────────────────────── */
-function TemplatesTab({ caseId, readOnly = false, onDone }: { caseId: string; readOnly?: boolean; onDone?: () => void }) {
+function TemplatesTab({ caseId, readOnly = false }: { caseId: string; readOnly?: boolean; onDone?: () => void }) {
   const { t } = useTranslation();
   const [templates, setTemplates] = useState<import("@/services/api/documentTemplatesApi").DocumentTemplateDto[]>([]);
   const [loading, setLoading] = useState(true);

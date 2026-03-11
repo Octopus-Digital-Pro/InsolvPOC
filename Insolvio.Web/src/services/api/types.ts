@@ -88,6 +88,7 @@ export interface CaseDto {
   notes: string | null;
   companyId: string | null;
   companyName: string | null;
+  caseEmailAddress: string | null;
   assignedToUserId: string | null;
   assignedToName: string | null;
   createdOn: string;

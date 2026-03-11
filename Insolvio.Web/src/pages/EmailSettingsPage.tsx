@@ -43,7 +43,7 @@ function Toggle({
 
 export default function EmailSettingsPage() {
   const { t } = useTranslation();
-  const [configs, setConfigs] = useState<SystemConfigItem[]>([]);
+  const [_configs, setConfigs] = useState<SystemConfigItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);

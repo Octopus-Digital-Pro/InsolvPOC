@@ -5,7 +5,7 @@ import type { UserDto } from "@/services/api/types";
 // Prevent Vite HMR from hot-replacing this module: re-evaluating the file
 // creates a new AuthContext singleton, breaking context identity between
 // AuthProvider (old instance) and useAuth (new instance). Full page reload instead.
-if (import.meta.hot) import.meta.hot.decline();
+if (import.meta.hot) (import.meta.hot as any).decline();
 
 interface AuthContextValue {
   user: UserDto | null;

@@ -122,7 +122,7 @@ export default function TemplatePreviewModal({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savedDocumentId, setSavedDocumentId] = useState<string | null>(null);
-  const [savedDocxId, setSavedDocxId] = useState<string | null>(null);
+  const [_savedDocxId, setSavedDocxId] = useState<string | null>(null);
   const [signatureApplied, setSignatureApplied] = useState(false);
   const [hasPlaceholder, setHasPlaceholder] = useState(false);
 
