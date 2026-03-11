@@ -542,7 +542,7 @@ export default function CaseDetailPage() {
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t.cases.procedureType}</p>
             <div className="flex items-center gap-2">
-              <p className="text-sm text-foreground">{PROCEDURE_TYPE_OPTIONS.find(o => o.value === caseData.procedureType)?.label ?? caseData.procedureType}</p>
+              <p className="text-sm text-foreground">{PROCEDURE_TYPE_OPTIONS.find(o => o.value === (caseData.procedureType.charAt(0).toUpperCase() + caseData.procedureType.slice(1)))?.label ?? caseData.procedureType}</p>
               {canEdit && (
                 <button
                   type="button"
@@ -555,7 +555,7 @@ export default function CaseDetailPage() {
               )}
             </div>
           </div>
-          <InlineField label={t.cases.lawReference} value={caseData.lawReference} fieldKey="lawReference" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
+          <InlineField label={t.cases.lawReference} value={caseData.lawReference} fieldKey="lawReference" caseId={id!} editable={false} onSaved={handleFieldSaved} />
           <InlineField label={t.cases.debtorCui} value={caseData.debtorCui} fieldKey="debtorCui" caseId={id!} editable={canEdit} onSaved={handleFieldSaved} />
           {caseData.caseEmailAddress && (
             <div>

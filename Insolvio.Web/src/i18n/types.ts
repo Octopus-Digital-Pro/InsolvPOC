@@ -980,8 +980,8 @@ export interface Translations {
   // Change Procedure Type modal
   changeProcedureType: {
     modalTitle: string;
-    currentTypeLabel: string;
-    newTypeLabel: string;
+    procedureTypeLabel: string;
+    autoLawLabel: string;
     reasonLabel: string;
     reasonPlaceholder: string;
     reasonHint: string;

@@ -109,7 +109,7 @@ public sealed class CaseService : ICaseService
                ProcedureType = command.ProcedureType ?? ProcedureType.Other,
                Status = "Active",
                StatusChangedAt = DateTime.UtcNow,
-               LawReference = command.LawReference,
+               LawReference = Insolvio.Domain.ProcedureLawMapping.GetLaw(command.ProcedureType ?? ProcedureType.Other),
                CompanyId = command.CompanyId,
                NoticeDate = command.NoticeDate,
                OpeningDate = command.OpeningDate,
@@ -243,7 +243,11 @@ public sealed class CaseService : ICaseService
           if (cmd.CourtSection != null) c.CourtSection = cmd.CourtSection;
           if (cmd.JudgeSyndic != null) c.JudgeSyndic = cmd.JudgeSyndic;
           if (cmd.Registrar != null) c.Registrar = cmd.Registrar;
-          if (cmd.ProcedureType.HasValue) c.ProcedureType = cmd.ProcedureType.Value;
+          if (cmd.ProcedureType.HasValue)
+          {
+               c.ProcedureType = cmd.ProcedureType.Value;
+               c.LawReference = Insolvio.Domain.ProcedureLawMapping.GetLaw(cmd.ProcedureType.Value);
+          }
           if (cmd.Status != null)
           {
                c.Status = cmd.Status;
@@ -252,7 +256,6 @@ public sealed class CaseService : ICaseService
                     c.StatusChangedAt = DateTime.UtcNow;
                }
           }
-          if (cmd.LawReference != null) c.LawReference = cmd.LawReference;
           if (cmd.PractitionerName != null) c.PractitionerName = cmd.PractitionerName;
           if (cmd.PractitionerRole != null) c.PractitionerRole = cmd.PractitionerRole;
           if (cmd.PractitionerFiscalId != null) c.PractitionerFiscalId = cmd.PractitionerFiscalId;
@@ -464,6 +467,7 @@ public sealed class CaseService : ICaseService
           };
 
           caseEntity.ProcedureType = command.NewProcedureType;
+          caseEntity.LawReference = Insolvio.Domain.ProcedureLawMapping.GetLaw(command.NewProcedureType);
 
           _db.CaseProcedureHistories.Add(history);
           await _db.SaveChangesAsync(ct);

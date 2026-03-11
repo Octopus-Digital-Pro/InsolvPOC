@@ -912,8 +912,8 @@ export const ro: Translations = {
     outboundEmail: "Trimis",
   },  changeProcedureType: {
     modalTitle: "Schimbă tipul de procedură",
-    currentTypeLabel: "Tip curent:",
-    newTypeLabel: "Tip nou de procedură",
+    procedureTypeLabel: "Tipul de procedură",
+    autoLawLabel: "Lege aplicabilă (automată):",
     reasonLabel: "Motiv",
     reasonPlaceholder: "Descrieţi motivul schimbării tipului de procedură…",
     reasonHint: "Minim 5 caractere. Această informaţie este stocată în jurnalul de audit.",

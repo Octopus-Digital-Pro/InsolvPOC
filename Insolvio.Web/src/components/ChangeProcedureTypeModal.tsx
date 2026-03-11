@@ -11,6 +11,16 @@ interface Props {
   onCancel: () => void;
 }
 
+// Maps each procedure type value to the system-enforced law reference (mirrors ProcedureLawMapping.cs).
+const PROCEDURE_LAW_MAP: Record<string, string> = {
+  FalimentSimplificat: "Legea nr. 85/2014",
+  Faliment:            "Legea nr. 85/2014",
+  Insolventa:          "Legea nr. 85/2014",
+  Reorganizare:        "Legea nr. 85/2014",
+  ConcordatPreventiv:  "Legea nr. 85/2014",
+  MandatAdHoc:         "Legea nr. 85/2014",
+};
+
 export function ChangeProcedureTypeModal({ caseId, currentProcedureType, onChanged, onCancel }: Props) {
   const { t } = useTranslation();
 
@@ -24,18 +34,23 @@ export function ChangeProcedureTypeModal({ caseId, currentProcedureType, onChang
     { value: "Other", label: t.procedures.other },
   ];
 
-  const [newType, setNewType] = useState(
-    procedureTypeOptions.find(o => o.value !== currentProcedureType)?.value ?? procedureTypeOptions[0].value
-  );
+  // The API serializes enums with camelCase (e.g. "reorganizare"), but option values
+  // are PascalCase (e.g. "Reorganizare"). Normalize by uppercasing the first character
+  // so the select finds the correct <option> on mount.
+  const normalizedCurrentType = currentProcedureType.charAt(0).toUpperCase() + currentProcedureType.slice(1);
+
+  const [newType, setNewType] = useState(normalizedCurrentType);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ removedStages: string[]; addedStages: string[]; preservedTasks: number } | null>(null);
 
-  const currentLabel = procedureTypeOptions.find(o => o.value === currentProcedureType)?.label ?? currentProcedureType;
+  const currentLabel = procedureTypeOptions.find(o => o.value === normalizedCurrentType)?.label ?? currentProcedureType;
   const newLabel = procedureTypeOptions.find(o => o.value === newType)?.label ?? newType;
+  // Automatically determined — mirrors server-side ProcedureLawMapping.GetLaw().
+  const autoLaw = PROCEDURE_LAW_MAP[newType] ?? null;
 
-  const canSubmit = !submitting && newType !== currentProcedureType && reason.trim().length >= 5;
+  const canSubmit = !submitting && newType !== normalizedCurrentType && reason.trim().length >= 5;
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -102,24 +117,24 @@ export function ChangeProcedureTypeModal({ caseId, currentProcedureType, onChang
 
         {/* Body */}
         <div className="px-5 py-4 space-y-4">
-          {/* Current */}
-          <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
-            <span className="text-muted-foreground text-xs">{t.changeProcedureType.currentTypeLabel}</span>{" "}
-            <span className="font-medium">{currentLabel}</span>
-          </div>
-
-          {/* New type */}
+          {/* Single procedure type field — pre-seeded with the current value */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">{t.changeProcedureType.newTypeLabel}</label>
+            <label className="text-xs font-medium text-muted-foreground">{t.changeProcedureType.procedureTypeLabel}</label>
             <select
               value={newType}
               onChange={e => setNewType(e.target.value)}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
             >
-              {procedureTypeOptions.filter(o => o.value !== currentProcedureType).map(o => (
+              {procedureTypeOptions.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
+          </div>
+
+          {/* Auto-linked law reference — read-only, determined by procedure type */}
+          <div className="rounded-md bg-muted/50 px-3 py-2 text-sm flex items-center justify-between gap-2">
+            <span className="text-muted-foreground text-xs shrink-0">{t.changeProcedureType.autoLawLabel}</span>
+            <span className="font-medium text-xs text-right">{autoLaw ?? "—"}</span>
           </div>
 
           {/* Reason */}
