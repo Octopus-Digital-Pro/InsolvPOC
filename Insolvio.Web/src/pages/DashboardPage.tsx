@@ -76,7 +76,7 @@ const selectedKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => <div key={d}>{d}</div>)}
       </div>
 
-    {/* Days grid � flex-1 so it fills remaining space */}
+    {/* Days grid — flex-1 so it fills remaining space */}
       <div className="grid grid-cols-7 gap-1 flex-1">
         {days.map((day) => {
           const key = format(day, "yyyy-MM-dd");
@@ -107,7 +107,7 @@ const selectedKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : null;
             ? "bg-chart-1/15 text-chart-1"
          : "bg-chart-2/15 text-chart-2"
       }`}>
-  {ev.title.length > 18 ? ev.title.slice(0, 18) + "�" : ev.title}
+  {ev.title.length > 18 ? ev.title.slice(0, 18) + "…" : ev.title}
           </div>
      ))}
       {dayEvents.length > 2 && (
