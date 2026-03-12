@@ -59,6 +59,9 @@ public interface IApplicationDbContext
     // Feature 4: Procedure Type Change history
     DbSet<CaseProcedureHistory> CaseProcedureHistories { get; }
 
+    // Feature 5: Regions
+    DbSet<Region> Regions { get; }
+
     // ----- DbContext methods used by services -----
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;

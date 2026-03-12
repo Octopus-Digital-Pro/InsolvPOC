@@ -118,7 +118,7 @@ public static class DbSeeder
       CreatedBy = "System"
     };
     db.Users.Add(secretary);
- // System configuration defaults
+    // System configuration defaults
     db.Set<SystemConfig>().AddRange(
     new SystemConfig
     {
@@ -162,13 +162,13 @@ public static class DbSeeder
    },
 new SystemConfig
 {
-Id = Guid.NewGuid(),
-Key = "S3:BucketName",
-Value = "",
-Description = "AWS S3 Bucket Name",
-Group = "Storage",
-CreatedOn = DateTime.UtcNow,
-CreatedBy = "System"
+  Id = Guid.NewGuid(),
+  Key = "S3:BucketName",
+  Value = "",
+  Description = "AWS S3 Bucket Name",
+  Group = "Storage",
+  CreatedOn = DateTime.UtcNow,
+  CreatedBy = "System"
 },
         new SystemConfig
         {
@@ -202,13 +202,13 @@ CreatedBy = "System"
         },
 new SystemConfig
 {
-Id = Guid.NewGuid(),
-Key = "DefaultClaimDeadlineDays",
-Value = "45",
-Description = "Default number of days from NoticeDate for claims deadline",
-Group = "Deadlines",
-CreatedOn = DateTime.UtcNow,
-CreatedBy = "System"
+  Id = Guid.NewGuid(),
+  Key = "DefaultClaimDeadlineDays",
+  Value = "45",
+  Description = "Default number of days from NoticeDate for claims deadline",
+  Group = "Deadlines",
+  CreatedOn = DateTime.UtcNow,
+  CreatedBy = "System"
 },
 new SystemConfig
 {
@@ -261,10 +261,14 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
       CreatedBy = "System"
     });
 
+    // Default regions (Romania and Hungary)
+    db.Regions.AddRange(
+      new Region { Id = Guid.NewGuid(), Name = "Romania", IsoCode = "RO", Flag = "🇷🇴", CreatedOn = DateTime.UtcNow, CreatedBy = "System" },
+      new Region { Id = Guid.NewGuid(), Name = "Hungary", IsoCode = "HU", Flag = "🇭🇺", CreatedOn = DateTime.UtcNow, CreatedBy = "System" }
+    );
+
     await db.SaveChangesAsync();
   }
-
-  // ── System template seeding ────────────────────────────────────────────────
   // Call this independently (idempotent) to ensure system templates always exist.
 
   public static async Task SeedSystemTemplatesAsync(ApplicationDbContext db)
@@ -583,16 +587,16 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
 
       db.Users.Add(new User
       {
-        Id         = Guid.NewGuid(),
-        TenantId   = tenant.Id,
-        Email      = u.Email,
-        FirstName  = u.First,
-        LastName   = u.Last,
+        Id = Guid.NewGuid(),
+        TenantId = tenant.Id,
+        Email = u.Email,
+        FirstName = u.First,
+        LastName = u.Last,
         PasswordHash = BCrypt.Net.BCrypt.HashPassword(u.Password, 12),
-        Role       = u.Role,
-        IsActive   = true,
-        CreatedOn  = now,
-        CreatedBy  = "System",
+        Role = u.Role,
+        IsActive = true,
+        CreatedOn = now,
+        CreatedBy = "System",
       });
       changed = true;
     }
@@ -638,12 +642,12 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
         $"{{\"title\":\"{t.title}\",\"description\":\"{t.desc}\",\"deadlineDays\":{t.days},\"category\":\"{t.cat}\"}}")) + "]";
 
     // Common applicable-procedure-type groups
-    const string ALL4  = "Insolventa,Faliment,FalimentSimplificat,Reorganizare";
+    const string ALL4 = "Insolventa,Faliment,FalimentSimplificat,Reorganizare";
     const string NO_FS = "Insolventa,Faliment,Reorganizare";      // not FalimentSimplificat
-    const string FS_F  = "Faliment,FalimentSimplificat";           // liquidation-path only
+    const string FS_F = "Faliment,FalimentSimplificat";           // liquidation-path only
     const string REORG = "Reorganizare";
-    const string CONC  = "ConcordatPreventiv";
-    const string MAND  = "MandatAdHoc";
+    const string CONC = "ConcordatPreventiv";
+    const string MAND = "MandatAdHoc";
 
     var now = DateTime.UtcNow;
 
@@ -1426,6 +1430,44 @@ new SystemConfig { Id = Guid.NewGuid(), Key = "Deadlines:ReminderDays", Value = 
     if (toAdd.Count == 0) return;
 
     db.WorkflowStageDefinitions.AddRange(toAdd);
+    await db.SaveChangesAsync();
+  }
+
+  // ── Region seeding ─────────────────────────────────────────────────────────
+  // Idempotent — ensures default regions (Romania, Hungary) exist in the database.
+  public static async Task SeedRegionsAsync(ApplicationDbContext db)
+  {
+    var defaultRegions = new[]
+    {
+      new { Name = "Romania", IsoCode = "RO", Flag = "🇷🇴", IsDefault = true },
+      new { Name = "Hungary", IsoCode = "HU", Flag = "🇭🇺", IsDefault = false },
+    };
+
+    foreach (var r in defaultRegions)
+    {
+      if (!await db.Regions.AnyAsync(x => x.IsoCode == r.IsoCode))
+      {
+        db.Regions.Add(new Region
+        {
+          Id = Guid.NewGuid(),
+          Name = r.Name,
+          IsoCode = r.IsoCode,
+          Flag = r.Flag,
+          IsDefault = r.IsDefault,
+          CreatedOn = DateTime.UtcNow,
+          CreatedBy = "System",
+        });
+      }
+    }
+
+    // Ensure exactly one default: if no default is set, make Romania the default.
+    if (!await db.Regions.AnyAsync(r => r.IsDefault))
+    {
+      var romania = await db.Regions.FirstOrDefaultAsync(r => r.IsoCode == "RO");
+      if (romania != null)
+        romania.IsDefault = true;
+    }
+
     await db.SaveChangesAsync();
   }
 }

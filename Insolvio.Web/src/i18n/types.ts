@@ -63,6 +63,7 @@ export interface Translations {
     admin: string;
     uploadDocument: string;
     tenants: string;
+    regions: string;
   };
 
   // Login
@@ -995,5 +996,27 @@ export interface Translations {
     addedStagesTitle: string;
     closeButton: string;
     pencilTitle: string;
+  };
+
+  // Regions management
+  regions: {
+    title: string;
+    addRegion: string;
+    searchCountry: string;
+    countryPlaceholder: string;
+    flag: string;
+    regionName: string;
+    isoCode: string;
+    usageCount: string;
+    actions: string;
+    noRegions: string;
+    addSuccess: string;
+    deleteConfirmTitle: string;
+    deleteConfirmMessage: string;
+    deleteSuccess: string;
+    duplicateError: string;
+    inUseTooltip: string;
+    selectCountryFirst: string;
+    alreadyExists: string;
   };
 }

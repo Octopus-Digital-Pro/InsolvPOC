@@ -4,11 +4,28 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useTranslation } from "@/contexts/LanguageContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { tenantsApi } from "@/services/api";
+import { tenantsApi, regionsApi } from "@/services/api";
+import type { RegionDto } from "@/services/api/types";
 import {
   Loader2, Building2, Shield, Plus, X, Users, Briefcase, Building,
-  RefreshCw, Pencil,
+  RefreshCw, Pencil, Globe,
 } from "lucide-react";
+
+function FlagImg({ isoCode, name, className }: { isoCode: string; name?: string; className?: string }) {
+  const code = isoCode?.slice(0, 2).toLowerCase();
+  if (!code || code.length !== 2) return <span className={className}>🌍</span>;
+  return (
+    <img
+      src={`https://flagcdn.com/32x24/${code}.png`}
+      srcSet={`https://flagcdn.com/64x48/${code}.png 2x`}
+      width={20}
+      height={15}
+      alt={name ?? isoCode}
+      className={`rounded-sm object-cover inline-block ${className ?? ""}`}
+      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+    />
+  );
+}
 import { format } from "date-fns";
 
 interface TenantRow {
@@ -37,16 +54,18 @@ function EditTenantModal({
   tenant,
   onClose,
   onSaved,
+  regions,
 }: {
   tenant: TenantRow | null; // null = create mode
   onClose: () => void;
   onSaved: () => void;
+  regions: RegionDto[];
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(tenant?.name ?? "");
   const [domain, setDomain] = useState(tenant?.domain ?? "");
   const [planName, setPlanName] = useState(tenant?.planName ?? "Free");
-  const [region, setRegion] = useState(tenant?.region ?? "Romania");
+  const [region, setRegion] = useState(tenant?.region ?? regions[0]?.name ?? "");
   const [isActive, setIsActive] = useState(tenant?.isActive ?? true);
   const [isDemo, setIsDemo] = useState(tenant?.isDemo ?? false);
   const [saving, setSaving] = useState(false);
@@ -127,13 +146,19 @@ setSaving(true);
               {t.tenants?.region ?? "Region"}
   </label>
             <select
-  value={region}
+              value={region}
               onChange={(e) => setRegion(e.target.value)}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-          >
-         <option value="Romania">🇷🇴 România</option>
-      <option value="Hungary">🇭🇺 Hungary</option>
-  </select>
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              {regions.length === 0 && (
+                <option value="" disabled>No regions available</option>
+              )}
+              {regions.map((r) => (
+                <option key={r.id} value={r.name}>
+                  {r.isoCode} - {r.name}
+                </option>
+              ))}
+            </select>
   </div>
           {tenant && (
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
@@ -172,6 +197,8 @@ export default function TenantAdminPage() {
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingTenant, setEditingTenant] = useState<TenantRow | null | undefined>(undefined); // undefined = closed
+  const [regions, setRegions] = useState<RegionDto[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -187,6 +214,8 @@ setTenants(r.data as unknown as TenantRow[]);
 
   useEffect(() => {
     load();
+    // Load regions for the region filter pill display
+    regionsApi.getAll().then((r) => setRegions(r.data)).catch(() => {});
   }, [load]);
 
   if (!isGlobalAdmin) {
@@ -212,6 +241,40 @@ setTenants(r.data as unknown as TenantRow[]);
     </Button>
   </div>
     </div>
+
+      {/* Region filter pills */}
+      {regions.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Globe className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="text-xs text-muted-foreground">{t.regions?.title ?? "Regions"}:</span>
+          {regions.map((r) => {
+            const isActive = selectedRegion === r.name;
+            return (
+              <button
+                key={r.id}
+                onClick={() => setSelectedRegion(isActive ? null : r.name)}
+                className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium border transition-colors ${
+                  isActive
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                }`}
+              >
+                <span><FlagImg isoCode={r.isoCode} name={r.name} className="w-5 h-auto" /></span>
+                <span>{r.name}</span>
+              </button>
+            );
+          })}
+          {selectedRegion && (
+            <button
+              onClick={() => setSelectedRegion(null)}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              <X className="h-3 w-3" />
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -248,9 +311,30 @@ setTenants(r.data as unknown as TenantRow[]);
      Demo
    </Badge>
             )}
-    <Badge variant="outline" className="text-[10px]">
-{tenant.region === "Romania" ? "🇷🇴" : "🇭🇺"} {tenant.region}
-         </Badge>
+                {/* Region badge — colored + bold for the default region, grayscale for others */}
+                {(() => {
+                  const regionData = regions.find(
+                    (r) => r.name.toLowerCase() === tenant.region?.toLowerCase()
+                  );
+                  const isDefault = regionData?.isDefault ?? false;
+                  const isFilterActive = !selectedRegion || tenant.region === selectedRegion;
+                  const showColored = isDefault && isFilterActive;
+                  return (
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] flex items-center gap-1 transition-all duration-200 ${
+                        isFilterActive ? "" : "opacity-40"
+                      }`}
+                    >
+                      <span className={`transition-all duration-200 ${showColored ? "" : "grayscale opacity-70"}`}>
+                        {regionData ? <FlagImg isoCode={regionData.isoCode} name={regionData.name} className="w-4 h-auto" /> : <span>🌍</span>}
+                      </span>
+                      <span className={showColored ? "font-bold" : "font-normal"}>
+                        {tenant.region}
+                      </span>
+                    </Badge>
+                  );
+                })()}
        </div>
     <p className="text-xs text-muted-foreground">
       {tenant.domain || "No domain"}
@@ -292,6 +376,7 @@ setTenants(r.data as unknown as TenantRow[]);
  {editingTenant !== undefined && (
  <EditTenantModal
           tenant={editingTenant}
+          regions={regions}
           onClose={() => setEditingTenant(undefined)}
     onSaved={() => {
       setEditingTenant(undefined);

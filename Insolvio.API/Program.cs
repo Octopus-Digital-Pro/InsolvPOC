@@ -63,24 +63,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-         ValidateAudience = true,
-   ValidateLifetime = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(
    Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
-     };
+        };
     });
 
 builder.Services.AddAuthorization(options =>
 {
     // Register a policy for each Permission enum value
-  foreach (var permission in Enum.GetValues<Permission>())
- {
-   options.AddPolicy(
-     $"{RequirePermissionAttribute.PolicyPrefix}{permission}",
-      policy => policy.Requirements.Add(new PermissionRequirement(permission)));
+    foreach (var permission in Enum.GetValues<Permission>())
+    {
+        options.AddPolicy(
+          $"{RequirePermissionAttribute.PolicyPrefix}{permission}",
+           policy => policy.Requirements.Add(new PermissionRequirement(permission)));
     }
 });
 
@@ -165,6 +165,7 @@ builder.Services.AddScoped<ITrainingService, TrainingService>();
 builder.Services.AddScoped<ICaseEmailAddressGenerator, CaseEmailAddressGenerator>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IInboundEmailProcessorService, InboundEmailProcessorService>();
+builder.Services.AddScoped<IRegionService, RegionService>();
 
 // Background services
 builder.Services.AddHostedService<Insolvio.API.BackgroundServices.DeadlineReminderService>();
@@ -212,13 +213,13 @@ builder.Services.AddSingleton<IFileStorageService>(sp =>
             s3Opts = new S3StorageOptions
             {
                 // Credentials ONLY from appsettings / IAM role — never from DB
-                AccessKeyId     = s3Opts.AccessKeyId,
+                AccessKeyId = s3Opts.AccessKeyId,
                 SecretAccessKey = s3Opts.SecretAccessKey,
-                Region          = dbCfg.GetValueOrDefault("S3:Region", "eu-central-1"),
-                BucketName      = dbCfg.GetValueOrDefault("S3:BucketName", ""),
-                KeyPrefix       = dbCfg.GetValueOrDefault("S3:KeyPrefix", "documents/"),
-                ServiceUrl      = dbCfg.GetValueOrDefault("S3:ServiceUrl", ""),
-                ForcePathStyle  = bool.TryParse(dbCfg.GetValueOrDefault("S3:ForcePathStyle", "false"), out var fps2) && fps2,
+                Region = dbCfg.GetValueOrDefault("S3:Region", "eu-central-1"),
+                BucketName = dbCfg.GetValueOrDefault("S3:BucketName", ""),
+                KeyPrefix = dbCfg.GetValueOrDefault("S3:KeyPrefix", "documents/"),
+                ServiceUrl = dbCfg.GetValueOrDefault("S3:ServiceUrl", ""),
+                ForcePathStyle = bool.TryParse(dbCfg.GetValueOrDefault("S3:ForcePathStyle", "false"), out var fps2) && fps2,
             };
         }
 
@@ -230,7 +231,7 @@ builder.Services.AddSingleton<IFileStorageService>(sp =>
             };
             if (!string.IsNullOrWhiteSpace(s3Opts.ServiceUrl))
             {
-                s3Config.ServiceURL     = s3Opts.ServiceUrl;
+                s3Config.ServiceURL = s3Opts.ServiceUrl;
                 s3Config.ForcePathStyle = s3Opts.ForcePathStyle;
             }
 
@@ -255,8 +256,8 @@ builder.Services.AddSingleton<IFileStorageService>(sp =>
 builder.Services.AddControllers()
   .AddJsonOptions(options =>
     {
-     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
-  options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     });
 
@@ -268,10 +269,10 @@ builder.Services.AddSwaggerGen(c =>
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer {token}'",
-  Name = "Authorization",
-    In = ParameterLocation.Header,
+        Name = "Authorization",
+        In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
- Scheme = "Bearer"
+        Scheme = "Bearer"
     });
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
@@ -324,6 +325,7 @@ if (!app.Environment.IsDevelopment())
     await DbSeeder.EnsureDemoUsersAsync(db);   // upserts demo accounts on every startup
     await DbSeeder.SeedSystemTemplatesAsync(db);
     await DbSeeder.SeedWorkflowStagesAsync(db);
+    await DbSeeder.SeedRegionsAsync(db);       // ensures default regions (Romania, Hungary)
 }
 
 app.Run();

@@ -28,6 +28,7 @@ import TemplateSettingsPage from "./pages/TemplateSettingsPage";
 import OrganisationSettingsPage from "./pages/OrganisationSettingsPage";
 import AuditTrailPage from "./pages/AuditTrailPage";
 import TenantAdminPage from "./pages/TenantAdminPage";
+import RegionsPage from "./pages/RegionsPage";
 import ONRCSettingsPage from "./pages/ONRCSettingsPage";
 import AiSettingsPage from "./pages/AiSettingsPage";
 import TenantAiConfigPage from "./pages/TenantAiConfigPage";
@@ -177,6 +178,7 @@ function AppRoutes() {
 
         <Route path="/audit-trail" element={<AuditTrailPage />} />
         <Route path="/admin/tenants" element={<TenantAdminPage />} />
+        <Route path="/admin/regions" element={<RegionsPage />} />
       </Route>
 
       {/* Fallback */}

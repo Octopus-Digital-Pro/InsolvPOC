@@ -20,9 +20,10 @@ public static class RolePermissions
     Permission.SystemConfigEdit,
             Permission.DemoReset,
             Permission.TenantAiConfigEdit, // GlobalAdmin-only
+            Permission.RegionManage,        // GlobalAdmin-only
     })),
 
-      [UserRole.Practitioner] = new(new[]
+        [UserRole.Practitioner] = new(new[]
         {
           // Cases — full CRUD
      Permission.CaseView, Permission.CaseCreate, Permission.CaseEdit, Permission.CaseExport, Permission.CaseClose,

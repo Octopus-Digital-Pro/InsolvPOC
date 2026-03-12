@@ -120,4 +120,8 @@ public enum Permission
 
   // 🔔 Notifications 🔔
   NotificationView = 1030,
+
+  // 🌍 Regions 🌍
+  RegionView = 1040,
+  RegionManage = 1041,
 }

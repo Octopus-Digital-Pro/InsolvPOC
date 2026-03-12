@@ -1,5 +1,14 @@
 // Shared API types matching the .NET DTOs
 
+export interface RegionDto {
+  id: string;
+  name: string;
+  isoCode: string;
+  flag: string;
+  usageCount: number;
+  isDefault: boolean;
+}
+
 export interface UserDto {
   id: string;
   email: string;

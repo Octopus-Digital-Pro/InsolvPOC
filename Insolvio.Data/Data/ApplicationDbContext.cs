@@ -64,6 +64,9 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
   // Feature 4: Procedure Type Change history
   public DbSet<CaseProcedureHistory> CaseProcedureHistories => Set<CaseProcedureHistory>();
 
+  // Feature 5: Regions
+  public DbSet<Region> Regions => Set<Region>();
+
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
     base.OnModelCreating(modelBuilder);
@@ -699,6 +702,18 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         .IsRequired(false);
       e.HasIndex(h => h.CaseId);
       e.HasIndex(h => h.ChangedAt);
+    });
+
+    // Region (Feature 5: Global country/region management)
+    modelBuilder.Entity<Region>(e =>
+    {
+      e.HasKey(r => r.Id);
+      e.Property(r => r.Name).HasMaxLength(128).IsRequired();
+      e.Property(r => r.IsoCode).HasMaxLength(8).IsRequired();
+      e.Property(r => r.Flag).HasMaxLength(16).IsRequired();
+      e.Property(r => r.IsDefault).HasDefaultValue(false);
+      e.HasIndex(r => r.IsoCode).IsUnique();
+      e.HasIndex(r => r.Name).IsUnique();
     });
 
     // AuditLog — bound column sizes so they can be indexed efficiently

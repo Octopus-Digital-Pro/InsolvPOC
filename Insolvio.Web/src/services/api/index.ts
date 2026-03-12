@@ -1,3 +1,4 @@
+export { regionsApi } from "./regionsApi";
 export { authApi } from "./auth";
 export { companiesApi } from "./companies";
 export { casesApi } from "./cases";
