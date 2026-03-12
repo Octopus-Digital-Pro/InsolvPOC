@@ -575,7 +575,7 @@ searchPlaceholder: "Keresés műveletek, emailek, útvonalak...",
   },
   authorities: {
     tribunals: "Törvényszékek",
-    finance: "ANAF",
+    finance: "Finance",
     localGov: "Helyi Önkormányzat",
  section: "Szekció",
     registryPhone: "Iktatóhivatal Telefon",

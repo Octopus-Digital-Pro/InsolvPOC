@@ -576,7 +576,7 @@ secondaryBankName: "Secondary Bank",
   },
   authorities: {
     tribunals: "Tribunals",
-    finance: "ANAF",
+    finance: "Finance",
  localGov: "Local Government",
     section: "Section",
     registryPhone: "Registry Phone",

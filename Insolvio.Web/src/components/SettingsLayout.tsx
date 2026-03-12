@@ -79,7 +79,7 @@ const { isGlobalAdmin, isTenantAdmin } = useAuth();
       </div>
           <SettingsNavItem to="/settings/firms-database" icon={Database} label={t.settings.firmsDatabase} />
           <SettingsNavItem to="/settings/tribunals" icon={Gavel} label={t.authorities?.tribunals ?? "Tribunals"} />
-<SettingsNavItem to="/settings/finance" icon={Receipt} label={t.authorities?.finance ?? "ANAF"} />
+<SettingsNavItem to="/settings/finance" icon={Receipt} label={t.authorities?.finance ?? "Finance"} />
     <SettingsNavItem to="/settings/localgov" icon={MapPin} label={t.authorities?.localGov ?? "Local Gov"} />
         <SettingsNavItem to="/settings/deadlines" icon={Clock} label={t.tasks?.deadline ?? "Deadlines"} />
           <SettingsNavItem to="/settings/templates" icon={FileText} label={t.templateSettings.pageTitle} />

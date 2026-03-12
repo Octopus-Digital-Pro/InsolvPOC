@@ -25,7 +25,7 @@ interface AuthorityRecord {
   registryHours?: string;
   // FinanceAuthority/LocalGov-specific
   scheduleHours?: string;
-  // Parent hierarchy (for ANAF sub-offices)
+  // Parent hierarchy (for Finance Authority sub-offices)
   parentId?: string;
   parentName?: string;
 }

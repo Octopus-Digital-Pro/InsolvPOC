@@ -1624,7 +1624,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
       noLocal: "No local company found. Click ONRC to search the national registry.",
       noAny: "No company found locally or in ONRC.",
       localCompanies: "Local companies",
-      authorities: "ANAF / Tribunals / Local Gov",
+      authorities: "Finance / Tribunals / Local Gov",
       onrcRegistry: "ONRC Registry",
       noCui: "No CUI",
       save: "Add Party",
@@ -1649,7 +1649,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
       noLocal: "Nicio companie locală găsită. Apasă ONRC pentru a căuta în registrul național.",
       noAny: "Nicio companie găsită nici local, nici în ONRC.",
       localCompanies: "Companii locale",
-      authorities: "ANAF / Tribunale / Primării",
+      authorities: "Finance / Tribunale / Primării",
       onrcRegistry: "Registrul ONRC",
       noCui: "Fără CUI",
       save: "Adaugă Parte",
@@ -1674,7 +1674,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
       noLocal: "Nem található helyi cég. Kattints az ONRC-re az országos kereséshez.",
       noAny: "Nem található cég sem helyben, sem az ONRC-ben.",
       localCompanies: "Helyi cégek",
-      authorities: "ANAF / Bíróságok / Önkormányzatok",
+      authorities: "Finance / Bíróságok / Önkormányzatok",
       onrcRegistry: "ONRC nyilvántartás",
       noCui: "Nincs CUI",
       save: "Fél hozzáadása",
@@ -1715,13 +1715,13 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
         .then(r => setCompanies(r.data))
         .catch(console.error);
 
-      // Search authorities (ANAF, Tribunals, Local Government) in parallel
+      // Search authorities (Finance, Tribunals, Local Government) in parallel
       const authoritySearch = Promise.all([
-        financeApi.getAll().then(r => r.data.map(a => ({ ...a, source: "ANAF" }))).catch(() => []),
+        financeApi.getAll().then(r => r.data.map(a => ({ ...a, source: "Finance" }))).catch(() => []),
         tribunalsApi.getAll().then(r => r.data.map(a => ({ ...a, source: "Tribunal" }))).catch(() => []),
         localGovApi.getAll().then(r => r.data.map(a => ({ ...a, source: "Primărie" }))).catch(() => []),
-      ]).then(([anaf, trib, gov]) => {
-        const all = [...anaf, ...trib, ...gov];
+      ]).then(([finance, trib, gov]) => {
+        const all = [...finance, ...trib, ...gov];
         const lower = q.toLowerCase();
         const filtered = all.filter(a =>
           a.name.toLowerCase().includes(lower) ||
@@ -1796,7 +1796,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
     } finally { setSaving(false); }
   };
 
-  // Select an authority (ANAF/Tribunal/Local Gov) — create company locally, then select
+  // Select an authority (Finance/Tribunal/Local Gov) — create company locally, then select
   const selectAuthority = async (auth: AuthorityRecord & { source: string }) => {
     setSaving(true);
     setError(null);
@@ -1918,7 +1918,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
                         ))}
                       </>
                     )}
-                    {/* Authority results (ANAF / Tribunals / Local Gov) */}
+                    {/* Authority results (Finance / Tribunals / Local Gov) */}
                     {authorityResults.length > 0 && (
                       <>
                         <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground bg-muted/50 sticky top-0 z-10">
@@ -1939,7 +1939,7 @@ function AddPartyModal({ caseId, locale, onAdded, onClose }: AddPartyModalProps)
                               </p>
                             </div>
                             <span className={`ml-auto shrink-0 self-center text-[10px] px-1.5 py-0.5 rounded ${
-                              a.source === "ANAF" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" :
+                              a.source === "Finance" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" :
                               a.source === "Tribunal" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400" :
                               "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400"
                             }`}>

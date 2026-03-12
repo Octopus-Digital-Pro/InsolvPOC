@@ -572,7 +572,7 @@ export const ro: Translations = {
   },
   authorities: {
     tribunals: "Tribunale",
-    finance: "ANAF",
+    finance: "Finance",
     localGov: "Administrație Locală",
     section: "Secție",
     registryPhone: "Telefon Registratură",

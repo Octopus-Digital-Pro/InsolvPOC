@@ -1097,7 +1097,7 @@ function AuthorityTab({ api, entityLabel, fields, scrapeAnaf, defaultScrapeUrl }
     const [items, setItems] = useState<AuthorityRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [showImport, setShowImport] = useState(false);
-    // ANAF scrape panel
+    // Finance authority scrape panel
     const [showScrape, setShowScrape] = useState(false);
     const [scrapeUrl, setScrapeUrl] = useState(defaultScrapeUrl ?? "");
     const [scraping, setScraping] = useState(false);
@@ -1210,15 +1210,15 @@ finally { setLoading(false); }
   </div>
          </div>
 
-      {/* ANAF Scrape Panel */}
+      {/* Finance Authority Scrape Panel */}
       {scrapeAnaf && showScrape && (
         <div className="rounded-xl border border-border bg-card p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Globe className="h-4 w-4 text-primary" />
-            <h3 className="text-sm font-semibold">Import from ANAF Website</h3>
+            <h3 className="text-sm font-semibold">Import from Finance Authority Website</h3>
           </div>
           <p className="text-xs text-muted-foreground">
-            Paste the URL of the ANAF regional offices page. Offices will be created or updated automatically (global records only).
+            Paste the URL of the Finance Authority regional offices page. Offices will be created or updated automatically (global records only).
           </p>
           <div className="flex gap-2">
             <div className="flex-1 flex items-center gap-1.5 rounded-md border border-input bg-background px-3">
@@ -1493,7 +1493,7 @@ export default function SettingsPage({ tab }: { tab?: Tab }) {
 ]} />
      )}
        {activeTab === "finance" && (
-   <AuthorityTab api={financeApi} entityLabel={t.authorities?.finance ?? "ANAF"} scrapeAnaf={financeApi.scrapeAnaf} defaultScrapeUrl="http://static.anaf.ro/static/10/Anaf/AsistentaContribuabili_r/telefoane_judete/Regiuni.htm" fields={[
+   <AuthorityTab api={financeApi} entityLabel={t.authorities?.finance ?? "Finance"} scrapeAnaf={financeApi.scrapeAnaf} defaultScrapeUrl="http://static.anaf.ro/static/10/Anaf/AsistentaContribuabili_r/telefoane_judete/Regiuni.htm" fields={[
    { key: "name", label: t.common.name ?? "Name", wide: true },
      { key: "county", label: t.companies?.county ?? "County" },
    { key: "locality", label: t.companies?.locality ?? "Locality" },
