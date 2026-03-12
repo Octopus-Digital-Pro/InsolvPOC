@@ -9,6 +9,8 @@ import type { ONRCFirmResult } from "@/services/api/onrc";
 import type { CompanyDto } from "@/services/api/types";
 import { Button } from "@/components/ui/button";
 import BackButton from "@/components/ui/BackButton";
+import QuickUploadZone from "@/components/QuickUploadZone";
+import { useTranslation } from "@/contexts/LanguageContext";
 import { Loader2, Search, ChevronDown, X, Building2, Gavel } from "lucide-react";
 
 // ── Tribunal Combobox ────────────────────────────────────────────────────────
@@ -355,6 +357,7 @@ function DebtorSelector({
 
 export default function NewCasePage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [companies, setCompanies] = useState<CompanyDto[]>([]);
   const [tribunals, setTribunals] = useState<AuthorityRecord[]>([]);
   const [saving, setSaving] = useState(false);
@@ -438,6 +441,16 @@ export default function NewCasePage() {
     <div className="mx-auto max-w-2xl">
       <BackButton onClick={() => navigate("/cases")}>Back to cases</BackButton>
       <h1 className="mt-2 text-xl font-bold text-foreground mb-5">New Insolvency Case</h1>
+
+      {/* Quick Upload — upload a document to let AI extract case details */}
+      <div className="mb-5">
+        <QuickUploadZone t={t} onUploadSuccess={(id) => navigate(`/documents/${id}/review`)} />
+      </div>
+      <div className="relative flex items-center mb-5">
+        <div className="flex-1 border-t border-border" />
+        <span className="mx-3 text-xs text-muted-foreground">or fill in manually</span>
+        <div className="flex-1 border-t border-border" />
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Case identification */}
